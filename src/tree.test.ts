@@ -3,7 +3,10 @@ import {
   collapseEditorTreeNode,
   createEditorTreeState,
   expandEditorTreeNode,
+  expandEditorTreeAncestors,
+  getEditorTreeNodePath,
   projectEditorTree,
+  selectAndRevealEditorTreeNode,
   selectEditorTreeNode,
   toggleEditorTreeNode,
   type EditorTreeAdapter,
@@ -145,5 +148,28 @@ describe("editor tree", () => {
       path: ["title"],
     });
     expect(projection.parentIdsById.get("document.fields.title")).toBe("document.fields");
+  });
+
+  test("returns node paths and reveals selected descendants", () => {
+    const collapsedState = createEditorTreeState();
+    const projection = projectEditorTree({ title: "Draft" }, adapter, { state: collapsedState });
+
+    expect(getEditorTreeNodePath(projection, "document.fields.title")).toEqual([
+      "document",
+      "document.fields",
+      "document.fields.title",
+    ]);
+    expect(getEditorTreeNodePath(projection, "missing")).toEqual([]);
+
+    expect(expandEditorTreeAncestors(collapsedState, projection, "document.fields.title")).toEqual({
+      expandedIds: ["document", "document.fields"],
+      selectedId: null,
+    });
+    expect(
+      selectAndRevealEditorTreeNode(collapsedState, projection, "document.fields.title"),
+    ).toEqual({
+      expandedIds: ["document", "document.fields"],
+      selectedId: "document.fields.title",
+    });
   });
 });

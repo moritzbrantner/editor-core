@@ -1,0 +1,11 @@
+{
+  "maxRegressionRatio": 0.4,
+  "benchmarks": {
+    "stable JSON stringify": {
+      "hz": 9868.39
+    },
+    "tree projection": {
+      "hz": 32305.05
+    }
+  }
+}

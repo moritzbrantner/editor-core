@@ -1,4 +1,26 @@
 type EditorShareCodec = "plain" | "gzip";
+type NodeBufferValue = Uint8Array & {
+  toString: (encoding: "base64url") => string;
+};
+type NodeBufferConstructor = {
+  from: (value: string | Uint8Array, encoding?: "base64url") => NodeBufferValue;
+};
+
+export type EncodeEditorSharePayloadOptions = {
+  maxBytes?: number;
+};
+
+export class EditorSharePayloadTooLargeError extends Error {
+  byteLength: number;
+  maxBytes: number;
+
+  constructor(byteLength: number, maxBytes: number) {
+    super(`Editor share payload is ${byteLength} bytes, which exceeds the ${maxBytes} byte limit.`);
+    this.name = "EditorSharePayloadTooLargeError";
+    this.byteLength = byteLength;
+    this.maxBytes = maxBytes;
+  }
+}
 
 export function editorShareTokenFromUrl(url: string, param = "share"): string | null {
   try {
@@ -19,13 +41,19 @@ export function editorShareUrl(
   return url.toString();
 }
 
-export async function encodeEditorSharePayload(payload: unknown): Promise<string> {
+export async function encodeEditorSharePayload(
+  payload: unknown,
+  options: EncodeEditorSharePayloadOptions = {},
+): Promise<string> {
   const json = JSON.stringify(payload);
   const jsonBytes = utf8Bytes(json);
   const compressedBytes = await compressBytes(jsonBytes);
   const codec: EditorShareCodec =
     compressedBytes && compressedBytes.byteLength + 24 < jsonBytes.byteLength ? "gzip" : "plain";
   const bytes = codec === "gzip" && compressedBytes ? compressedBytes : jsonBytes;
+  if (options.maxBytes !== undefined && bytes.byteLength > options.maxBytes) {
+    throw new EditorSharePayloadTooLargeError(bytes.byteLength, options.maxBytes);
+  }
   return `${codec}.${bytesToBase64Url(bytes)}`;
 }
 
@@ -103,6 +131,11 @@ function bytesBody(bytes: Uint8Array): ArrayBuffer {
 }
 
 function bytesToBase64Url(bytes: Uint8Array): string {
+  const nodeBuffer = getNodeBufferConstructor();
+  if (typeof btoa === "undefined" && nodeBuffer) {
+    return nodeBuffer.from(bytes).toString("base64url");
+  }
+
   let binary = "";
   const chunkSize = 0x8000;
   for (let index = 0; index < bytes.length; index += chunkSize) {
@@ -113,6 +146,11 @@ function bytesToBase64Url(bytes: Uint8Array): string {
 }
 
 function base64UrlToBytes(value: string): Uint8Array {
+  const nodeBuffer = getNodeBufferConstructor();
+  if (typeof atob === "undefined" && nodeBuffer) {
+    return new Uint8Array(nodeBuffer.from(value, "base64url"));
+  }
+
   const base64 = value.replace(/-/g, "+").replace(/_/g, "/");
   const padded = `${base64}${"=".repeat((4 - (base64.length % 4 || 4)) % 4)}`;
   const binary = atob(padded);
@@ -121,4 +159,16 @@ function base64UrlToBytes(value: string): Uint8Array {
     bytes[index] = binary.charCodeAt(index);
   }
   return bytes;
+}
+
+function getNodeBufferConstructor(): NodeBufferConstructor | null {
+  const candidate = (globalThis as { Buffer?: unknown }).Buffer;
+  if (
+    typeof candidate === "function" &&
+    "from" in candidate &&
+    typeof candidate.from === "function"
+  ) {
+    return candidate as NodeBufferConstructor;
+  }
+  return null;
 }

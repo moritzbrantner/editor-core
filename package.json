@@ -78,7 +78,7 @@
     "lint": "oxlint src stories benchmarks tests scripts .storybook examples/react/src examples/react/vite.config.ts playwright.config.ts unlighthouse.config.ts vitest.storybook.config.ts vitest.config.ts --format=github",
     "check-types": "tsc --noEmit",
     "test": "bun run test:unit",
-    "test:unit": "$(dirname $(command -v npm))/node node_modules/vitest/vitest.mjs run",
+    "test:unit": "$(dirname $(command -v npm))/node node_modules/vitest/vitest.mjs run && $(dirname $(command -v npm))/node --test scripts/*.test.mjs",
     "test:integration": "bun run build && bun run smoke:package && node scripts/check-api-snapshot.mjs",
     "test:e2e": "bun run example:build && bun run test:e2e:run",
     "test:e2e:run": "playwright test",
@@ -96,12 +96,16 @@
     "unlighthouse:ci": "start-server-and-test \"bun run example:preview -- --port 4173\" http://127.0.0.1:4173 \"bun run unlighthouse:scan\"",
     "unlighthouse:scan": "unlighthouse-ci --site http://127.0.0.1:4173 --config-file unlighthouse.config.ts",
     "bench": "$(dirname $(command -v npm))/node node_modules/vitest/vitest.mjs bench --run",
+    "bench:check": "node scripts/run-benchmark-baseline-check.mjs",
     "api:check": "bun run build && node scripts/check-api-snapshot.mjs",
     "api:update": "bun run build && node scripts/check-api-snapshot.mjs --write",
     "size:check": "bun run build && bun run pack:check",
     "smoke:package": "node scripts/smoke-package-exports.mjs",
     "pack:check": "bun pm pack --dry-run",
-    "verify": "bun run format:check && bun run lint && bun run check-types && bun run example:check-types && bun run test:unit && bun run test:integration && bun run test:e2e && bun run storybook:build && bun run bench && bun run unlighthouse && bun run pack:check"
+    "verify:fast": "bun run format:check && bun run lint && bun run check-types && bun run test:unit",
+    "verify:release": "bun run verify:fast && bun run example:check-types && bun run test:integration && bun run test:e2e && bun run storybook:build && bun run bench:check && bun run unlighthouse && bun run pack:check",
+    "verify:ci": "bun run verify:release",
+    "verify": "bun run verify:release"
   },
   "devDependencies": {
     "@playwright/test": "^1.60.0",
@@ -135,6 +139,9 @@
     "react": {
       "optional": true
     }
+  },
+  "engines": {
+    "node": ">=18"
   },
   "packageManager": "bun@1.3.14"
 }

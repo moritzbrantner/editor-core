@@ -83,6 +83,19 @@ type DownloadEditorJsonOptions = {
 type ReadEditorJsonFileOptions<TValue> = {
   parse?: (input: unknown) => TValue;
 };
+type EditorBrowserErrorContext =
+  | {
+      operation: "clipboard-read";
+    }
+  | {
+      key?: string;
+      operation: "storage-load";
+    }
+  | {
+      key?: string;
+      operation: "storage-save";
+    };
+type EditorBrowserErrorHandler = (error: unknown, context: EditorBrowserErrorContext) => void;
 type EditorStorageAdapter<TValue> = {
   load: () => TValue | null | Promise<TValue | null>;
   save: (value: TValue) => void | Promise<void>;
@@ -92,12 +105,22 @@ type LocalStorageEditorStorageOptions<TValue> = {
   storage?: Storage;
   parse?: (input: unknown) => TValue;
   serialize?: (value: TValue) => unknown;
+  onError?: EditorBrowserErrorHandler;
 };
 type EditorClipboardFallback = {
   text?: string | null;
 };
 type EditorClipboardJsonOptions = {
   fallback?: EditorClipboardFallback;
+  onError?: EditorBrowserErrorHandler;
+};
+type LoadEditorStorageOptions<TValue> = {
+  normalize?: (value: TValue) => TValue;
+  onError?: EditorBrowserErrorHandler;
+};
+type SaveEditorStorageOptions<TValue> = {
+  normalize?: (value: TValue) => TValue;
+  onError?: EditorBrowserErrorHandler;
 };
 declare function ensureEditorJsonFilename(filename: string): string;
 declare function downloadEditorJson(value: unknown, options?: DownloadEditorJsonOptions): void;
@@ -111,16 +134,12 @@ declare function createLocalStorageEditorStorage<TValue>(
 declare function loadEditorStorage<TValue>(
   storage: EditorStorageAdapter<TValue>,
   fallback: TValue,
-  options?: {
-    normalize?: (value: TValue) => TValue;
-  },
+  options?: LoadEditorStorageOptions<TValue>,
 ): Promise<TValue>;
 declare function saveEditorStorage<TValue>(
   storage: EditorStorageAdapter<TValue>,
   value: TValue,
-  options?: {
-    normalize?: (value: TValue) => TValue;
-  },
+  options?: SaveEditorStorageOptions<TValue>,
 ): Promise<void>;
 declare function writeEditorClipboardJson(
   payload: unknown,
@@ -132,11 +151,15 @@ declare function readEditorClipboardJson<TValue = unknown>(
 
 export {
   type DownloadEditorJsonOptions,
+  type EditorBrowserErrorContext,
+  type EditorBrowserErrorHandler,
   type EditorClipboardFallback,
   type EditorClipboardJsonOptions,
   type EditorStorageAdapter,
+  type LoadEditorStorageOptions,
   type LocalStorageEditorStorageOptions,
   type ReadEditorJsonFileOptions,
+  type SaveEditorStorageOptions,
   createLocalStorageEditorStorage,
   downloadEditorJson,
   ensureEditorJsonFilename,
@@ -324,6 +347,14 @@ type EditorCommandDefinition<TId extends string> = {
   disabled?: boolean;
   run?: (event: EditorHotkeyEvent) => void | Promise<void>;
 };
+type EditorParsedHotkey = {
+  alt: boolean;
+  ctrl: boolean;
+  key: string;
+  meta: boolean;
+  mod: boolean;
+  shift: boolean;
+};
 declare function matchesEditorHotkey(event: EditorHotkeyEvent, hotkey: string): boolean;
 declare function isEditorEditableTarget(target: EventTarget | null): boolean;
 declare function getEditorHotkeyFromKeyboardEvent(event: EditorHotkeyEvent): string;
@@ -338,21 +369,26 @@ declare function getEditorHotkeyConflicts<TId extends string>(
   hotkeys: EditorHotkeyMap<TId>,
   definitions?: readonly EditorCommandDefinition<TId>[],
 ): TId[];
+declare function isEditorHotkeyValid(hotkey: string): boolean;
 declare function getEditorCommandIdFromKeyboardEvent<TId extends string>(
   event: EditorHotkeyEvent,
   commands: readonly EditorCommandDefinition<TId>[],
 ): TId | null;
+declare function parseEditorHotkey(hotkey: string): EditorParsedHotkey | null;
 
 export {
   type EditorCommandDefinition,
   type EditorHotkeyEvent,
   type EditorHotkeyMap,
+  type EditorParsedHotkey,
   formatEditorShortcutLabel,
   getEditorCommandIdFromKeyboardEvent,
   getEditorHotkeyConflicts,
   getEditorHotkeyFromKeyboardEvent,
   isEditorEditableTarget,
+  isEditorHotkeyValid,
   matchesEditorHotkey,
+  parseEditorHotkey,
   resolveEditorHotkeys,
 };
 ```
@@ -373,11 +409,15 @@ export {
 } from "./aspects.js";
 export {
   DownloadEditorJsonOptions,
+  EditorBrowserErrorContext,
+  EditorBrowserErrorHandler,
   EditorClipboardFallback,
   EditorClipboardJsonOptions,
   EditorStorageAdapter,
+  LoadEditorStorageOptions,
   LocalStorageEditorStorageOptions,
   ReadEditorJsonFileOptions,
+  SaveEditorStorageOptions,
   createLocalStorageEditorStorage,
   downloadEditorJson,
   ensureEditorJsonFilename,
@@ -418,12 +458,15 @@ export {
   EditorCommandDefinition,
   EditorHotkeyEvent,
   EditorHotkeyMap,
+  EditorParsedHotkey,
   formatEditorShortcutLabel,
   getEditorCommandIdFromKeyboardEvent,
   getEditorHotkeyConflicts,
   getEditorHotkeyFromKeyboardEvent,
   isEditorEditableTarget,
+  isEditorHotkeyValid,
   matchesEditorHotkey,
+  parseEditorHotkey,
   resolveEditorHotkeys,
 } from "./hotkeys.js";
 export {
@@ -477,6 +520,8 @@ export {
   serializeEditorDocument,
 } from "./serialization.js";
 export {
+  EditorSharePayloadTooLargeError,
+  EncodeEditorSharePayloadOptions,
   decodeEditorSharePayload,
   editorShareTokenFromUrl,
   editorShareUrl,
@@ -487,6 +532,7 @@ export {
   EditorTreeItem,
   EditorTreeNode,
   EditorTreeNodeId,
+  EditorTreeNodePath,
   EditorTreePath,
   EditorTreePathSegment,
   EditorTreeProjection,
@@ -494,8 +540,11 @@ export {
   ProjectEditorTreeOptions,
   collapseEditorTreeNode,
   createEditorTreeState,
+  expandEditorTreeAncestors,
   expandEditorTreeNode,
+  getEditorTreeNodePath,
   projectEditorTree,
+  selectAndRevealEditorTreeNode,
   selectEditorTreeNode,
   toggleEditorTreeNode,
 } from "./tree.js";
@@ -858,6 +907,14 @@ export {
 ## share.d.ts
 
 ```ts
+type EncodeEditorSharePayloadOptions = {
+  maxBytes?: number;
+};
+declare class EditorSharePayloadTooLargeError extends Error {
+  byteLength: number;
+  maxBytes: number;
+  constructor(byteLength: number, maxBytes: number);
+}
 declare function editorShareTokenFromUrl(url: string, param?: string): string | null;
 declare function editorShareUrl(
   origin: string,
@@ -865,10 +922,15 @@ declare function editorShareUrl(
   token: string,
   param?: string,
 ): string;
-declare function encodeEditorSharePayload(payload: unknown): Promise<string>;
+declare function encodeEditorSharePayload(
+  payload: unknown,
+  options?: EncodeEditorSharePayloadOptions,
+): Promise<string>;
 declare function decodeEditorSharePayload<T = unknown>(token: string): Promise<T>;
 
 export {
+  EditorSharePayloadTooLargeError,
+  type EncodeEditorSharePayloadOptions,
   decodeEditorSharePayload,
   editorShareTokenFromUrl,
   editorShareUrl,
@@ -920,6 +982,7 @@ type EditorTreeProjection<TMetadata = unknown> = {
   parentIdsById: ReadonlyMap<EditorTreeNodeId, EditorTreeNodeId | null>;
   state: EditorTreeState;
 };
+type EditorTreeNodePath = readonly EditorTreeNodeId[];
 type ProjectEditorTreeOptions = {
   state?: EditorTreeState;
 };
@@ -945,12 +1008,27 @@ declare function toggleEditorTreeNode(
   state: EditorTreeState,
   id: EditorTreeNodeId,
 ): EditorTreeState;
+declare function getEditorTreeNodePath(
+  projection: Pick<EditorTreeProjection, "parentIdsById">,
+  id: EditorTreeNodeId,
+): EditorTreeNodePath;
+declare function expandEditorTreeAncestors(
+  state: EditorTreeState,
+  projection: Pick<EditorTreeProjection, "parentIdsById">,
+  id: EditorTreeNodeId,
+): EditorTreeState;
+declare function selectAndRevealEditorTreeNode(
+  state: EditorTreeState,
+  projection: Pick<EditorTreeProjection, "parentIdsById">,
+  id: EditorTreeNodeId,
+): EditorTreeState;
 
 export {
   type EditorTreeAdapter,
   type EditorTreeItem,
   type EditorTreeNode,
   type EditorTreeNodeId,
+  type EditorTreeNodePath,
   type EditorTreePath,
   type EditorTreePathSegment,
   type EditorTreeProjection,
@@ -958,8 +1036,11 @@ export {
   type ProjectEditorTreeOptions,
   collapseEditorTreeNode,
   createEditorTreeState,
+  expandEditorTreeAncestors,
   expandEditorTreeNode,
+  getEditorTreeNodePath,
   projectEditorTree,
+  selectAndRevealEditorTreeNode,
   selectEditorTreeNode,
   toggleEditorTreeNode,
 };

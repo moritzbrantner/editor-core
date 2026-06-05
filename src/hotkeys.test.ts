@@ -5,7 +5,9 @@ import {
   getEditorHotkeyConflicts,
   getEditorHotkeyFromKeyboardEvent,
   isEditorEditableTarget,
+  isEditorHotkeyValid,
   matchesEditorHotkey,
+  parseEditorHotkey,
 } from "./hotkeys.js";
 
 describe("hotkeys", () => {
@@ -59,19 +61,28 @@ describe("hotkeys", () => {
     ).toEqual(["details"]);
   });
 
-  test("handles explicit platform modifiers and malformed multi-key shortcuts deterministically", () => {
+  test("handles explicit platform modifiers and rejects malformed multi-key shortcuts", () => {
     expect(
       matchesEditorHotkey(event({ key: "k", ctrlKey: true, metaKey: true }), "Ctrl+Meta+K"),
     ).toBe(true);
     expect(matchesEditorHotkey(event({ key: "k", ctrlKey: true }), "Ctrl+Meta+K")).toBe(false);
     expect(formatEditorShortcutLabel("A+B")).toBe("A+B");
-    expect(matchesEditorHotkey(event({ key: "b" }), "A+B")).toBe(true);
+    expect(matchesEditorHotkey(event({ key: "b" }), "A+B")).toBe(false);
+    expect(parseEditorHotkey("A+B")).toBeNull();
+    expect(isEditorHotkeyValid("Ctrl+K")).toBe(true);
+    expect(isEditorHotkeyValid("Ctrl+K+P")).toBe(false);
     expect(
       getEditorHotkeyConflicts<"ctrl" | "meta">("ctrl", "Ctrl+K", {
         ctrl: ["Ctrl+K"],
         meta: ["Meta+K"],
       }),
     ).toEqual(["meta"]);
+    expect(
+      getEditorHotkeyConflicts<"invalid" | "valid">("invalid", "K+P", {
+        invalid: ["K+P"],
+        valid: ["Mod+K"],
+      }),
+    ).toEqual([]);
   });
 });
 

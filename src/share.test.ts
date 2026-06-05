@@ -4,6 +4,7 @@ import {
   editorShareTokenFromUrl,
   editorShareUrl,
   encodeEditorSharePayload,
+  EditorSharePayloadTooLargeError,
 } from "./share.js";
 
 describe("share", () => {
@@ -25,6 +26,21 @@ describe("share", () => {
     const token = await encodeEditorSharePayload({ value: "short" });
     expect(token.startsWith("plain.")).toBe(true);
     await expect(decodeEditorSharePayload(token)).resolves.toEqual({ value: "short" });
+  });
+
+  test("rejects payloads that exceed explicit byte limits", async () => {
+    await expect(encodeEditorSharePayload({ value: "too large" }, { maxBytes: 4 })).rejects.toThrow(
+      EditorSharePayloadTooLargeError,
+    );
+  });
+
+  test("encodes and decodes when browser base64 globals are unavailable", async () => {
+    vi.stubGlobal("btoa", undefined);
+    vi.stubGlobal("atob", undefined);
+
+    const token = await encodeEditorSharePayload({ value: "node" });
+    expect(token.startsWith("plain.")).toBe(true);
+    await expect(decodeEditorSharePayload(token)).resolves.toEqual({ value: "node" });
   });
 
   test("encodes and decodes gzip payloads when compression is available", async () => {

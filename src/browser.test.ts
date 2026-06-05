@@ -45,6 +45,41 @@ describe("browser helpers", () => {
     await expect(loadEditorStorage(storage, { value: 0 })).resolves.toEqual({ value: 0 });
   });
 
+  test("reports storage load and save errors to opt-in handlers", async () => {
+    const adapterErrors = vi.fn();
+    const wrapperErrors = vi.fn();
+    const storage = createLocalStorageEditorStorage<{ value: number }>({
+      key: "editor",
+      onError: adapterErrors,
+      serialize() {
+        throw new Error("cannot serialize");
+      },
+    });
+
+    await expect(
+      saveEditorStorage(storage, { value: 1 }, { onError: wrapperErrors }),
+    ).rejects.toThrow("cannot serialize");
+    expect(adapterErrors).toHaveBeenCalledWith(expect.any(Error), {
+      key: "editor",
+      operation: "storage-save",
+    });
+    expect(wrapperErrors).toHaveBeenCalledWith(expect.any(Error), {
+      operation: "storage-save",
+    });
+
+    window.localStorage.setItem("editor", "{");
+    await expect(
+      loadEditorStorage(storage, { value: 0 }, { onError: wrapperErrors }),
+    ).resolves.toEqual({ value: 0 });
+    expect(adapterErrors).toHaveBeenCalledWith(expect.any(SyntaxError), {
+      key: "editor",
+      operation: "storage-load",
+    });
+    expect(wrapperErrors).toHaveBeenCalledWith(expect.any(SyntaxError), {
+      operation: "storage-load",
+    });
+  });
+
   test("uses fallbacks when storage is unavailable", async () => {
     vi.stubGlobal("window", undefined);
 
@@ -59,5 +94,23 @@ describe("browser helpers", () => {
     await expect(writeEditorClipboardJson({ value: 1 }, { fallback })).resolves.toBe(false);
     expect(fallback).toEqual({ text: '{"value":1}' });
     await expect(readEditorClipboardJson({ fallback })).resolves.toEqual({ value: 1 });
+  });
+
+  test("reports clipboard read errors and parse failures to opt-in handlers", async () => {
+    const onError = vi.fn();
+    const fallback = { text: "{" };
+    vi.stubGlobal("navigator", {
+      clipboard: {
+        readText: vi.fn(async () => {
+          throw new Error("clipboard denied");
+        }),
+      },
+    });
+
+    await expect(readEditorClipboardJson({ fallback, onError })).resolves.toBeNull();
+    expect(onError).toHaveBeenCalledWith(expect.any(Error), { operation: "clipboard-read" });
+    expect(onError).toHaveBeenCalledWith(expect.any(SyntaxError), {
+      operation: "clipboard-read",
+    });
   });
 });

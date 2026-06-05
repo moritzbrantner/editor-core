@@ -19,7 +19,7 @@ export type EditorCommandDefinition<TId extends string> = {
   run?: (event: EditorHotkeyEvent) => void | Promise<void>;
 };
 
-type ParsedHotkey = {
+export type EditorParsedHotkey = {
   alt: boolean;
   ctrl: boolean;
   key: string;
@@ -30,6 +30,10 @@ type ParsedHotkey = {
 
 export function matchesEditorHotkey(event: EditorHotkeyEvent, hotkey: string): boolean {
   const parsed = parseEditorHotkey(hotkey);
+  if (!parsed) {
+    return false;
+  }
+
   const eventKey = normalizeEditorKey(event.key);
 
   if (parsed.key !== eventKey) {
@@ -113,6 +117,10 @@ export function getEditorHotkeyConflicts<TId extends string>(
   definitions: readonly EditorCommandDefinition<TId>[] = [],
 ): TId[] {
   const canonical = canonicalEditorHotkey(hotkey);
+  if (!canonical) {
+    return [];
+  }
+
   const disabledIds = new Set(
     definitions.filter((definition) => definition.disabled).map(({ id }) => id),
   );
@@ -131,6 +139,10 @@ export function getEditorHotkeyConflicts<TId extends string>(
   }
 
   return conflicts;
+}
+
+export function isEditorHotkeyValid(hotkey: string): boolean {
+  return parseEditorHotkey(hotkey) !== null;
 }
 
 export function getEditorCommandIdFromKeyboardEvent<TId extends string>(
@@ -154,8 +166,12 @@ export function getEditorCommandIdFromKeyboardEvent<TId extends string>(
   return null;
 }
 
-function canonicalEditorHotkey(hotkey: string): string {
+function canonicalEditorHotkey(hotkey: string): string | null {
   const parsed = parseEditorHotkey(hotkey);
+  if (!parsed) {
+    return null;
+  }
+
   const modifiers = [
     parsed.mod || parsed.ctrl || parsed.meta ? "Mod" : undefined,
     parsed.alt ? "Alt" : undefined,
@@ -164,12 +180,12 @@ function canonicalEditorHotkey(hotkey: string): string {
   return [...modifiers, formatEditorShortcutPart(parsed.key)].join("+");
 }
 
-function parseEditorHotkey(hotkey: string): ParsedHotkey {
+export function parseEditorHotkey(hotkey: string): EditorParsedHotkey | null {
   const parts = hotkey
     .split("+")
     .map((part) => part.trim())
     .filter(Boolean);
-  const parsed: ParsedHotkey = {
+  const parsed: EditorParsedHotkey = {
     alt: false,
     ctrl: false,
     key: "",
@@ -200,10 +216,13 @@ function parseEditorHotkey(hotkey: string): ParsedHotkey {
       parsed.shift = true;
       continue;
     }
+    if (parsed.key) {
+      return null;
+    }
     parsed.key = normalizeEditorKey(part);
   }
 
-  return parsed;
+  return parsed.key ? parsed : null;
 }
 
 function normalizeEditorKey(key: string): string {

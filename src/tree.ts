@@ -45,6 +45,8 @@ export type EditorTreeProjection<TMetadata = unknown> = {
   state: EditorTreeState;
 };
 
+export type EditorTreeNodePath = readonly EditorTreeNodeId[];
+
 export type ProjectEditorTreeOptions = {
   state?: EditorTreeState;
 };
@@ -117,6 +119,46 @@ export function toggleEditorTreeNode(
   return state.expandedIds.includes(id)
     ? collapseEditorTreeNode(state, id)
     : expandEditorTreeNode(state, id);
+}
+
+export function getEditorTreeNodePath(
+  projection: Pick<EditorTreeProjection, "parentIdsById">,
+  id: EditorTreeNodeId,
+): EditorTreeNodePath {
+  if (!projection.parentIdsById.has(id)) {
+    return [];
+  }
+
+  const path: EditorTreeNodeId[] = [id];
+  let parentId = projection.parentIdsById.get(id) ?? null;
+  while (parentId) {
+    path.unshift(parentId);
+    parentId = projection.parentIdsById.get(parentId) ?? null;
+  }
+  return path;
+}
+
+export function expandEditorTreeAncestors(
+  state: EditorTreeState,
+  projection: Pick<EditorTreeProjection, "parentIdsById">,
+  id: EditorTreeNodeId,
+): EditorTreeState {
+  const path = getEditorTreeNodePath(projection, id);
+  return {
+    ...state,
+    expandedIds: normalizeExpandedIds([...state.expandedIds, ...path.slice(0, -1)]),
+  };
+}
+
+export function selectAndRevealEditorTreeNode(
+  state: EditorTreeState,
+  projection: Pick<EditorTreeProjection, "parentIdsById">,
+  id: EditorTreeNodeId,
+): EditorTreeState {
+  return {
+    ...expandEditorTreeAncestors(state, projection, id),
+    selectedId: id,
+  };
 }
 
 function collectEditorTreeNodes<TMetadata>(

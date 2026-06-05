@@ -7,6 +7,16 @@ export type ReadEditorJsonFileOptions<TValue> = {
   parse?: (input: unknown) => TValue;
 };
 
+export type EditorBrowserErrorContext =
+  | { operation: "clipboard-read" }
+  | { key?: string; operation: "storage-load" }
+  | { key?: string; operation: "storage-save" };
+
+export type EditorBrowserErrorHandler = (
+  error: unknown,
+  context: EditorBrowserErrorContext,
+) => void;
+
 export type EditorStorageAdapter<TValue> = {
   load: () => TValue | null | Promise<TValue | null>;
   save: (value: TValue) => void | Promise<void>;
@@ -17,6 +27,7 @@ export type LocalStorageEditorStorageOptions<TValue> = {
   storage?: Storage;
   parse?: (input: unknown) => TValue;
   serialize?: (value: TValue) => unknown;
+  onError?: EditorBrowserErrorHandler;
 };
 
 export type EditorClipboardFallback = {
@@ -25,6 +36,17 @@ export type EditorClipboardFallback = {
 
 export type EditorClipboardJsonOptions = {
   fallback?: EditorClipboardFallback;
+  onError?: EditorBrowserErrorHandler;
+};
+
+export type LoadEditorStorageOptions<TValue> = {
+  normalize?: (value: TValue) => TValue;
+  onError?: EditorBrowserErrorHandler;
+};
+
+export type SaveEditorStorageOptions<TValue> = {
+  normalize?: (value: TValue) => TValue;
+  onError?: EditorBrowserErrorHandler;
 };
 
 export function ensureEditorJsonFilename(filename: string): string {
@@ -70,13 +92,18 @@ export function createLocalStorageEditorStorage<TValue>(
         return null;
       }
 
-      const raw = storage.getItem(options.key);
-      if (!raw) {
-        return null;
-      }
+      try {
+        const raw = storage.getItem(options.key);
+        if (!raw) {
+          return null;
+        }
 
-      const parsed = JSON.parse(raw) as unknown;
-      return options.parse ? options.parse(parsed) : (parsed as TValue);
+        const parsed = JSON.parse(raw) as unknown;
+        return options.parse ? options.parse(parsed) : (parsed as TValue);
+      } catch (error) {
+        options.onError?.(error, { key: options.key, operation: "storage-load" });
+        throw error;
+      }
     },
     save(value) {
       const storage = resolveStorage(options.storage);
@@ -84,10 +111,15 @@ export function createLocalStorageEditorStorage<TValue>(
         return;
       }
 
-      storage.setItem(
-        options.key,
-        JSON.stringify(options.serialize ? options.serialize(value) : value),
-      );
+      try {
+        storage.setItem(
+          options.key,
+          JSON.stringify(options.serialize ? options.serialize(value) : value),
+        );
+      } catch (error) {
+        options.onError?.(error, { key: options.key, operation: "storage-save" });
+        throw error;
+      }
     },
   };
 }
@@ -95,7 +127,7 @@ export function createLocalStorageEditorStorage<TValue>(
 export async function loadEditorStorage<TValue>(
   storage: EditorStorageAdapter<TValue>,
   fallback: TValue,
-  options: { normalize?: (value: TValue) => TValue } = {},
+  options: LoadEditorStorageOptions<TValue> = {},
 ): Promise<TValue> {
   try {
     const value = await storage.load();
@@ -103,7 +135,8 @@ export async function loadEditorStorage<TValue>(
       return fallback;
     }
     return options.normalize ? options.normalize(value) : value;
-  } catch {
+  } catch (error) {
+    options.onError?.(error, { operation: "storage-load" });
     return fallback;
   }
 }
@@ -111,9 +144,14 @@ export async function loadEditorStorage<TValue>(
 export async function saveEditorStorage<TValue>(
   storage: EditorStorageAdapter<TValue>,
   value: TValue,
-  options: { normalize?: (value: TValue) => TValue } = {},
+  options: SaveEditorStorageOptions<TValue> = {},
 ): Promise<void> {
-  await storage.save(options.normalize ? options.normalize(value) : value);
+  try {
+    await storage.save(options.normalize ? options.normalize(value) : value);
+  } catch (error) {
+    options.onError?.(error, { operation: "storage-save" });
+    throw error;
+  }
 }
 
 export async function writeEditorClipboardJson(
@@ -143,7 +181,8 @@ export async function readEditorClipboardJson<TValue = unknown>(
 
   try {
     text = await navigator.clipboard?.readText();
-  } catch {
+  } catch (error) {
+    options.onError?.(error, { operation: "clipboard-read" });
     text = options.fallback?.text;
   }
 
@@ -154,7 +193,8 @@ export async function readEditorClipboardJson<TValue = unknown>(
 
   try {
     return JSON.parse(text) as TValue;
-  } catch {
+  } catch (error) {
+    options.onError?.(error, { operation: "clipboard-read" });
     return null;
   }
 }

@@ -11,6 +11,7 @@ const execFileAsync = promisify(execFile);
 const rootDir = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const tempDir = await mkdtemp(join(tmpdir(), "editor-core-smoke-"));
 const node = process.execPath;
+const compatNode = process.env.EDITOR_CORE_COMPAT_NODE_BIN ?? node;
 
 try {
   const { stdout } = await execFileAsync("npm", ["pack", "--pack-destination", tempDir], {
@@ -90,6 +91,23 @@ async function smokeHeadlessConsumer(tarball) {
     `,
   );
   await execFileAsync(node, [join(consumerDir, "node-esm.mjs")], { cwd: consumerDir });
+
+  await writeFile(
+    join(consumerDir, "node-compat.mjs"),
+    `
+      import { decodeEditorSharePayload, encodeEditorSharePayload } from "@moritzbrantner/editor-core/share";
+
+      delete globalThis.atob;
+      delete globalThis.btoa;
+
+      const token = await encodeEditorSharePayload({ value: "compat" });
+      const decoded = await decodeEditorSharePayload(token);
+      if (decoded.value !== "compat") {
+        throw new Error("Share token compatibility round-trip failed");
+      }
+    `,
+  );
+  await execFileAsync(compatNode, [join(consumerDir, "node-compat.mjs")], { cwd: consumerDir });
 
   await writeFile(
     join(consumerDir, "types.ts"),
