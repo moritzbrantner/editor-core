@@ -437,6 +437,31 @@ export {
   stableEditorJsonStringify,
 } from "./json.js";
 export {
+  CommitEditorRuntimeOptions,
+  EditorRuntimeCommandId,
+  EditorRuntimeCommandsOptions,
+  EditorRuntimeOptions,
+  EditorRuntimeSelection,
+  EditorRuntimeState,
+  EditorRuntimeStatus,
+  EditorRuntimeUpdate,
+  EditorRuntimeUpdateContext,
+  EditorRuntimeValidationIssue,
+  EditorRuntimeValidator,
+  ResetEditorRuntimeOptions,
+  commitEditorRuntime,
+  createEditorRuntime,
+  createEditorRuntimeCommands,
+  defaultEditorRuntimeCommandHotkeys,
+  defaultEditorRuntimeCommandLabels,
+  markEditorRuntimeSaved,
+  redoEditorRuntime,
+  resetEditorRuntime,
+  setEditorRuntimeSelection,
+  undoEditorRuntime,
+  validateEditorRuntime,
+} from "./runtime.js";
+export {
   EditorDocumentAdapter,
   EditorDocumentMigration,
   EditorDocumentMigrations,
@@ -507,7 +532,18 @@ export {
 ```ts
 import * as React from "react";
 import { EditorCommandDefinition } from "./hotkeys.js";
+import {
+  EditorRuntimeOptions,
+  EditorRuntimeState,
+  EditorRuntimeUpdate,
+  CommitEditorRuntimeOptions,
+  ResetEditorRuntimeOptions,
+  EditorRuntimeSelection,
+} from "./runtime.js";
 import { EditorTreeState, EditorTreeNodeId } from "./tree.js";
+import "./aspects.js";
+import "./history.js";
+import "./serialization.js";
 
 type ControllableEditorStateOptions<T> = {
   value?: T;
@@ -519,6 +555,29 @@ declare function useControllableEditorState<T>({
   defaultValue,
   onChange,
 }: ControllableEditorStateOptions<T>): [T, (value: T | ((previous: T) => T)) => void];
+type UseEditorRuntimeOptions<TDocument, TSelection = unknown> = EditorRuntimeOptions<
+  TDocument,
+  TSelection
+> & {
+  value?: EditorRuntimeState<TDocument, TSelection>;
+  onChange?: (state: EditorRuntimeState<TDocument, TSelection>) => void;
+};
+type UseEditorRuntimeResult<TDocument, TSelection = unknown> = {
+  state: EditorRuntimeState<TDocument, TSelection>;
+  setState: React.Dispatch<React.SetStateAction<EditorRuntimeState<TDocument, TSelection>>>;
+  commit: (
+    update: EditorRuntimeUpdate<TDocument, TSelection>,
+    options?: CommitEditorRuntimeOptions<TSelection>,
+  ) => void;
+  undo: () => void;
+  redo: () => void;
+  reset: (document: TDocument, options?: ResetEditorRuntimeOptions<TSelection>) => void;
+  markSaved: () => void;
+  setSelection: (selection: EditorRuntimeSelection<TSelection>) => void;
+};
+declare function useEditorRuntime<TDocument, TSelection = unknown>(
+  options: UseEditorRuntimeOptions<TDocument, TSelection>,
+): UseEditorRuntimeResult<TDocument, TSelection>;
 type UseEditorHotkeysOptions<TId extends string> = {
   commands: readonly EditorCommandDefinition<TId>[];
   disabled?: boolean;
@@ -548,10 +607,149 @@ declare function useEditorTreeState(
 export {
   type ControllableEditorStateOptions,
   type UseEditorHotkeysOptions,
+  type UseEditorRuntimeOptions,
+  type UseEditorRuntimeResult,
   type UseEditorTreeStateResult,
   useControllableEditorState,
   useEditorHotkeys,
+  useEditorRuntime,
   useEditorTreeState,
+};
+```
+
+## runtime.d.ts
+
+```ts
+import { EditorChangeOrigin, EditorAspectSnapshot, EditorAspectDefinition } from "./aspects.js";
+import { EditorHotkeyMap, EditorCommandDefinition } from "./hotkeys.js";
+import { EditorSnapshotHistory, EditorSnapshotHistoryOptions } from "./history.js";
+import { EditorParseIssue } from "./serialization.js";
+
+type EditorRuntimeStatus = "clean" | "dirty";
+type EditorRuntimeSelection<TSelection = unknown> = TSelection | null;
+type EditorRuntimeUpdateContext<TDocument, TSelection = unknown> = {
+  document: TDocument;
+  selection: EditorRuntimeSelection<TSelection>;
+  revision: number;
+};
+type EditorRuntimeUpdate<TDocument, TSelection = unknown> =
+  | TDocument
+  | ((context: EditorRuntimeUpdateContext<TDocument, TSelection>) => TDocument);
+type EditorRuntimeValidationIssue = EditorParseIssue;
+type EditorRuntimeValidator<TDocument> = (
+  document: TDocument,
+) => readonly EditorRuntimeValidationIssue[];
+type EditorRuntimeOptions<TDocument, TSelection = unknown> = {
+  initialDocument: TDocument;
+  initialSelection?: EditorRuntimeSelection<TSelection>;
+  history?: EditorSnapshotHistoryOptions<TDocument>;
+  validate?: EditorRuntimeValidator<TDocument>;
+  aspects?: readonly EditorAspectDefinition<TDocument, unknown>[];
+  origin?: EditorChangeOrigin;
+};
+type EditorRuntimeState<TDocument, TSelection = unknown> = {
+  document: TDocument;
+  selection: EditorRuntimeSelection<TSelection>;
+  history: EditorSnapshotHistory<TDocument>;
+  revision: number;
+  savedRevision: number;
+  status: EditorRuntimeStatus;
+  canUndo: boolean;
+  canRedo: boolean;
+  issues: readonly EditorRuntimeValidationIssue[];
+  aspectSnapshot: EditorAspectSnapshot<TDocument>;
+  origin?: EditorChangeOrigin;
+};
+type CommitEditorRuntimeOptions<TSelection = unknown> = {
+  selection?: EditorRuntimeSelection<TSelection>;
+  origin?: EditorChangeOrigin;
+  markSaved?: boolean;
+};
+type ResetEditorRuntimeOptions<TSelection = unknown> = {
+  selection?: EditorRuntimeSelection<TSelection>;
+  origin?: EditorChangeOrigin;
+  markSaved?: boolean;
+};
+type EditorRuntimeCommandId = "undo" | "redo" | "reset" | "save";
+declare const defaultEditorRuntimeCommandHotkeys: EditorHotkeyMap<EditorRuntimeCommandId>;
+declare const defaultEditorRuntimeCommandLabels: Record<EditorRuntimeCommandId, string>;
+type EditorRuntimeCommandsOptions<TDocument, TSelection = unknown> = {
+  runtime: EditorRuntimeState<TDocument, TSelection>;
+  setRuntime: (
+    updater: (
+      runtime: EditorRuntimeState<TDocument, TSelection>,
+    ) => EditorRuntimeState<TDocument, TSelection>,
+  ) => void;
+  getResetDocument: () => TDocument;
+  onSave?: (runtime: EditorRuntimeState<TDocument, TSelection>) => void | Promise<void>;
+  hotkeys?: Partial<EditorHotkeyMap<EditorRuntimeCommandId>>;
+  labels?: Partial<Record<EditorRuntimeCommandId, string>>;
+  include?: readonly EditorRuntimeCommandId[];
+  disabled?: Partial<Record<EditorRuntimeCommandId, boolean>>;
+};
+declare function createEditorRuntime<TDocument, TSelection = unknown>(
+  options: EditorRuntimeOptions<TDocument, TSelection>,
+): EditorRuntimeState<TDocument, TSelection>;
+declare function commitEditorRuntime<TDocument, TSelection = unknown>(
+  state: EditorRuntimeState<TDocument, TSelection>,
+  update: EditorRuntimeUpdate<TDocument, TSelection>,
+  options?: CommitEditorRuntimeOptions<TSelection>,
+): EditorRuntimeState<TDocument, TSelection>;
+declare function undoEditorRuntime<TDocument, TSelection = unknown>(
+  state: EditorRuntimeState<TDocument, TSelection>,
+  options?: {
+    origin?: EditorChangeOrigin;
+  },
+): EditorRuntimeState<TDocument, TSelection>;
+declare function redoEditorRuntime<TDocument, TSelection = unknown>(
+  state: EditorRuntimeState<TDocument, TSelection>,
+  options?: {
+    origin?: EditorChangeOrigin;
+  },
+): EditorRuntimeState<TDocument, TSelection>;
+declare function resetEditorRuntime<TDocument, TSelection = unknown>(
+  state: EditorRuntimeState<TDocument, TSelection>,
+  document: TDocument,
+  options?: ResetEditorRuntimeOptions<TSelection>,
+): EditorRuntimeState<TDocument, TSelection>;
+declare function markEditorRuntimeSaved<TDocument, TSelection = unknown>(
+  state: EditorRuntimeState<TDocument, TSelection>,
+): EditorRuntimeState<TDocument, TSelection>;
+declare function setEditorRuntimeSelection<TDocument, TSelection = unknown>(
+  state: EditorRuntimeState<TDocument, TSelection>,
+  selection: EditorRuntimeSelection<TSelection>,
+): EditorRuntimeState<TDocument, TSelection>;
+declare function validateEditorRuntime<TDocument, TSelection = unknown>(
+  state: EditorRuntimeState<TDocument, TSelection>,
+): EditorRuntimeState<TDocument, TSelection>;
+declare function createEditorRuntimeCommands<TDocument, TSelection = unknown>(
+  options: EditorRuntimeCommandsOptions<TDocument, TSelection>,
+): readonly EditorCommandDefinition<EditorRuntimeCommandId>[];
+
+export {
+  type CommitEditorRuntimeOptions,
+  type EditorRuntimeCommandId,
+  type EditorRuntimeCommandsOptions,
+  type EditorRuntimeOptions,
+  type EditorRuntimeSelection,
+  type EditorRuntimeState,
+  type EditorRuntimeStatus,
+  type EditorRuntimeUpdate,
+  type EditorRuntimeUpdateContext,
+  type EditorRuntimeValidationIssue,
+  type EditorRuntimeValidator,
+  type ResetEditorRuntimeOptions,
+  commitEditorRuntime,
+  createEditorRuntime,
+  createEditorRuntimeCommands,
+  defaultEditorRuntimeCommandHotkeys,
+  defaultEditorRuntimeCommandLabels,
+  markEditorRuntimeSaved,
+  redoEditorRuntime,
+  resetEditorRuntime,
+  setEditorRuntimeSelection,
+  undoEditorRuntime,
+  validateEditorRuntime,
 };
 ```
 

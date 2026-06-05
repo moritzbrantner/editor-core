@@ -2,10 +2,8 @@ import * as React from "react";
 import { QueryClient, QueryClientProvider, useQuery } from "@tanstack/react-query";
 import { createRoot } from "react-dom/client";
 import {
-  commitEditorSnapshotHistory,
   createLocalStorageEditorStorage,
-  createEditorSnapshotHistory,
-  createEditorSnapshotHistoryCommands,
+  createEditorRuntimeCommands,
   createStableEditorJsonEquals,
   decodeEditorSharePayload,
   downloadEditorJson,
@@ -15,7 +13,6 @@ import {
   formatEditorShortcutLabel,
   readEditorDocument,
   readEditorJsonFile,
-  resetEditorSnapshotHistory,
   saveEditorStorage,
   loadEditorStorage,
   serializeEditorDocument,
@@ -23,10 +20,13 @@ import {
   type EditorDocumentAdapter,
   type EditorDocumentMigrations,
   type EditorHotkeyEvent,
-  type EditorSnapshotHistoryCommandId,
-  type EditorSnapshotHistory,
+  type EditorRuntimeCommandId,
 } from "@moritzbrantner/editor-core";
-import { useEditorHotkeys, useEditorTreeState } from "@moritzbrantner/editor-core/react";
+import {
+  useEditorHotkeys,
+  useEditorRuntime,
+  useEditorTreeState,
+} from "@moritzbrantner/editor-core/react";
 import {
   projectEditorTree,
   type EditorTreeAdapter,
@@ -44,13 +44,7 @@ type ExampleDocument = {
   updatedAt: string;
 };
 
-type CommandId =
-  | EditorSnapshotHistoryCommandId
-  | "download"
-  | "import"
-  | "save"
-  | "share"
-  | "template";
+type CommandId = EditorRuntimeCommandId | "download" | "import" | "share" | "template";
 
 const templateDocument: ExampleDocument = {
   accent: "cobalt",
@@ -197,13 +191,17 @@ function App() {
     queryFn: loadTemplateDocument,
     queryKey: ["react-example", "template-document"],
   });
-  const [history, setHistory] = React.useState<EditorSnapshotHistory<ExampleDocument>>(() =>
-    createEditorSnapshotHistory(fallbackDocument, historyOptions),
-  );
+  const runtime = useEditorRuntime<ExampleDocument, string>({
+    history: historyOptions,
+    initialDocument: fallbackDocument,
+    validate: (document) => exampleDocumentAdapter.validate?.(document) ?? [],
+  });
   const [notice, setNotice] = React.useState("Ready");
-  const document = history.present;
+  const { commit, reset, setState, state: editor } = runtime;
+  const document = editor.document;
   const tone = accentStyles[document.accent];
   const template = templateQuery.data ?? templateDocument;
+  const validationNotice = editor.issues[0]?.message;
   const treeProjection = React.useMemo(
     () => projectEditorTree(document, exampleDocumentTreeAdapter, { state: tree.state }),
     [document, tree.state],
@@ -212,27 +210,23 @@ function App() {
     ? (treeProjection.nodesById.get(treeProjection.state.selectedId) ?? null)
     : null;
 
-  const setDocument = React.useCallback((nextDocument: ExampleDocument) => {
-    setHistory((previous) => commitEditorSnapshotHistory(previous, nextDocument, historyOptions));
-  }, []);
-
   const patchDocument = React.useCallback(
     (patch: Partial<ExampleDocument>) => {
-      setDocument({
+      commit(({ document }) => ({
         ...document,
         ...patch,
         updatedAt: new Date().toISOString(),
-      });
+      }));
     },
-    [document, setDocument],
+    [commit],
   );
 
   const loadTemplate = React.useCallback(async () => {
     const result = await templateQuery.refetch();
     const nextDocument = result.data ?? template;
-    setHistory(resetEditorSnapshotHistory(nextDocument, historyOptions));
+    reset(nextDocument, { markSaved: true });
     setNotice("Template loaded");
-  }, [template, templateQuery]);
+  }, [reset, template, templateQuery]);
 
   const shareDocument = React.useCallback(async () => {
     const token = await encodeEditorSharePayload(document);
@@ -241,10 +235,10 @@ function App() {
     setNotice(navigator.clipboard ? "Share URL copied" : url);
   }, [document]);
 
-  const saveDocument = React.useCallback(async () => {
-    await saveEditorStorage(exampleStorage, document);
+  const saveRuntimeDocument = React.useCallback(async (runtime: { document: ExampleDocument }) => {
+    await saveEditorStorage(exampleStorage, runtime.document);
     setNotice("Saved locally");
-  }, [document]);
+  }, []);
 
   const downloadDocument = React.useCallback(() => {
     downloadEditorJson(serializeEditorDocument(document, exampleDocumentAdapter), {
@@ -253,58 +247,44 @@ function App() {
     setNotice("JSON downloaded");
   }, [document]);
 
-  const importDocumentFile = React.useCallback(async (file: File) => {
-    try {
-      const imported = await readEditorJsonFile(file, {
-        parse(input) {
-          return readEditorDocument(input, exampleDocumentAdapter, {
-            migrations: exampleDocumentMigrations,
-          });
-        },
-      });
-      setHistory(resetEditorSnapshotHistory(imported, historyOptions));
-      setNotice("JSON imported");
-    } catch {
-      setNotice("JSON import failed");
-    }
-  }, []);
+  const importDocumentFile = React.useCallback(
+    async (file: File) => {
+      try {
+        const imported = await readEditorJsonFile(file, {
+          parse(input) {
+            return readEditorDocument(input, exampleDocumentAdapter, {
+              migrations: exampleDocumentMigrations,
+            });
+          },
+        });
+        reset(imported, { markSaved: true });
+        setNotice("JSON imported");
+      } catch {
+        setNotice("JSON import failed");
+      }
+    },
+    [reset],
+  );
 
-  const historyCommands = React.useMemo(
+  const runtimeCommands = React.useMemo(
     () =>
-      createEditorSnapshotHistoryCommands({
+      createEditorRuntimeCommands({
         getResetDocument: () => template,
-        history,
-        historyOptions,
-        onRun({ id }) {
-          if (id === "undo") {
-            setNotice("Undid last edit");
-          }
-          if (id === "redo") {
-            setNotice("Redid edit");
-          }
-          if (id === "reset") {
-            setNotice("Document reset");
-          }
-        },
-        setHistory,
+        onSave: saveRuntimeDocument,
+        runtime: editor,
+        setRuntime: setState,
       }),
-    [history, template],
+    [editor, saveRuntimeDocument, setState, template],
   );
 
   const commands = React.useMemo<readonly EditorCommandDefinition<CommandId>[]>(
     () => [
-      ...historyCommands,
+      ...runtimeCommands,
       {
         hotkeys: ["Mod+Enter"],
         id: "template",
         label: "Template",
         run: loadTemplate,
-      },
-      {
-        hotkeys: ["Mod+Alt+S"],
-        id: "save",
-        label: "Save Local",
-        run: saveDocument,
       },
       {
         hotkeys: ["Mod+O"],
@@ -325,7 +305,7 @@ function App() {
         run: shareDocument,
       },
     ],
-    [downloadDocument, historyCommands, loadTemplate, saveDocument, shareDocument],
+    [downloadDocument, loadTemplate, runtimeCommands, shareDocument],
   );
 
   useEditorHotkeys({
@@ -346,7 +326,7 @@ function App() {
         if (!mounted) {
           return;
         }
-        setHistory(resetEditorSnapshotHistory(sharedDocument, historyOptions));
+        reset(sharedDocument, { markSaved: true });
         setNotice("Loaded shared document");
       })
       .catch(() => {
@@ -358,7 +338,7 @@ function App() {
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [reset]);
 
   React.useEffect(() => {
     if (editorShareTokenFromUrl(window.location.href)) {
@@ -370,14 +350,14 @@ function App() {
       if (!mounted || equalsDocument(storedDocument, fallbackDocument)) {
         return;
       }
-      setHistory(resetEditorSnapshotHistory(storedDocument, historyOptions));
+      reset(storedDocument, { markSaved: true });
       setNotice("Loaded local draft");
     });
 
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [reset]);
 
   return (
     <main
@@ -397,7 +377,7 @@ function App() {
           className="m-0 min-w-45 rounded-lg border border-[#d8d1c6] bg-[#fffdf8]/75 px-3 py-2.5 text-center text-slate-500"
           role="status"
         >
-          {templateQuery.isFetching ? "Refreshing template" : notice}
+          {templateQuery.isFetching ? "Refreshing template" : (validationNotice ?? notice)}
         </p>
       </header>
 
@@ -476,8 +456,9 @@ function App() {
 
           <dl className="m-0 grid grid-cols-2 gap-2.5">
             <Metric label="Words" tone={tone.accent} value={countWords(document.body)} />
-            <Metric label="Undo" tone={tone.accent} value={history.past.length} />
-            <Metric label="Redo" tone={tone.accent} value={history.future.length} />
+            <Metric label="State" tone={tone.accent} value={editor.status} />
+            <Metric label="Undo" tone={tone.accent} value={editor.canUndo ? "Ready" : "None"} />
+            <Metric label="Redo" tone={tone.accent} value={editor.canRedo ? "Ready" : "None"} />
             <Metric
               label="Template"
               tone={tone.accent}

@@ -4,6 +4,7 @@ export * from "./commands.js";
 export * from "./history.js";
 export * from "./hotkeys.js";
 export * from "./json.js";
+export * from "./runtime.js";
 export * from "./serialization.js";
 export * from "./share.js";
 export * from "./tree.js";

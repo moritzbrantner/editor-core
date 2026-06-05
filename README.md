@@ -24,19 +24,20 @@ bun add react @moritzbrantner/editor-core
 
 ## Entrypoints
 
-| Import path                                 | Purpose                                                         |
-| ------------------------------------------- | --------------------------------------------------------------- |
-| `@moritzbrantner/editor-core`               | Headless exports except React hooks.                            |
-| `@moritzbrantner/editor-core/history`       | Snapshot and transaction undo/redo helpers.                     |
-| `@moritzbrantner/editor-core/commands`      | Command definitions for snapshot history actions.               |
-| `@moritzbrantner/editor-core/hotkeys`       | Shortcut parsing, matching, formatting, and conflict detection. |
-| `@moritzbrantner/editor-core/tree`          | Adapter-driven tree projection and tree UI state.               |
-| `@moritzbrantner/editor-core/serialization` | Versioned JSON document envelopes and migrations.               |
-| `@moritzbrantner/editor-core/json`          | Stable JSON sorting, stringifying, and equality helpers.        |
-| `@moritzbrantner/editor-core/browser`       | Browser file, clipboard, download, and storage helpers.         |
-| `@moritzbrantner/editor-core/share`         | URL-safe share token encode/decode helpers.                     |
-| `@moritzbrantner/editor-core/aspects`       | Derived document aspect snapshots.                              |
-| `@moritzbrantner/editor-core/react`         | Optional React hooks.                                           |
+| Import path                                 | Purpose                                                          |
+| ------------------------------------------- | ---------------------------------------------------------------- |
+| `@moritzbrantner/editor-core`               | Headless exports except React hooks.                             |
+| `@moritzbrantner/editor-core/history`       | Snapshot and transaction undo/redo helpers.                      |
+| `@moritzbrantner/editor-core/commands`      | Command definitions for snapshot history actions.                |
+| `@moritzbrantner/editor-core/runtime`       | Document runtime state, validation, aspects, and dirty tracking. |
+| `@moritzbrantner/editor-core/hotkeys`       | Shortcut parsing, matching, formatting, and conflict detection.  |
+| `@moritzbrantner/editor-core/tree`          | Adapter-driven tree projection and tree UI state.                |
+| `@moritzbrantner/editor-core/serialization` | Versioned JSON document envelopes and migrations.                |
+| `@moritzbrantner/editor-core/json`          | Stable JSON sorting, stringifying, and equality helpers.         |
+| `@moritzbrantner/editor-core/browser`       | Browser file, clipboard, download, and storage helpers.          |
+| `@moritzbrantner/editor-core/share`         | URL-safe share token encode/decode helpers.                      |
+| `@moritzbrantner/editor-core/aspects`       | Derived document aspect snapshots.                               |
+| `@moritzbrantner/editor-core/react`         | Optional React hooks.                                            |
 
 ## History
 
@@ -87,6 +88,40 @@ const commands = createEditorSnapshotHistoryCommands({
   getResetDocument: () => initialDocument,
   history,
   setHistory,
+});
+```
+
+## Runtime
+
+Use the runtime when an editor needs document state, undo/redo, selection, validation, derived
+aspects, revision metadata, and dirty tracking in one headless primitive. The runtime composes
+history, aspects, and validators, but it does not define a document model.
+
+```ts
+import {
+  commitEditorRuntime,
+  createEditorRuntime,
+  createEditorRuntimeCommands,
+} from "@moritzbrantner/editor-core/runtime";
+
+let runtime = createEditorRuntime({
+  initialDocument: { body: "", title: "Draft" },
+  validate(document) {
+    return document.title.trim() ? [] : [{ path: "title", message: "Title is required." }];
+  },
+});
+
+runtime = commitEditorRuntime(runtime, ({ document }) => ({
+  ...document,
+  title: "Release Notes",
+}));
+
+const commands = createEditorRuntimeCommands({
+  getResetDocument: () => ({ body: "", title: "Draft" }),
+  runtime,
+  setRuntime: (update) => {
+    runtime = update(runtime);
+  },
 });
 ```
 
@@ -228,12 +263,23 @@ const snapshot = resolveEditorAspects(document, [wordCount]);
 React APIs are opt-in through the `/react` subpath:
 
 ```tsx
-import { useEditorHotkeys, useEditorTreeState } from "@moritzbrantner/editor-core/react";
+import {
+  useEditorHotkeys,
+  useEditorRuntime,
+  useEditorTreeState,
+} from "@moritzbrantner/editor-core/react";
 
 function EditorTree() {
+  const runtime = useEditorRuntime({
+    initialDocument: { body: "", title: "Draft" },
+  });
   const tree = useEditorTreeState({ expandedIds: ["document"] });
   useEditorHotkeys({ commands });
-  return <button onClick={() => tree.toggle("document")}>Toggle</button>;
+  return (
+    <button onClick={() => runtime.commit({ body: "Updated", title: "Draft" })}>
+      {tree.state.selectedId ?? runtime.state.status}
+    </button>
+  );
 }
 ```
 
