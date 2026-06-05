@@ -10,6 +10,7 @@
       "@moritzbrantner/editor-core": ["./src/index.ts"],
       "@moritzbrantner/editor-core/aspects": ["./src/aspects.ts"],
       "@moritzbrantner/editor-core/browser": ["./src/browser.ts"],
+      "@moritzbrantner/editor-core/commands": ["./src/commands.ts"],
       "@moritzbrantner/editor-core/history": ["./src/history.ts"],
       "@moritzbrantner/editor-core/hotkeys": ["./src/hotkeys.ts"],
       "@moritzbrantner/editor-core/json": ["./src/json.ts"],

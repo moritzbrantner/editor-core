@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 const entrypoints = [
   ".",
   "./aspects",
+  "./commands",
   "./history",
   "./json",
   "./serialization",
@@ -22,6 +23,7 @@ for (const entrypoint of entrypoints) {
 
 const core = await import("@moritzbrantner/editor-core");
 assert.equal(typeof core.createEditorAspect, "function");
+assert.equal(typeof core.createEditorSnapshotHistoryCommands, "function");
 assert.equal(typeof core.createEditorSnapshotHistory, "function");
 assert.equal(typeof core.projectEditorTree, "function");
 assert.equal(typeof core.stableEditorJsonStringify, "function");

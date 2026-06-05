@@ -47,6 +47,10 @@
       "types": "./dist/browser.d.ts",
       "import": "./dist/browser.js"
     },
+    "./commands": {
+      "types": "./dist/commands.d.ts",
+      "import": "./dist/commands.js"
+    },
     "./share": {
       "types": "./dist/share.d.ts",
       "import": "./dist/share.js"
@@ -70,7 +74,7 @@
     "lint": "oxlint src scripts examples/react/src examples/react/vite.config.ts vitest.config.ts --format=github",
     "check-types": "tsc --noEmit",
     "test": "$(dirname $(command -v npm))/node node_modules/vitest/vitest.mjs run",
-    "build": "tsup src/index.ts src/aspects.ts src/history.ts src/json.ts src/serialization.ts src/hotkeys.ts src/browser.ts src/share.ts src/tree.ts src/react.tsx --format esm --dts --clean --out-dir dist",
+    "build": "tsup src/index.ts src/aspects.ts src/history.ts src/json.ts src/serialization.ts src/hotkeys.ts src/browser.ts src/commands.ts src/share.ts src/tree.ts src/react.tsx --format esm --dts --clean --out-dir dist",
     "example:dev": "vite --config examples/react/vite.config.ts --host 0.0.0.0",
     "example:check-types": "tsc -p examples/react/tsconfig.json --noEmit",
     "example:build": "vite build --config examples/react/vite.config.ts",

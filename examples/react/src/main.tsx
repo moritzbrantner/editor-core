@@ -4,17 +4,17 @@ import { createRoot } from "react-dom/client";
 import {
   commitEditorSnapshotHistory,
   createEditorSnapshotHistory,
+  createEditorSnapshotHistoryCommands,
   createStableEditorJsonEquals,
   decodeEditorSharePayload,
   editorShareTokenFromUrl,
   editorShareUrl,
   encodeEditorSharePayload,
   formatEditorShortcutLabel,
-  redoEditorSnapshotHistory,
   resetEditorSnapshotHistory,
-  undoEditorSnapshotHistory,
   type EditorCommandDefinition,
   type EditorHotkeyEvent,
+  type EditorSnapshotHistoryCommandId,
   type EditorSnapshotHistory,
 } from "@moritzbrantner/editor-core";
 import { useEditorHotkeys, useEditorTreeState } from "@moritzbrantner/editor-core/react";
@@ -35,7 +35,7 @@ type ExampleDocument = {
   updatedAt: string;
 };
 
-type CommandId = "undo" | "redo" | "template" | "reset" | "share";
+type CommandId = EditorSnapshotHistoryCommandId | "template" | "share";
 
 const templateDocument: ExampleDocument = {
   accent: "cobalt",
@@ -164,11 +164,6 @@ function App() {
     setNotice("Template loaded");
   }, [template, templateQuery]);
 
-  const resetDocument = React.useCallback(() => {
-    setHistory(resetEditorSnapshotHistory(template, historyOptions));
-    setNotice("Document reset");
-  }, [template]);
-
   const shareDocument = React.useCallback(async () => {
     const token = await encodeEditorSharePayload(document);
     const url = editorShareUrl(window.location.origin, window.location.pathname, token);
@@ -176,39 +171,36 @@ function App() {
     setNotice(navigator.clipboard ? "Share URL copied" : url);
   }, [document]);
 
+  const historyCommands = React.useMemo(
+    () =>
+      createEditorSnapshotHistoryCommands({
+        getResetDocument: () => template,
+        history,
+        historyOptions,
+        onRun({ id }) {
+          if (id === "undo") {
+            setNotice("Undid last edit");
+          }
+          if (id === "redo") {
+            setNotice("Redid edit");
+          }
+          if (id === "reset") {
+            setNotice("Document reset");
+          }
+        },
+        setHistory,
+      }),
+    [history, template],
+  );
+
   const commands = React.useMemo<readonly EditorCommandDefinition<CommandId>[]>(
     () => [
-      {
-        disabled: !history.canUndo,
-        hotkeys: ["Mod+Z"],
-        id: "undo",
-        label: "Undo",
-        run: () => {
-          setHistory(undoEditorSnapshotHistory);
-          setNotice("Undid last edit");
-        },
-      },
-      {
-        disabled: !history.canRedo,
-        hotkeys: ["Mod+Shift+Z"],
-        id: "redo",
-        label: "Redo",
-        run: () => {
-          setHistory(redoEditorSnapshotHistory);
-          setNotice("Redid edit");
-        },
-      },
+      ...historyCommands,
       {
         hotkeys: ["Mod+Enter"],
         id: "template",
         label: "Template",
         run: loadTemplate,
-      },
-      {
-        hotkeys: ["Mod+Backspace"],
-        id: "reset",
-        label: "Reset",
-        run: resetDocument,
       },
       {
         hotkeys: ["Mod+S"],
@@ -217,7 +209,7 @@ function App() {
         run: shareDocument,
       },
     ],
-    [history.canRedo, history.canUndo, loadTemplate, resetDocument, shareDocument],
+    [historyCommands, loadTemplate, shareDocument],
   );
 
   useEditorHotkeys({

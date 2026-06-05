@@ -1,5 +1,6 @@
 export * from "./aspects.js";
 export * from "./browser.js";
+export * from "./commands.js";
 export * from "./history.js";
 export * from "./hotkeys.js";
 export * from "./json.js";
