@@ -1,0 +1,74 @@
+import { describe, expect, test } from "vitest";
+import {
+  formatEditorShortcutLabel,
+  getEditorCommandIdFromKeyboardEvent,
+  getEditorHotkeyConflicts,
+  getEditorHotkeyFromKeyboardEvent,
+  isEditorEditableTarget,
+  matchesEditorHotkey,
+} from "./hotkeys.js";
+
+describe("hotkeys", () => {
+  test("matches modifiers and normalized keys", () => {
+    expect(matchesEditorHotkey(event({ key: "z", metaKey: true }), "Mod+Z")).toBe(true);
+    expect(
+      matchesEditorHotkey(event({ key: "Z", ctrlKey: true, shiftKey: true }), "Mod+Shift+Z"),
+    ).toBe(true);
+    expect(matchesEditorHotkey(event({ key: "Delete" }), "Delete")).toBe(true);
+    expect(matchesEditorHotkey(event({ key: "Backspace" }), "Backspace")).toBe(true);
+    expect(matchesEditorHotkey(event({ key: " " }), "Space")).toBe(true);
+    expect(matchesEditorHotkey(event({ key: "ArrowLeft" }), "ArrowLeft")).toBe(true);
+    expect(matchesEditorHotkey(event({ key: "Home", altKey: true }), "Alt+Home")).toBe(true);
+    expect(matchesEditorHotkey(event({ key: "End", shiftKey: true }), "Shift+End")).toBe(true);
+    expect(matchesEditorHotkey(event({ key: "z", altKey: true, metaKey: true }), "Mod+Z")).toBe(
+      false,
+    );
+  });
+
+  test("suppresses editable targets and resolves commands", () => {
+    const input = document.createElement("input");
+    expect(isEditorEditableTarget(input)).toBe(true);
+    expect(
+      getEditorCommandIdFromKeyboardEvent(event({ key: "a", metaKey: true, target: input }), [
+        { id: "select-all", label: "Select all", hotkeys: ["Mod+A"] },
+      ]),
+    ).toBeNull();
+
+    const editor = document.createElement("div");
+    expect(
+      getEditorCommandIdFromKeyboardEvent(event({ key: "a", metaKey: true, target: editor }), [
+        { id: "select-all", label: "Select all", hotkeys: ["Mod+A"] },
+      ]),
+    ).toBe("select-all");
+  });
+
+  test("captures labels and detects conflicts", () => {
+    expect(getEditorHotkeyFromKeyboardEvent(event({ key: "d", ctrlKey: true }))).toBe("Mod+D");
+    expect(formatEditorShortcutLabel("mod+shift+delete")).toBe("Mod+Shift+Delete");
+    expect(
+      getEditorHotkeyConflicts<"delete" | "duplicate" | "details">(
+        "duplicate",
+        "Mod+D",
+        {
+          delete: ["Delete"],
+          duplicate: ["Mod+D"],
+          details: ["ctrl+d"],
+        },
+        [{ id: "delete", label: "Delete" }],
+      ),
+    ).toEqual(["details"]);
+  });
+});
+
+function event(
+  partial: Partial<KeyboardEvent> & { key: string },
+): Pick<KeyboardEvent, "altKey" | "ctrlKey" | "key" | "metaKey" | "shiftKey" | "target"> {
+  return {
+    altKey: partial.altKey ?? false,
+    ctrlKey: partial.ctrlKey ?? false,
+    key: partial.key,
+    metaKey: partial.metaKey ?? false,
+    shiftKey: partial.shiftKey ?? false,
+    target: partial.target ?? document.createElement("div"),
+  };
+}

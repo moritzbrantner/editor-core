@@ -1,0 +1,23 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "ignoreDeprecations": "6.0",
+    "jsx": "react-jsx",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "paths": {
+      "@moritzbrantner/editor-core": ["./src/index.ts"],
+      "@moritzbrantner/editor-core/aspects": ["./src/aspects.ts"],
+      "@moritzbrantner/editor-core/browser": ["./src/browser.ts"],
+      "@moritzbrantner/editor-core/history": ["./src/history.ts"],
+      "@moritzbrantner/editor-core/hotkeys": ["./src/hotkeys.ts"],
+      "@moritzbrantner/editor-core/json": ["./src/json.ts"],
+      "@moritzbrantner/editor-core/react": ["./src/react.tsx"],
+      "@moritzbrantner/editor-core/serialization": ["./src/serialization.ts"],
+      "@moritzbrantner/editor-core/share": ["./src/share.ts"],
+      "@moritzbrantner/editor-core/tree": ["./src/tree.ts"]
+    }
+  },
+  "include": ["src/**/*.ts", "src/**/*.tsx", "vitest.config.ts"]
+}
