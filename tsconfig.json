@@ -20,5 +20,17 @@
       "@moritzbrantner/editor-core/tree": ["./src/tree.ts"]
     }
   },
-  "include": ["src/**/*.ts", "src/**/*.tsx", "vitest.config.ts"]
+  "include": [
+    ".storybook/**/*.ts",
+    "benchmarks/**/*.ts",
+    "playwright.config.ts",
+    "src/**/*.ts",
+    "src/**/*.tsx",
+    "stories/**/*.tsx",
+    "tests/**/*.ts",
+    "types/**/*.d.ts",
+    "unlighthouse.config.ts",
+    "vitest.storybook.config.ts",
+    "vitest.config.ts"
+  ]
 }

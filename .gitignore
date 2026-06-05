@@ -2,3 +2,10 @@ node_modules/
 dist/
 coverage/
 *.tgz
+playwright-report/
+test-results/
+storybook-static/
+.unlighthouse/
+unlighthouse-reports/
+benchmark-results/
+performance-results/

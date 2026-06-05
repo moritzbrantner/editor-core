@@ -43,3 +43,23 @@ bun run example:build
 
 The Pages workflow in `.github/workflows/pages.yml` publishes the built example from
 `examples/react/dist` on pushes to `main`.
+
+## Validation
+
+Run the full local gate:
+
+```sh
+bun run verify
+```
+
+Focused checks are available for unit tests, integration/package smoke tests, Playwright e2e,
+Storybook, Unlighthouse, and benchmarks:
+
+```sh
+bun run test:unit
+bun run test:integration
+bun run test:e2e
+bun run test:storybook
+bun run unlighthouse
+bun run bench
+```

@@ -1,0 +1,95 @@
+name: Validate
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  fast-validation:
+    uses: moritzbrantner/reusable-workflows/.github/workflows/fast-validation.yml@main
+    permissions:
+      contents: read
+      packages: read
+    secrets: inherit
+    with:
+      bun_version: "1.3.14"
+      install_command: "bun install --frozen-lockfile"
+      format_command: "bun run format:check"
+      lint_command: "bun run lint"
+      typecheck_command: "bun run check-types"
+      build_command: "bun run build"
+      unit_test_command: "bun run test:unit"
+
+  integration-validation:
+    uses: moritzbrantner/reusable-workflows/.github/workflows/integration-validation.yml@main
+    permissions:
+      contents: read
+      packages: read
+    secrets: inherit
+    with:
+      bun_version: "1.3.14"
+      install_command: "bun install --frozen-lockfile"
+      integration_command: "bun run test:integration"
+      package_check_command: "bun run pack:check"
+      artifact_paths: ""
+
+  e2e-validation:
+    uses: moritzbrantner/reusable-workflows/.github/workflows/e2e-validation.yml@main
+    permissions:
+      contents: read
+      packages: read
+    secrets: inherit
+    with:
+      bun_version: "1.3.14"
+      install_command: "bun install --frozen-lockfile"
+      build_command: "bun run example:build"
+      install_playwright: true
+      e2e_command: "bun run test:e2e:run"
+      artifact_paths: |
+        playwright-report
+        test-results
+
+  storybook-validation:
+    uses: moritzbrantner/reusable-workflows/.github/workflows/storybook-validation.yml@main
+    permissions:
+      contents: read
+      packages: read
+    secrets: inherit
+    with:
+      bun_version: "1.3.14"
+      install_command: "bun install --frozen-lockfile"
+      storybook_build_command: "bun run storybook:build"
+      storybook_test_command: "bun run test:storybook:ci"
+      install_playwright: true
+      artifact_paths: |
+        storybook-static
+        playwright-report
+        test-results
+
+  performance-validation:
+    uses: moritzbrantner/reusable-workflows/.github/workflows/performance-validation.yml@main
+    permissions:
+      contents: read
+      packages: read
+    secrets: inherit
+    with:
+      bun_version: "1.3.14"
+      install_command: "bun install --frozen-lockfile"
+      build_command: "bun run example:build"
+      unlighthouse_command: "bun run unlighthouse:ci"
+      benchmark_command: "bun run bench"
+      bundle_size_command: "bun run size:check"
+      artifact_paths: |
+        .unlighthouse
+        playwright-report
+        test-results
+        storybook-static
