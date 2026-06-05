@@ -58,6 +58,21 @@ describe("hotkeys", () => {
       ),
     ).toEqual(["details"]);
   });
+
+  test("handles explicit platform modifiers and malformed multi-key shortcuts deterministically", () => {
+    expect(
+      matchesEditorHotkey(event({ key: "k", ctrlKey: true, metaKey: true }), "Ctrl+Meta+K"),
+    ).toBe(true);
+    expect(matchesEditorHotkey(event({ key: "k", ctrlKey: true }), "Ctrl+Meta+K")).toBe(false);
+    expect(formatEditorShortcutLabel("A+B")).toBe("A+B");
+    expect(matchesEditorHotkey(event({ key: "b" }), "A+B")).toBe(true);
+    expect(
+      getEditorHotkeyConflicts<"ctrl" | "meta">("ctrl", "Ctrl+K", {
+        ctrl: ["Ctrl+K"],
+        meta: ["Meta+K"],
+      }),
+    ).toEqual(["meta"]);
+  });
 });
 
 function event(

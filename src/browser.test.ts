@@ -13,6 +13,7 @@ import {
 describe("browser helpers", () => {
   afterEach(() => {
     vi.restoreAllMocks();
+    vi.unstubAllGlobals();
     window.localStorage.clear();
   });
 
@@ -42,6 +43,15 @@ describe("browser helpers", () => {
 
     window.localStorage.setItem("editor", "{");
     await expect(loadEditorStorage(storage, { value: 0 })).resolves.toEqual({ value: 0 });
+  });
+
+  test("uses fallbacks when storage is unavailable", async () => {
+    vi.stubGlobal("window", undefined);
+
+    const storage = createLocalStorageEditorStorage<{ value: number }>({ key: "editor" });
+
+    await expect(loadEditorStorage(storage, { value: 0 })).resolves.toEqual({ value: 0 });
+    await expect(saveEditorStorage(storage, { value: 1 })).resolves.toBeUndefined();
   });
 
   test("writes and reads clipboard JSON with fallback", async () => {

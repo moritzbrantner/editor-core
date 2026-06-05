@@ -8,6 +8,12 @@ export type EditorSnapshotHistory<TDocument> = {
   canRedo: boolean;
 };
 
+/**
+ * Options for whole-document snapshot history.
+ *
+ * Use `normalize` to canonicalize documents before storage, `equals` to skip equivalent commits,
+ * and `limit` to bound the number of undo snapshots retained.
+ */
 export type EditorSnapshotHistoryOptions<TDocument> = {
   limit?: number;
   normalize?: (document: TDocument) => TDocument;
@@ -105,6 +111,12 @@ export type EditorTransaction<TDocument, TSelection = unknown> = {
   selectionAfter?: TSelection;
 };
 
+/**
+ * Undo/redo stacks for semantic editor transactions.
+ *
+ * Transaction history is useful when each operation has explicit before/after document state,
+ * optional selection restoration, and an id or label that can be exposed in UI.
+ */
 export type EditorTransactionHistory<TDocument, TSelection = unknown> = {
   undoStack: Array<EditorTransaction<TDocument, TSelection>>;
   redoStack: Array<EditorTransaction<TDocument, TSelection>>;

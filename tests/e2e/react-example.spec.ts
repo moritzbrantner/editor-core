@@ -18,6 +18,27 @@ test("edits the React example document and updates editor state", async ({ page 
   await page.getByRole("button", { name: /Moss/u }).click();
   await expect(page.getByRole("button", { name: /Moss/u })).toHaveAttribute("aria-pressed", "true");
 
+  await page.getByRole("button", { name: /Save Local/u }).click();
+  await expect(page.getByRole("status")).toContainText("Saved locally");
+
   await page.getByRole("button", { name: /Undo/u }).click();
   await expect(page.getByRole("status")).toContainText("Undid last edit");
+
+  await page.getByLabel("Import document JSON file").setInputFiles({
+    buffer: Buffer.from(
+      JSON.stringify({
+        document: {
+          accent: "coral",
+          body: "Imported body text.",
+          title: "Imported Draft",
+        },
+        format: "@moritzbrantner/editor-core/example-document",
+        schemaVersion: 1,
+      }),
+    ),
+    mimeType: "application/json",
+    name: "document.json",
+  });
+  await expect(title).toHaveValue("Imported Draft");
+  await expect(page.getByRole("status")).toContainText("JSON imported");
 });

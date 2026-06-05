@@ -13,6 +13,12 @@ export type EditorTreeNode<TMetadata = unknown> = {
   selectable?: boolean;
 };
 
+/**
+ * Projects an editor-owned document model into a stable tree model for navigation UIs.
+ *
+ * Adapters should return stable node ids so selection and expansion state can survive document
+ * edits, reordering, and collaboration sync.
+ */
 export type EditorTreeAdapter<TDocument, TMetadata = unknown> = {
   getRoot: (document: TDocument) => EditorTreeNode<TMetadata>;
 };

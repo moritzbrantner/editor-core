@@ -1,4 +1,4 @@
-import { describe, expect, test } from "vitest";
+import { afterEach, describe, expect, test, vi } from "vitest";
 import {
   decodeEditorSharePayload,
   editorShareTokenFromUrl,
@@ -7,10 +7,17 @@ import {
 } from "./share.js";
 
 describe("share", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
   test("creates and reads share URLs", () => {
     const url = editorShareUrl("https://example.com", "/editor", "plain.token", "state");
     expect(url).toBe("https://example.com/editor?state=plain.token");
     expect(editorShareTokenFromUrl(url, "state")).toBe("plain.token");
+    expect(editorShareUrl("https://example.com", "/editor?state=old", "plain.new", "state")).toBe(
+      "https://example.com/editor?state=plain.new",
+    );
     expect(editorShareTokenFromUrl("://bad")).toBeNull();
   });
 
@@ -38,5 +45,19 @@ describe("share", () => {
     await expect(decodeEditorSharePayload("bad")).rejects.toThrow("invalid");
     await expect(decodeEditorSharePayload("unknown.token")).rejects.toThrow("unknown encoding");
     await expect(decodeEditorSharePayload("plain.not-json")).rejects.toThrow("invalid");
+  });
+
+  test("rejects gzip tokens when decompression is unavailable", async () => {
+    if (typeof CompressionStream === "undefined") {
+      return;
+    }
+
+    const token = await encodeEditorSharePayload({ value: "x".repeat(5_000) });
+    if (!token.startsWith("gzip.")) {
+      return;
+    }
+
+    vi.stubGlobal("DecompressionStream", undefined);
+    await expect(decodeEditorSharePayload(token)).rejects.toThrow("cannot open compressed");
   });
 });

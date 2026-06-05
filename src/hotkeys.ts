@@ -5,6 +5,12 @@ export type EditorHotkeyEvent = Pick<
 
 export type EditorHotkeyMap<TId extends string> = Record<TId, readonly string[]>;
 
+/**
+ * A command that can be rendered in UI and optionally invoked from one or more hotkeys.
+ *
+ * Command ids should be stable because other APIs use them for hotkey maps, conflict detection,
+ * and persisted user preferences.
+ */
 export type EditorCommandDefinition<TId extends string> = {
   id: TId;
   label: string;

@@ -22,6 +22,13 @@ export class EditorMigrationError extends Error {
   }
 }
 
+/**
+ * Defines how a host editor document is normalized, read from unknown input, validated, and
+ * identified inside a serialized envelope.
+ *
+ * `format` should be globally specific to the document type. `schemaVersion` is compared against
+ * incoming envelopes before migrations run.
+ */
 export type EditorDocumentAdapter<TDocument> = {
   format: string;
   schemaVersion: number | string;
@@ -128,6 +135,7 @@ export function migrateEditorDocument<TDocument>(
   input: unknown,
   adapter: EditorDocumentAdapter<TDocument>,
   migrations: EditorDocumentMigrations<TDocument> = {},
+  seenVersions: ReadonlySet<string> = new Set(),
 ): unknown {
   if (!isEditorRecord(input)) {
     return input;
@@ -147,6 +155,12 @@ export function migrateEditorDocument<TDocument>(
   }
 
   const versionKey = String(input.schemaVersion);
+  if (seenVersions.has(versionKey)) {
+    throw new EditorMigrationError(
+      `Migration cycle detected for ${adapter.format} schema version ${versionKey}.`,
+    );
+  }
+
   const migration = migrations[versionKey];
   if (!migration) {
     throw new EditorMigrationError(
@@ -155,7 +169,12 @@ export function migrateEditorDocument<TDocument>(
   }
 
   const migrated = migration(input as SerializedEditorDocument<unknown>, adapter);
-  return migrateEditorDocument(migrated, adapter, migrations);
+  return migrateEditorDocument(
+    migrated,
+    adapter,
+    migrations,
+    new Set([...seenVersions, versionKey]),
+  );
 }
 
 function unwrapDocumentInput<TDocument>(

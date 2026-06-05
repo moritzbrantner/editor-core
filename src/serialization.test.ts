@@ -84,4 +84,62 @@ describe("serialization", () => {
       ),
     ).toEqual({ nodes: ["migrated"] });
   });
+
+  test("applies migration chains", () => {
+    expect(
+      readEditorDocument(
+        { format: adapter.format, schemaVersion: 0, document: { items: ["chain"] } },
+        adapter,
+        {
+          migrations: {
+            0: (input) => ({
+              ...input,
+              schemaVersion: 1,
+              document: { values: (input.document as { items: string[] }).items },
+            }),
+            1: (input) => ({
+              ...input,
+              schemaVersion: 2,
+              document: { nodes: (input.document as { values: string[] }).values },
+            }),
+          },
+        },
+      ),
+    ).toEqual({ nodes: ["chain"] });
+  });
+
+  test("rejects migration cycles", () => {
+    expect(() =>
+      readEditorDocument(
+        { format: adapter.format, schemaVersion: 1, document: { values: ["loop"] } },
+        adapter,
+        {
+          migrations: {
+            1: (input) => input,
+          },
+        },
+      ),
+    ).toThrow("Migration cycle detected");
+  });
+
+  test("unwraps legacy envelopes before serialized migration handling", () => {
+    expect(
+      readEditorDocument(
+        {
+          document: { nodes: ["legacy-first"] },
+          format: adapter.format,
+          legacy: true,
+          schemaVersion: 1,
+        },
+        adapter,
+        {
+          migrations: {
+            1: () => {
+              throw new Error("Migration should not run for legacy envelopes");
+            },
+          },
+        },
+      ),
+    ).toEqual({ nodes: ["legacy-first"] });
+  });
 });

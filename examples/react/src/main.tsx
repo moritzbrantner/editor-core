@@ -3,16 +3,25 @@ import { QueryClient, QueryClientProvider, useQuery } from "@tanstack/react-quer
 import { createRoot } from "react-dom/client";
 import {
   commitEditorSnapshotHistory,
+  createLocalStorageEditorStorage,
   createEditorSnapshotHistory,
   createEditorSnapshotHistoryCommands,
   createStableEditorJsonEquals,
   decodeEditorSharePayload,
+  downloadEditorJson,
   editorShareTokenFromUrl,
   editorShareUrl,
   encodeEditorSharePayload,
   formatEditorShortcutLabel,
+  readEditorDocument,
+  readEditorJsonFile,
   resetEditorSnapshotHistory,
+  saveEditorStorage,
+  loadEditorStorage,
+  serializeEditorDocument,
   type EditorCommandDefinition,
+  type EditorDocumentAdapter,
+  type EditorDocumentMigrations,
   type EditorHotkeyEvent,
   type EditorSnapshotHistoryCommandId,
   type EditorSnapshotHistory,
@@ -35,7 +44,13 @@ type ExampleDocument = {
   updatedAt: string;
 };
 
-type CommandId = EditorSnapshotHistoryCommandId | "template" | "share";
+type CommandId =
+  | EditorSnapshotHistoryCommandId
+  | "download"
+  | "import"
+  | "save"
+  | "share"
+  | "template";
 
 const templateDocument: ExampleDocument = {
   accent: "cobalt",
@@ -108,6 +123,60 @@ const exampleDocumentTreeAdapter: EditorTreeAdapter<ExampleDocument> = {
   },
 };
 
+const exampleDocumentAdapter: EditorDocumentAdapter<ExampleDocument> = {
+  format: "@moritzbrantner/editor-core/example-document",
+  schemaVersion: 2,
+  normalize(document) {
+    return {
+      accent: document.accent,
+      body: document.body,
+      title: document.title,
+      updatedAt: document.updatedAt,
+    };
+  },
+  read(input, path = "") {
+    if (!isRecord(input)) {
+      throw new Error(`${path || "document"} must be an object`);
+    }
+
+    const accent = isAccent(input.accent) ? input.accent : "cobalt";
+    return {
+      accent,
+      body: typeof input.body === "string" ? input.body : "",
+      title: typeof input.title === "string" ? input.title : "Untitled Draft",
+      updatedAt: typeof input.updatedAt === "string" ? input.updatedAt : new Date().toISOString(),
+    };
+  },
+  validate(document) {
+    return document.title.trim().length === 0
+      ? [{ path: "title", message: "Title is required." }]
+      : [];
+  },
+};
+
+const exampleDocumentMigrations: EditorDocumentMigrations<ExampleDocument> = {
+  1: (input) => ({
+    ...input,
+    schemaVersion: 2,
+    document: {
+      ...(isRecord(input.document) ? input.document : {}),
+      updatedAt: new Date().toISOString(),
+    },
+  }),
+};
+
+const exampleStorage = createLocalStorageEditorStorage<ExampleDocument>({
+  key: "@moritzbrantner/editor-core/react-example",
+  parse(input) {
+    return readEditorDocument(input, exampleDocumentAdapter, {
+      migrations: exampleDocumentMigrations,
+    });
+  },
+  serialize(document) {
+    return serializeEditorDocument(document, exampleDocumentAdapter);
+  },
+});
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -122,6 +191,7 @@ const historyOptions = { equals: equalsDocument, limit: 30 };
 
 function App() {
   const workspaceRef = React.useRef<HTMLDivElement>(null);
+  const importFileInputRef = React.useRef<HTMLInputElement>(null);
   const tree = useEditorTreeState({ expandedIds: ["document"] });
   const templateQuery = useQuery({
     queryFn: loadTemplateDocument,
@@ -171,6 +241,34 @@ function App() {
     setNotice(navigator.clipboard ? "Share URL copied" : url);
   }, [document]);
 
+  const saveDocument = React.useCallback(async () => {
+    await saveEditorStorage(exampleStorage, document);
+    setNotice("Saved locally");
+  }, [document]);
+
+  const downloadDocument = React.useCallback(() => {
+    downloadEditorJson(serializeEditorDocument(document, exampleDocumentAdapter), {
+      filename: document.title || "editor-document",
+    });
+    setNotice("JSON downloaded");
+  }, [document]);
+
+  const importDocumentFile = React.useCallback(async (file: File) => {
+    try {
+      const imported = await readEditorJsonFile(file, {
+        parse(input) {
+          return readEditorDocument(input, exampleDocumentAdapter, {
+            migrations: exampleDocumentMigrations,
+          });
+        },
+      });
+      setHistory(resetEditorSnapshotHistory(imported, historyOptions));
+      setNotice("JSON imported");
+    } catch {
+      setNotice("JSON import failed");
+    }
+  }, []);
+
   const historyCommands = React.useMemo(
     () =>
       createEditorSnapshotHistoryCommands({
@@ -203,13 +301,31 @@ function App() {
         run: loadTemplate,
       },
       {
+        hotkeys: ["Mod+Alt+S"],
+        id: "save",
+        label: "Save Local",
+        run: saveDocument,
+      },
+      {
+        hotkeys: ["Mod+O"],
+        id: "import",
+        label: "Import JSON",
+        run: () => importFileInputRef.current?.click(),
+      },
+      {
+        hotkeys: ["Mod+Shift+S"],
+        id: "download",
+        label: "Download JSON",
+        run: downloadDocument,
+      },
+      {
         hotkeys: ["Mod+S"],
         id: "share",
         label: "Share",
         run: shareDocument,
       },
     ],
-    [historyCommands, loadTemplate, shareDocument],
+    [downloadDocument, historyCommands, loadTemplate, saveDocument, shareDocument],
   );
 
   useEditorHotkeys({
@@ -238,6 +354,25 @@ function App() {
           setNotice("Share URL could not be opened");
         }
       });
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  React.useEffect(() => {
+    if (editorShareTokenFromUrl(window.location.href)) {
+      return;
+    }
+
+    let mounted = true;
+    void loadEditorStorage(exampleStorage, fallbackDocument).then((storedDocument) => {
+      if (!mounted || equalsDocument(storedDocument, fallbackDocument)) {
+        return;
+      }
+      setHistory(resetEditorSnapshotHistory(storedDocument, historyOptions));
+      setNotice("Loaded local draft");
+    });
 
     return () => {
       mounted = false;
@@ -290,6 +425,20 @@ function App() {
           className="flex flex-col gap-4 rounded-lg border border-[#d8d1c6] bg-[#fffdf8] p-4 shadow-[0_24px_60px_rgba(47,36,24,0.1)]"
         >
           <div aria-label="Commands" className="grid gap-2.5">
+            <input
+              accept="application/json,.json"
+              aria-label="Import document JSON file"
+              className="hidden"
+              onChange={(event) => {
+                const file = event.target.files?.[0];
+                event.target.value = "";
+                if (file) {
+                  void importDocumentFile(file);
+                }
+              }}
+              ref={importFileInputRef}
+              type="file"
+            />
             {commands.map((command) => (
               <button
                 className={`flex min-h-11 cursor-pointer items-center justify-between gap-3 rounded-lg border border-[#d8d1c6] bg-white px-3 py-2.5 text-slate-800 disabled:cursor-not-allowed disabled:text-slate-400 ${tone.soft}`}
@@ -333,6 +482,11 @@ function App() {
               label="Template"
               tone={tone.accent}
               value={templateQuery.isSuccess ? "Cached" : "Loading"}
+            />
+            <Metric
+              label="Version"
+              tone={tone.accent}
+              value={exampleDocumentAdapter.schemaVersion}
             />
           </dl>
 
@@ -440,6 +594,14 @@ function describeTreeNode(node: EditorTreeNode) {
   const kind = node.kind ?? "node";
   const path = node.path?.join(".") ?? node.id;
   return `${kind} / ${path} / ${node.id}`;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function isAccent(value: unknown): value is Accent {
+  return typeof value === "string" && value in accentLabels;
 }
 
 async function loadTemplateDocument(): Promise<ExampleDocument> {

@@ -13,6 +13,12 @@ export type EditorAspectContext<TDocument> = {
   revision: number;
 };
 
+/**
+ * A derived value that can be recomputed from a document revision.
+ *
+ * Aspects are useful for cached editor metadata such as validation summaries, word counts, or
+ * indexing state that should report whether it changed since the previous snapshot.
+ */
 export type EditorAspectDefinition<TDocument, TValue> = {
   id: string;
   label?: string;
