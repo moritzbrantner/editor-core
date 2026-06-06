@@ -27,6 +27,44 @@ export type EditorPersistenceErrorContext = {
 
 export type EditorPersistenceClock = () => string;
 
+export type EditorPersistenceEvent<_TDocument = unknown> =
+  | {
+      type: "load-start";
+      revision: number;
+    }
+  | {
+      type: "load-success";
+      revision: number;
+      loadedAt: string;
+    }
+  | {
+      type: "load-error";
+      error: unknown;
+    }
+  | {
+      type: "save-start";
+      revision: number;
+    }
+  | {
+      type: "save-success";
+      revision: number;
+      savedAt: string;
+    }
+  | {
+      type: "save-error";
+      revision: number;
+      error: unknown;
+    }
+  | {
+      type: "save-skipped";
+      revision: number;
+      reason: "clean" | "blocked" | "in-flight";
+    };
+
+export type EditorPersistenceEventHandler<TDocument = unknown> = (
+  event: EditorPersistenceEvent<TDocument>,
+) => void;
+
 export type CreateEditorPersistenceStateOptions = {
   now?: EditorPersistenceClock;
 };
@@ -36,6 +74,7 @@ export type LoadEditorRuntimePersistenceOptions<TDocument, TSelection = unknown>
   selection?: EditorRuntimeSelection<TSelection>;
   now?: EditorPersistenceClock;
   onError?: (error: unknown, context: EditorPersistenceErrorContext) => void;
+  onEvent?: EditorPersistenceEventHandler<TDocument>;
 };
 
 export type LoadEditorRuntimePersistenceResult<TDocument, TSelection = unknown> = {
@@ -47,6 +86,7 @@ export type SaveEditorRuntimePersistenceOptions = {
   force?: boolean;
   now?: EditorPersistenceClock;
   onError?: (error: unknown, context: EditorPersistenceErrorContext) => void;
+  onEvent?: EditorPersistenceEventHandler;
 };
 
 export type SaveEditorRuntimePersistenceResult<TDocument, TSelection = unknown> = {
@@ -80,6 +120,7 @@ export async function loadEditorRuntimePersistence<TDocument, TSelection = unkno
   options: LoadEditorRuntimePersistenceOptions<TDocument, TSelection> = {},
 ): Promise<LoadEditorRuntimePersistenceResult<TDocument, TSelection>> {
   const now = options.now ?? defaultEditorPersistenceClock;
+  options.onEvent?.({ revision: runtime.revision, type: "load-start" });
 
   try {
     const storedDocument = await storage.load();
@@ -89,6 +130,11 @@ export async function loadEditorRuntimePersistence<TDocument, TSelection = unkno
       selection: options.selection,
     });
     const timestamp = now();
+    options.onEvent?.({
+      loadedAt: timestamp,
+      revision: loadedRuntime.revision,
+      type: "load-success",
+    });
 
     return {
       persistence: {
@@ -104,6 +150,7 @@ export async function loadEditorRuntimePersistence<TDocument, TSelection = unkno
     };
   } catch (error) {
     options.onError?.(error, { operation: "load" });
+    options.onEvent?.({ error, type: "load-error" });
 
     const document = options.fallback ?? runtime.document;
     const fallbackRuntime = resetEditorRuntime(runtime, document, {
@@ -135,6 +182,11 @@ export async function saveEditorRuntimePersistence<TDocument, TSelection = unkno
   const now = options.now ?? defaultEditorPersistenceClock;
 
   if (runtime.status === "clean" && !options.force) {
+    options.onEvent?.({
+      reason: "clean",
+      revision,
+      type: "save-skipped",
+    });
     return {
       persistence: {
         error: null,
@@ -151,16 +203,20 @@ export async function saveEditorRuntimePersistence<TDocument, TSelection = unkno
     };
   }
 
+  options.onEvent?.({ revision, type: "save-start" });
+
   try {
     await storage.save(runtime.document);
     const savedRuntime = markEditorRuntimeSaved(runtime);
+    const timestamp = now();
+    options.onEvent?.({ revision, savedAt: timestamp, type: "save-success" });
 
     return {
       persistence: {
         error: null,
         loadedAt: null,
         operation: "save",
-        savedAt: now(),
+        savedAt: timestamp,
         savedRevision: revision,
         savingRevision: null,
         status: "saved",
@@ -171,6 +227,7 @@ export async function saveEditorRuntimePersistence<TDocument, TSelection = unkno
     };
   } catch (error) {
     options.onError?.(error, { operation: "save", revision });
+    options.onEvent?.({ error, revision, type: "save-error" });
 
     return {
       persistence: {

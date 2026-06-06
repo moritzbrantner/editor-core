@@ -16,6 +16,9 @@ const config: StorybookConfig = {
   stories: ["../stories/**/*.stories.@(ts|tsx)"],
   viteFinal(baseConfig) {
     return mergeConfig(baseConfig, {
+      build: {
+        chunkSizeWarningLimit: 1600,
+      },
       plugins: [tailwindcss()],
       resolve: {
         alias: [

@@ -52,6 +52,7 @@ bun add react @moritzbrantner/editor-core
 | `@moritzbrantner/editor-core/json`          | Stable JSON sorting, stringifying, and equality helpers.         |
 | `@moritzbrantner/editor-core/browser`       | Browser file, clipboard, download, and storage helpers.          |
 | `@moritzbrantner/editor-core/share`         | URL-safe share token encode/decode helpers.                      |
+| `@moritzbrantner/editor-core/testing`       | Test-runner-agnostic adapter contract checks.                    |
 | `@moritzbrantner/editor-core/aspects`       | Derived document aspect snapshots.                               |
 | `@moritzbrantner/editor-core/react`         | Optional React hooks.                                            |
 
@@ -110,7 +111,10 @@ const commands = createEditorSnapshotHistoryCommands({
 Contextual commands can derive disabled and checked state from editor state:
 
 ```ts
-import { resolveEditorCommands } from "@moritzbrantner/editor-core/commands";
+import {
+  getEditorCommandDiagnostics,
+  resolveEditorCommands,
+} from "@moritzbrantner/editor-core/commands";
 
 const commands = resolveEditorCommands(
   [
@@ -124,6 +128,8 @@ const commands = resolveEditorCommands(
   ],
   { document, selection },
 );
+
+const diagnostics = getEditorCommandDiagnostics(commands);
 ```
 
 ## Runtime
@@ -316,6 +322,37 @@ const imported = readEditorDocument(exported, adapter, {
 });
 ```
 
+Document adapters should normalize to the same shape they read. Use migrations for serialized
+envelopes whose `schemaVersion` is older than the adapter's current version.
+
+## Testing
+
+Use adapter contract helpers in any test runner:
+
+```ts
+import { assertEditorDocumentAdapter } from "@moritzbrantner/editor-core/testing";
+
+assertEditorDocumentAdapter(adapter, [
+  {
+    expected: { body: "", title: "Draft" },
+    id: "current-document",
+    input: {
+      document: { title: "Draft" },
+      format: adapter.format,
+      schemaVersion: adapter.schemaVersion,
+    },
+    roundtrip: true,
+  },
+  {
+    id: "title-required",
+    input: { title: "" },
+    expectIssues: [{ path: "title", message: "Title is required." }],
+  },
+]);
+```
+
+The helpers also support operation-log adapters through `assertEditorOperationLogAdapter`.
+
 ## JSON
 
 Create stable fingerprints for documents whose object key order should not matter:
@@ -362,10 +399,11 @@ import {
   saveEditorRuntimePersistence,
 } from "@moritzbrantner/editor-core/persistence";
 
-const loaded = await loadEditorRuntimePersistence(runtime, storage);
+const onEvent = (event) => console.debug("[editor:persistence]", event);
+const loaded = await loadEditorRuntimePersistence(runtime, storage, { onEvent });
 runtime = loaded.runtime;
 
-const saved = await saveEditorRuntimePersistence(runtime, storage);
+const saved = await saveEditorRuntimePersistence(runtime, storage, { onEvent });
 runtime = saved.runtime;
 ```
 
@@ -432,6 +470,25 @@ function EditorTree() {
 }
 ```
 
+Persistent React runtimes can retry autosave failures and save the latest dirty revision after an
+older save finishes:
+
+```tsx
+const runtime = usePersistentEditorRuntime({
+  autosave: {
+    delayMs: 750,
+    retry: { attempts: 1, delayMs: 1500 },
+    saveLatest: true,
+  },
+  initialDocument,
+  onPersistenceEvent: (event) => console.debug(event),
+  storage,
+});
+```
+
+Use snapshot history for small immutable documents. Use operation runtime when edits need semantic
+labels, merge keys for drag-like interactions, or selection restoration on undo/redo.
+
 ## React Example
 
 Run the GitHub Pages example locally:
@@ -472,4 +529,5 @@ bun run bench
 
 ## Releases
 
-See `CONTRIBUTING.md` for the release checklist and `CHANGELOG.md` for version history.
+See `docs/release.md` for the full release checklist, `CONTRIBUTING.md` for contributor guidance,
+and `CHANGELOG.md` for version history.

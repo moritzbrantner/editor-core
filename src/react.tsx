@@ -12,6 +12,7 @@ import {
   loadEditorRuntimePersistence,
   saveEditorRuntimePersistence,
   type EditorPersistenceErrorContext,
+  type EditorPersistenceEventHandler,
   type EditorPersistenceState,
 } from "./persistence.js";
 import {
@@ -161,10 +162,11 @@ export type UsePersistentEditorRuntimeOptions<
   TSelection = unknown,
 > = UseEditorRuntimeOptions<TDocument, TSelection> & {
   storage: EditorStorageAdapter<TDocument>;
-  autosave?: boolean | { delayMs?: number };
+  autosave?: boolean | EditorAutosaveOptions;
   loadOnMount?: boolean;
   canSave?: (runtime: EditorRuntimeState<TDocument, TSelection>) => boolean;
   onPersistenceError?: (error: unknown, context: EditorPersistenceErrorContext) => void;
+  onPersistenceEvent?: EditorPersistenceEventHandler<TDocument>;
 };
 
 export type UsePersistentEditorRuntimeResult<
@@ -177,6 +179,18 @@ export type UsePersistentEditorRuntimeResult<
 };
 
 const defaultEditorRuntimeAutosaveDelayMs = 750;
+const defaultEditorRuntimeAutosaveRetryDelayMs = 1500;
+
+export type EditorAutosaveRetryOptions = {
+  attempts?: number;
+  delayMs?: number;
+};
+
+export type EditorAutosaveOptions = {
+  delayMs?: number;
+  retry?: EditorAutosaveRetryOptions;
+  saveLatest?: boolean;
+};
 
 export function usePersistentEditorRuntime<TDocument, TSelection = unknown>(
   options: UsePersistentEditorRuntimeOptions<TDocument, TSelection>,
@@ -188,19 +202,29 @@ export function usePersistentEditorRuntime<TDocument, TSelection = unknown>(
   const storageRef = React.useRef(options.storage);
   const canSaveRef = React.useRef(options.canSave);
   const onPersistenceErrorRef = React.useRef(options.onPersistenceError);
+  const onPersistenceEventRef = React.useRef(options.onPersistenceEvent);
   const saveInFlightRef = React.useRef(false);
   const failedSaveRevisionRef = React.useRef<number | null>(null);
+  const pendingSaveAfterInFlightRef = React.useRef(false);
+  const skippedLatestSaveRevisionRef = React.useRef<number | null>(null);
+  const retryTimeoutRef = React.useRef<number | null>(null);
   const mountedRef = React.useRef(true);
+  const [saveSignal, setSaveSignal] = React.useState(0);
 
   runtimeRef.current = runtime.state;
   storageRef.current = options.storage;
   canSaveRef.current = options.canSave;
   onPersistenceErrorRef.current = options.onPersistenceError;
+  onPersistenceEventRef.current = options.onPersistenceEvent;
 
   React.useEffect(() => {
     mountedRef.current = true;
     return () => {
       mountedRef.current = false;
+      if (retryTimeoutRef.current !== null) {
+        window.clearTimeout(retryTimeoutRef.current);
+        retryTimeoutRef.current = null;
+      }
     };
   }, []);
 
@@ -215,6 +239,7 @@ export function usePersistentEditorRuntime<TDocument, TSelection = unknown>(
 
     const result = await loadEditorRuntimePersistence(runtimeRef.current, storageRef.current, {
       onError: onPersistenceErrorRef.current,
+      onEvent: onPersistenceEventRef.current,
     });
 
     if (!mountedRef.current) {
@@ -225,12 +250,30 @@ export function usePersistentEditorRuntime<TDocument, TSelection = unknown>(
     setPersistence(result.persistence);
   }, [setRuntimeState]);
 
+  const autosaveOptions = normalizeEditorAutosaveOptions(options.autosave);
   const save = React.useCallback(
     async (saveOptions: { force?: boolean } = {}) => {
       const snapshot = runtimeRef.current;
       const canSave = canSaveRef.current ?? (() => true);
+      if (skippedLatestSaveRevisionRef.current === snapshot.revision) {
+        skippedLatestSaveRevisionRef.current = null;
+      }
 
-      if (saveInFlightRef.current || !canSave(snapshot)) {
+      if (saveInFlightRef.current) {
+        onPersistenceEventRef.current?.({
+          reason: "in-flight",
+          revision: snapshot.revision,
+          type: "save-skipped",
+        });
+        return false;
+      }
+
+      if (!canSave(snapshot)) {
+        onPersistenceEventRef.current?.({
+          reason: "blocked",
+          revision: snapshot.revision,
+          type: "save-skipped",
+        });
         return false;
       }
 
@@ -238,6 +281,7 @@ export function usePersistentEditorRuntime<TDocument, TSelection = unknown>(
         const result = await saveEditorRuntimePersistence(snapshot, storageRef.current, {
           force: saveOptions.force,
           onError: onPersistenceErrorRef.current,
+          onEvent: onPersistenceEventRef.current,
         });
 
         if (mountedRef.current) {
@@ -259,6 +303,7 @@ export function usePersistentEditorRuntime<TDocument, TSelection = unknown>(
       const result = await saveEditorRuntimePersistence(snapshot, storageRef.current, {
         force: saveOptions.force,
         onError: onPersistenceErrorRef.current,
+        onEvent: onPersistenceEventRef.current,
       });
 
       saveInFlightRef.current = false;
@@ -272,10 +317,44 @@ export function usePersistentEditorRuntime<TDocument, TSelection = unknown>(
         current.revision === result.revision ? result.runtime : current,
       );
       setPersistence(result.persistence);
+      if (
+        pendingSaveAfterInFlightRef.current &&
+        autosaveOptions.enabled &&
+        autosaveOptions.saveLatest
+      ) {
+        pendingSaveAfterInFlightRef.current = false;
+        setSaveSignal((signal) => signal + 1);
+      }
       return result.saved;
     },
-    [setRuntimeState],
+    [autosaveOptions.enabled, autosaveOptions.saveLatest, setRuntimeState],
   );
+
+  const saveWithAutosaveRetry = React.useCallback(async () => {
+    const revision = runtimeRef.current.revision;
+    let attemptsUsed = 0;
+
+    while (true) {
+      const saved = await save();
+      if (
+        saved ||
+        !mountedRef.current ||
+        runtimeRef.current.revision !== revision ||
+        failedSaveRevisionRef.current !== revision ||
+        attemptsUsed >= autosaveOptions.retryAttempts
+      ) {
+        return;
+      }
+
+      attemptsUsed += 1;
+      await new Promise<void>((resolve) => {
+        retryTimeoutRef.current = window.setTimeout(() => {
+          retryTimeoutRef.current = null;
+          resolve();
+        }, autosaveOptions.retryDelayMs);
+      });
+    }
+  }, [autosaveOptions.retryAttempts, autosaveOptions.retryDelayMs, save]);
 
   const loadOnMount = options.loadOnMount ?? true;
 
@@ -287,15 +366,27 @@ export function usePersistentEditorRuntime<TDocument, TSelection = unknown>(
     void load();
   }, [load, loadOnMount]);
 
-  const autosave = options.autosave ?? true;
-  const autosaveEnabled = autosave !== false;
-  const autosaveDelayMs =
-    typeof autosave === "object"
-      ? (autosave.delayMs ?? defaultEditorRuntimeAutosaveDelayMs)
-      : defaultEditorRuntimeAutosaveDelayMs;
-
   React.useEffect(() => {
-    if (!autosaveEnabled || runtime.state.status !== "dirty" || saveInFlightRef.current) {
+    if (!autosaveOptions.enabled || runtime.state.status !== "dirty") {
+      return;
+    }
+
+    if (saveInFlightRef.current) {
+      if (autosaveOptions.saveLatest && !pendingSaveAfterInFlightRef.current) {
+        pendingSaveAfterInFlightRef.current = true;
+        onPersistenceEventRef.current?.({
+          reason: "in-flight",
+          revision: runtime.state.revision,
+          type: "save-skipped",
+        });
+      }
+      if (!autosaveOptions.saveLatest) {
+        skippedLatestSaveRevisionRef.current = runtime.state.revision;
+      }
+      return;
+    }
+
+    if (skippedLatestSaveRevisionRef.current === runtime.state.revision) {
       return;
     }
 
@@ -307,17 +398,22 @@ export function usePersistentEditorRuntime<TDocument, TSelection = unknown>(
     }
 
     const timeout = window.setTimeout(() => {
-      void save();
-    }, autosaveDelayMs);
+      void saveWithAutosaveRetry();
+    }, autosaveOptions.delayMs);
 
     return () => window.clearTimeout(timeout);
   }, [
-    autosaveDelayMs,
-    autosaveEnabled,
+    autosaveOptions.delayMs,
+    autosaveOptions.enabled,
+    autosaveOptions.retryAttempts,
+    autosaveOptions.retryDelayMs,
+    autosaveOptions.saveLatest,
     persistence.status,
     runtime.state.revision,
     runtime.state.status,
     save,
+    saveWithAutosaveRetry,
+    saveSignal,
   ]);
 
   return {
@@ -325,6 +421,42 @@ export function usePersistentEditorRuntime<TDocument, TSelection = unknown>(
     load,
     persistence,
     save,
+  };
+}
+
+function normalizeEditorAutosaveOptions(autosave: boolean | EditorAutosaveOptions | undefined): {
+  delayMs: number;
+  enabled: boolean;
+  retryAttempts: number;
+  retryDelayMs: number;
+  saveLatest: boolean;
+} {
+  if (autosave === false) {
+    return {
+      delayMs: defaultEditorRuntimeAutosaveDelayMs,
+      enabled: false,
+      retryAttempts: 0,
+      retryDelayMs: defaultEditorRuntimeAutosaveRetryDelayMs,
+      saveLatest: true,
+    };
+  }
+
+  if (autosave === true || autosave === undefined) {
+    return {
+      delayMs: defaultEditorRuntimeAutosaveDelayMs,
+      enabled: true,
+      retryAttempts: 0,
+      retryDelayMs: defaultEditorRuntimeAutosaveRetryDelayMs,
+      saveLatest: true,
+    };
+  }
+
+  return {
+    delayMs: autosave.delayMs ?? defaultEditorRuntimeAutosaveDelayMs,
+    enabled: true,
+    retryAttempts: Math.max(0, Math.trunc(autosave.retry?.attempts ?? 0)),
+    retryDelayMs: autosave.retry?.delayMs ?? defaultEditorRuntimeAutosaveRetryDelayMs,
+    saveLatest: autosave.saveLatest ?? true,
   };
 }
 

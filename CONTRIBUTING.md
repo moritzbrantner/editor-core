@@ -43,24 +43,23 @@ Review the resulting diff before committing.
 
 ## Release Checklist
 
-The current release path is manual npm publishing. CI is validation-only and does not publish the
-package.
+The full release checklist lives in `docs/release.md`. The preferred release path is trusted npm
+publishing from the tag-triggered `Release` workflow, with manual npm publishing documented there
+as a fallback.
 
 1. Update `CHANGELOG.md`.
 2. Confirm `package.json` has the intended version.
 3. Push `main` and wait for GitHub validation to pass.
-4. Run the manual release sequence:
+4. Run the local release preflight:
 
    ```sh
    git status --short --branch
    bun install --frozen-lockfile
    npm whoami
+   npm view @moritzbrantner/editor-core version dist-tags --json
    bun run verify:release
    npm pack --dry-run --json
    npm publish --dry-run --access public
-   npm publish --access public
    ```
 
-   npm may prompt for a one-time password if two-factor authentication is enabled.
-
-5. Create and push the matching release tag after npm publish succeeds.
+5. Create and push the matching release tag from the validated commit.

@@ -14,5 +14,6 @@ export * from "./runtime.js";
 export * from "./selection.js";
 export * from "./serialization.js";
 export * from "./share.js";
+export * from "./testing.js";
 export * from "./tree.js";
 export * from "./viewport.js";

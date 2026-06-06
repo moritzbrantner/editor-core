@@ -23,6 +23,7 @@
       "@moritzbrantner/editor-core/serialization": ["./src/serialization.ts"],
       "@moritzbrantner/editor-core/selection": ["./src/selection.ts"],
       "@moritzbrantner/editor-core/share": ["./src/share.ts"],
+      "@moritzbrantner/editor-core/testing": ["./src/testing.ts"],
       "@moritzbrantner/editor-core/tree": ["./src/tree.ts"],
       "@moritzbrantner/editor-core/viewport": ["./src/viewport.ts"]
     }

@@ -29,6 +29,8 @@ const report = await formatMarkdown(
     "",
     "Generated from the public declaration files in `dist`. Run `bun run api:update` after intentional API changes.",
     "",
+    "Review API-report diffs as release inputs: changed exported names, changed option shapes, changed defaults, and removed types should be reflected in `CHANGELOG.md`. While the package is in `0.x`, classify public API changes as patch or minor changes according to the semver policy in the changelog.",
+    "",
     ...sections,
     "",
   ].join("\n"),

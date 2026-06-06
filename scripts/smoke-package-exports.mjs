@@ -52,6 +52,7 @@ async function smokeHeadlessConsumer(tarball) {
       import { createEditorSnapshotHistory } from "@moritzbrantner/editor-core/history";
       import { stableEditorJsonStringify } from "@moritzbrantner/editor-core/json";
       import { serializeEditorDocument } from "@moritzbrantner/editor-core/serialization";
+      import { checkEditorDocumentAdapter } from "@moritzbrantner/editor-core/testing";
       import { matchesEditorHotkey } from "@moritzbrantner/editor-core/hotkeys";
       import { projectEditorTree } from "@moritzbrantner/editor-core/tree";
       import { createEditorAspect } from "@moritzbrantner/editor-core/aspects";
@@ -85,6 +86,12 @@ async function smokeHeadlessConsumer(tarball) {
 
       stableEditorJsonStringify({ b: 2, a: 1 });
       serializeEditorDocument({ title: "Draft" }, adapter, { exportedAt: false });
+      const adapterCheck = checkEditorDocumentAdapter(adapter, {
+        expected: { title: "Draft" },
+        id: "smoke",
+        input: { title: "Draft" },
+        roundtrip: true,
+      });
       matchesEditorHotkey({ altKey: false, ctrlKey: true, key: "z", metaKey: false, shiftKey: false, target: null }, "Mod+Z");
       createEditorAspect({ id: "title", derive: ({ document }) => document.title });
       editorShareUrl("https://example.com", "/editor", "plain.token");
@@ -105,7 +112,7 @@ async function smokeHeadlessConsumer(tarball) {
       if (tree.root.id !== "document") {
         throw new Error("Tree projection failed");
       }
-      if (!indexes.entitiesById.has("node") || interaction.state.kind !== "idle" || operationRuntime.canUndo || selection.kind !== "entity" || viewport.zoom !== 2 || graphIssues.length === 0) {
+      if (!adapterCheck.ok || !indexes.entitiesById.has("node") || interaction.state.kind !== "idle" || operationRuntime.canUndo || selection.kind !== "entity" || viewport.zoom !== 2 || graphIssues.length === 0) {
         throw new Error("New foundation subpaths failed");
       }
     `,
@@ -138,6 +145,7 @@ async function smokeHeadlessConsumer(tarball) {
         type EditorSnapshotHistory,
         type EditorGraphAdapter,
       } from "@moritzbrantner/editor-core";
+      import type { EditorDocumentAdapterCheckCase } from "@moritzbrantner/editor-core/testing";
       import type { EditorTreeAdapter } from "@moritzbrantner/editor-core/tree";
 
       type Document = { title: string };
@@ -156,11 +164,17 @@ async function smokeHeadlessConsumer(tarball) {
         getEdges: (document) => document.edges,
         getNodes: (document) => document.nodes,
       };
+      const adapterCase: EditorDocumentAdapterCheckCase<Document> = {
+        expected: { title: "Draft" },
+        id: "document",
+        input: { title: "Draft" },
+      };
 
       void history;
       void adapter;
       void runtime;
       void graphAdapter;
+      void adapterCase;
     `,
   );
   await writeJson(join(consumerDir, "tsconfig.json"), {

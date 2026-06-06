@@ -3,6 +3,7 @@ import {
   createEditorSnapshotHistoryCommands,
   defaultEditorSnapshotHistoryCommandHotkeys,
   defaultEditorSnapshotHistoryCommandLabels,
+  getEditorCommandDiagnostics,
   getRunnableEditorCommands,
   resolveEditorCommands,
   type EditorContextualCommandDefinition,
@@ -282,6 +283,56 @@ describe("contextual editor commands", () => {
     await expect(commands.find((command) => command.id === "inspect")?.run?.(event)).resolves.toBe(
       undefined,
     );
+  });
+});
+
+describe("editor command diagnostics", () => {
+  test("reports duplicate ids, invalid hotkeys, conflicts, and empty labels", () => {
+    const diagnostics = getEditorCommandDiagnostics([
+      { hotkeys: ["Mod+K"], id: "palette", label: "Palette" },
+      { hotkeys: ["Mod+K"], id: "search", label: "Search" },
+      { hotkeys: ["Mod"], id: "broken", label: "Broken" },
+      { id: "empty", label: " " },
+      { id: "palette", label: "Duplicate" },
+    ]);
+
+    expect(diagnostics).toEqual(
+      expect.arrayContaining([
+        {
+          commandId: "palette",
+          message: 'Duplicate command id "palette".',
+          path: "4.id",
+          severity: "error",
+        },
+        {
+          commandId: "broken",
+          message: 'Invalid hotkey "Mod".',
+          path: "2.hotkeys.0",
+          severity: "error",
+        },
+        {
+          commandId: "empty",
+          message: "Command labels should not be empty.",
+          path: "3.label",
+          severity: "warning",
+        },
+        {
+          commandId: "palette",
+          message: 'Hotkey "Mod+K" conflicts with command "search".',
+          path: "0.hotkeys.0",
+          severity: "warning",
+        },
+      ]),
+    );
+  });
+
+  test("ignores hotkey conflicts from disabled commands", () => {
+    const diagnostics = getEditorCommandDiagnostics([
+      { hotkeys: ["Mod+K"], id: "palette", label: "Palette" },
+      { disabled: true, hotkeys: ["Mod+K"], id: "search", label: "Search" },
+    ]);
+
+    expect(diagnostics).toEqual([]);
   });
 });
 

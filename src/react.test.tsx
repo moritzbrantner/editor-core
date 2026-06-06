@@ -26,14 +26,19 @@ describe("persistent editor runtime hook", () => {
   });
 
   test("loads on mount when loadOnMount is true", async () => {
+    const onPersistenceEvent = vi.fn();
     const storage = createMemoryStorage<Document>({ title: "Stored" });
-    const fixture = renderPersistentRuntime({ storage });
+    const fixture = renderPersistentRuntime({ onPersistenceEvent, storage });
 
     await flushEffects();
 
     expect(fixture.result.state.document).toEqual({ title: "Stored" });
     expect(fixture.result.state.status).toBe("clean");
     expect(fixture.result.persistence.status).toBe("loaded");
+    expect(onPersistenceEvent).toHaveBeenCalledWith({ revision: 0, type: "load-start" });
+    expect(onPersistenceEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ type: "load-success" }),
+    );
     fixture.unmount();
   });
 
@@ -50,10 +55,12 @@ describe("persistent editor runtime hook", () => {
 
   test("debounces autosave after dirty commits", async () => {
     vi.useFakeTimers();
+    const onPersistenceEvent = vi.fn();
     const storage = createMemoryStorage<Document>(null);
     const fixture = renderPersistentRuntime({
       autosave: { delayMs: 25 },
       loadOnMount: false,
+      onPersistenceEvent,
       storage,
     });
 
@@ -77,6 +84,13 @@ describe("persistent editor runtime hook", () => {
     expect(storage.save).toHaveBeenCalledWith({ title: "Dirty" });
     expect(fixture.result.state.status).toBe("clean");
     expect(fixture.result.persistence.status).toBe("saved");
+    expect(onPersistenceEvent).toHaveBeenCalledWith({
+      revision: fixture.result.state.revision,
+      type: "save-start",
+    });
+    expect(onPersistenceEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ type: "save-success" }),
+    );
     fixture.unmount();
   });
 
@@ -179,6 +193,145 @@ describe("persistent editor runtime hook", () => {
 
     expect(storage.save).toHaveBeenCalledOnce();
     fixture.unmount();
+  });
+
+  test("retries failed autosaves for the same revision", async () => {
+    vi.useFakeTimers();
+    const storage = createMemoryStorage<Document>(null);
+    storage.save.mockRejectedValueOnce(new Error("save failed")).mockImplementationOnce((value) => {
+      storage.value = value;
+    });
+    const fixture = renderPersistentRuntime({
+      autosave: { delayMs: 0, retry: { attempts: 1, delayMs: 10 } },
+      loadOnMount: false,
+      storage,
+    });
+
+    act(() => {
+      fixture.result.commit({ title: "Retry" });
+    });
+    await act(async () => {
+      vi.advanceTimersByTime(0);
+      await Promise.resolve();
+    });
+
+    expect(fixture.result.persistence.status).toBe("error");
+    expect(storage.save).toHaveBeenCalledOnce();
+
+    await act(async () => {
+      vi.advanceTimersByTime(10);
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(storage.save).toHaveBeenCalledTimes(2);
+    expect(fixture.result.persistence.status).toBe("saved");
+    expect(fixture.result.state.status).toBe("clean");
+    fixture.unmount();
+  });
+
+  test("stops autosave retries after the configured attempts", async () => {
+    vi.useFakeTimers();
+    const storage = createMemoryStorage<Document>(null);
+    storage.save.mockRejectedValue(new Error("save failed"));
+    const fixture = renderPersistentRuntime({
+      autosave: { delayMs: 0, retry: { attempts: 1, delayMs: 10 } },
+      loadOnMount: false,
+      storage,
+    });
+
+    act(() => {
+      fixture.result.commit({ title: "Retry once" });
+    });
+    await act(async () => {
+      vi.advanceTimersByTime(0);
+      await Promise.resolve();
+    });
+    await act(async () => {
+      vi.advanceTimersByTime(10);
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    await act(async () => {
+      vi.advanceTimersByTime(100);
+      await Promise.resolve();
+    });
+
+    expect(storage.save).toHaveBeenCalledTimes(2);
+    expect(fixture.result.persistence.status).toBe("error");
+    fixture.unmount();
+  });
+
+  test("does not schedule a latest-revision follow-up when saveLatest is false", async () => {
+    vi.useFakeTimers();
+    const firstSave = createDeferred<void>();
+    const storage = createMemoryStorage<Document>(null);
+    storage.save.mockImplementationOnce(async (value) => {
+      storage.value = value;
+      await firstSave.promise;
+    });
+    const fixture = renderPersistentRuntime({
+      autosave: { delayMs: 0, saveLatest: false },
+      loadOnMount: false,
+      storage,
+    });
+
+    act(() => {
+      fixture.result.commit({ title: "First" });
+    });
+    await act(async () => {
+      vi.advanceTimersByTime(0);
+      await Promise.resolve();
+    });
+    act(() => {
+      fixture.result.commit({ title: "Second" });
+    });
+    await act(async () => {
+      firstSave.resolve();
+      await firstSave.promise;
+      await Promise.resolve();
+    });
+    await act(async () => {
+      vi.advanceTimersByTime(0);
+      await Promise.resolve();
+    });
+
+    expect(storage.save).toHaveBeenCalledOnce();
+    expect(fixture.result.state.status).toBe("dirty");
+    fixture.unmount();
+  });
+
+  test("does not update runtime state after unmounting during a save", async () => {
+    vi.useFakeTimers();
+    const save = createDeferred<void>();
+    const storage = createMemoryStorage<Document>(null);
+    storage.save.mockImplementationOnce(async (value) => {
+      storage.value = value;
+      await save.promise;
+    });
+    const fixture = renderPersistentRuntime({
+      autosave: { delayMs: 0 },
+      loadOnMount: false,
+      storage,
+    });
+
+    act(() => {
+      fixture.result.commit({ title: "Unmount" });
+    });
+    await act(async () => {
+      vi.advanceTimersByTime(0);
+      await Promise.resolve();
+    });
+
+    expect(fixture.result.persistence.status).toBe("saving");
+    fixture.unmount();
+    await act(async () => {
+      save.resolve();
+      await save.promise;
+      await Promise.resolve();
+    });
+
+    expect(storage.save).toHaveBeenCalledOnce();
   });
 });
 
@@ -287,12 +440,15 @@ describe("editor react hooks", () => {
 });
 
 function renderPersistentRuntime(options: {
-  autosave?: boolean | { delayMs?: number };
+  autosave?:
+    | boolean
+    | { delayMs?: number; retry?: { attempts?: number; delayMs?: number }; saveLatest?: boolean };
   loadOnMount?: boolean;
   onPersistenceError?: (
     error: unknown,
     context: { operation: "load" | "save"; revision?: number },
   ) => void;
+  onPersistenceEvent?: (event: unknown) => void;
   storage: MemoryStorage<Document>;
 }): {
   get result(): PersistentRuntimeResult;
@@ -313,6 +469,7 @@ function renderPersistentRuntime(options: {
       initialDocument,
       loadOnMount: options.loadOnMount,
       onPersistenceError: options.onPersistenceError,
+      onPersistenceEvent: options.onPersistenceEvent,
       storage: options.storage,
     });
     return null;

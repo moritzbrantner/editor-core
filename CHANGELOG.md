@@ -8,6 +8,21 @@ This package follows semver. While the package is in `0.x`, breaking changes may
 
 _No unreleased changes._
 
+## 0.2.0
+
+- Added adapter contract helpers under `@moritzbrantner/editor-core/testing`.
+- Added persistence lifecycle events for load/save observability.
+- Improved React autosave behavior with latest-revision follow-up saves and optional retry.
+- Added command diagnostics for duplicate ids, invalid hotkeys, conflicts, and empty labels.
+- Added adoption documentation for adapters, persistence, commands, and runtime selection.
+
+## 0.1.1
+
+- Added multi-attempt best-of benchmark baseline checks to reduce noisy local and CI performance
+  regressions.
+- Updated release documentation for post-`0.1.0` npm publishes and trusted publishing from CI.
+- Added Node 18 package-consumer smoke coverage for the minimum supported runtime version.
+
 ## 0.1.0
 
 - Initial public package shape for headless editor infrastructure.

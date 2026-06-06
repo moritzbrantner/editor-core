@@ -28,11 +28,13 @@ describe("editor persistence", () => {
   });
 
   test("loads persisted document and marks runtime clean", async () => {
+    const onEvent = vi.fn();
     const runtime = commitEditorRuntime(createRuntime(), { body: "Dirty", title: "Dirty" });
     const storage = createMemoryStorage<Document>({ body: "Stored", title: "Stored" });
 
     const result = await loadEditorRuntimePersistence(runtime, storage, {
       now: clock,
+      onEvent,
       selection: "title",
     });
 
@@ -47,6 +49,12 @@ describe("editor persistence", () => {
       savedAt: "2026-06-06T12:00:00.000Z",
       savedRevision: result.runtime.revision,
       status: "loaded",
+    });
+    expect(onEvent).toHaveBeenCalledWith({ revision: runtime.revision, type: "load-start" });
+    expect(onEvent).toHaveBeenCalledWith({
+      loadedAt: "2026-06-06T12:00:00.000Z",
+      revision: result.runtime.revision,
+      type: "load-success",
     });
   });
 
@@ -63,12 +71,14 @@ describe("editor persistence", () => {
 
   test("handles load errors by exposing error state and using fallback document", async () => {
     const onError = vi.fn();
+    const onEvent = vi.fn();
     const runtime = createRuntime();
     const storage = createThrowingStorage<Document>("load");
 
     const result = await loadEditorRuntimePersistence(runtime, storage, {
       fallback: { body: "Fallback", title: "Fallback" },
       onError,
+      onEvent,
     });
 
     expect(result.runtime.document).toEqual({ body: "Fallback", title: "Fallback" });
@@ -77,25 +87,37 @@ describe("editor persistence", () => {
     expect(result.persistence.operation).toBe("load");
     expect(result.persistence.error).toBeInstanceOf(Error);
     expect(onError).toHaveBeenCalledWith(expect.any(Error), { operation: "load" });
+    expect(onEvent).toHaveBeenCalledWith({ revision: runtime.revision, type: "load-start" });
+    expect(onEvent).toHaveBeenCalledWith({
+      error: expect.any(Error),
+      type: "load-error",
+    });
   });
 
   test("skips save when runtime is clean", async () => {
+    const onEvent = vi.fn();
     const runtime = createRuntime();
     const storage = createMemoryStorage<Document>(null);
 
-    const result = await saveEditorRuntimePersistence(runtime, storage, { now: clock });
+    const result = await saveEditorRuntimePersistence(runtime, storage, { now: clock, onEvent });
 
     expect(result.saved).toBe(false);
     expect(result.runtime).toBe(runtime);
     expect(result.persistence.status).toBe("idle");
     expect(await storage.load()).toBeNull();
+    expect(onEvent).toHaveBeenCalledWith({
+      reason: "clean",
+      revision: runtime.revision,
+      type: "save-skipped",
+    });
   });
 
   test("saves dirty runtime, marks it clean, and records revision and time", async () => {
+    const onEvent = vi.fn();
     const runtime = commitEditorRuntime(createRuntime(), { body: "Saved", title: "Saved" });
     const storage = createMemoryStorage<Document>(null);
 
-    const result = await saveEditorRuntimePersistence(runtime, storage, { now: clock });
+    const result = await saveEditorRuntimePersistence(runtime, storage, { now: clock, onEvent });
 
     expect(result.saved).toBe(true);
     expect(result.revision).toBe(runtime.revision);
@@ -108,6 +130,12 @@ describe("editor persistence", () => {
       savedAt: "2026-06-06T12:00:00.000Z",
       savedRevision: runtime.revision,
       status: "saved",
+    });
+    expect(onEvent).toHaveBeenCalledWith({ revision: runtime.revision, type: "save-start" });
+    expect(onEvent).toHaveBeenCalledWith({
+      revision: runtime.revision,
+      savedAt: "2026-06-06T12:00:00.000Z",
+      type: "save-success",
     });
   });
 
@@ -127,10 +155,11 @@ describe("editor persistence", () => {
 
   test("save failure leaves runtime dirty and exposes error state", async () => {
     const onError = vi.fn();
+    const onEvent = vi.fn();
     const runtime = commitEditorRuntime(createRuntime(), { body: "Dirty", title: "Dirty" });
     const storage = createThrowingStorage<Document>("save");
 
-    const result = await saveEditorRuntimePersistence(runtime, storage, { onError });
+    const result = await saveEditorRuntimePersistence(runtime, storage, { onError, onEvent });
 
     expect(result.saved).toBe(false);
     expect(result.runtime).toBe(runtime);
@@ -141,6 +170,12 @@ describe("editor persistence", () => {
     expect(onError).toHaveBeenCalledWith(expect.any(Error), {
       operation: "save",
       revision: runtime.revision,
+    });
+    expect(onEvent).toHaveBeenCalledWith({ revision: runtime.revision, type: "save-start" });
+    expect(onEvent).toHaveBeenCalledWith({
+      error: expect.any(Error),
+      revision: runtime.revision,
+      type: "save-error",
     });
   });
 });

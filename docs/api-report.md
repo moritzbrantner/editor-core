@@ -2,6 +2,8 @@
 
 Generated from the public declaration files in `dist`. Run `bun run api:update` after intentional API changes.
 
+Review API-report diffs as release inputs: changed exported names, changed option shapes, changed defaults, and removed types should be reflected in `CHANGELOG.md`. While the package is in `0.x`, classify public API changes as patch or minor changes according to the semver policy in the changelog.
+
 ## aspects.d.ts
 
 ```ts
@@ -209,6 +211,12 @@ type EditorResolvedCommandDefinition<TId extends string> = EditorCommandDefiniti
   };
   checked?: boolean;
 };
+type EditorCommandDiagnostic<TId extends string = string> = {
+  commandId: TId;
+  path: string;
+  message: string;
+  severity: "error" | "warning";
+};
 declare const defaultEditorSnapshotHistoryCommandHotkeys: EditorHotkeyMap<EditorSnapshotHistoryCommandId>;
 declare const defaultEditorSnapshotHistoryCommandLabels: Record<
   EditorSnapshotHistoryCommandId,
@@ -246,9 +254,13 @@ declare function resolveEditorCommands<
 declare function getRunnableEditorCommands<TId extends string>(
   commands: readonly EditorResolvedCommandDefinition<TId>[],
 ): readonly EditorResolvedCommandDefinition<TId>[];
+declare function getEditorCommandDiagnostics<TId extends string>(
+  commands: readonly EditorCommandDefinition<TId>[],
+): readonly EditorCommandDiagnostic<TId>[];
 
 export {
   type EditorCommandContext,
+  type EditorCommandDiagnostic,
   type EditorContextualCommandDefinition,
   type EditorResolvedCommandDefinition,
   type EditorSnapshotHistoryCommandId,
@@ -257,6 +269,7 @@ export {
   createEditorSnapshotHistoryCommands,
   defaultEditorSnapshotHistoryCommandHotkeys,
   defaultEditorSnapshotHistoryCommandLabels,
+  getEditorCommandDiagnostics,
   getRunnableEditorCommands,
   resolveEditorCommands,
 };
@@ -665,6 +678,7 @@ export {
 } from "./browser.js";
 export {
   EditorCommandContext,
+  EditorCommandDiagnostic,
   EditorContextualCommandDefinition,
   EditorResolvedCommandDefinition,
   EditorSnapshotHistoryCommandId,
@@ -673,6 +687,7 @@ export {
   createEditorSnapshotHistoryCommands,
   defaultEditorSnapshotHistoryCommandHotkeys,
   defaultEditorSnapshotHistoryCommandLabels,
+  getEditorCommandDiagnostics,
   getRunnableEditorCommands,
   resolveEditorCommands,
 } from "./commands.js";
@@ -805,6 +820,8 @@ export {
   CreateEditorPersistenceStateOptions,
   EditorPersistenceClock,
   EditorPersistenceErrorContext,
+  EditorPersistenceEvent,
+  EditorPersistenceEventHandler,
   EditorPersistenceOperation,
   EditorPersistenceState,
   EditorPersistenceStatus,
@@ -878,6 +895,18 @@ export {
   editorShareUrl,
   encodeEditorSharePayload,
 } from "./share.js";
+export {
+  EditorAdapterCheckIssue,
+  EditorAdapterCheckResult,
+  EditorAdapterCheckSeverity,
+  EditorAdapterContractError,
+  EditorDocumentAdapterCheckCase,
+  EditorOperationLogAdapterCheckCase,
+  assertEditorDocumentAdapter,
+  assertEditorOperationLogAdapter,
+  checkEditorDocumentAdapter,
+  checkEditorOperationLogAdapter,
+} from "./testing.js";
 export {
   EditorTreeAdapter,
   EditorTreeItem,
@@ -1300,6 +1329,42 @@ type EditorPersistenceErrorContext = {
   revision?: number;
 };
 type EditorPersistenceClock = () => string;
+type EditorPersistenceEvent<_TDocument = unknown> =
+  | {
+      type: "load-start";
+      revision: number;
+    }
+  | {
+      type: "load-success";
+      revision: number;
+      loadedAt: string;
+    }
+  | {
+      type: "load-error";
+      error: unknown;
+    }
+  | {
+      type: "save-start";
+      revision: number;
+    }
+  | {
+      type: "save-success";
+      revision: number;
+      savedAt: string;
+    }
+  | {
+      type: "save-error";
+      revision: number;
+      error: unknown;
+    }
+  | {
+      type: "save-skipped";
+      revision: number;
+      reason: "clean" | "blocked" | "in-flight";
+    };
+type EditorPersistenceEventHandler<TDocument = unknown> = (
+  event: EditorPersistenceEvent<TDocument>,
+) => void;
 type CreateEditorPersistenceStateOptions = {
   now?: EditorPersistenceClock;
 };
@@ -1308,6 +1373,7 @@ type LoadEditorRuntimePersistenceOptions<TDocument, TSelection = unknown> = {
   selection?: EditorRuntimeSelection<TSelection>;
   now?: EditorPersistenceClock;
   onError?: (error: unknown, context: EditorPersistenceErrorContext) => void;
+  onEvent?: EditorPersistenceEventHandler<TDocument>;
 };
 type LoadEditorRuntimePersistenceResult<TDocument, TSelection = unknown> = {
   runtime: EditorRuntimeState<TDocument, TSelection>;
@@ -1317,6 +1383,7 @@ type SaveEditorRuntimePersistenceOptions = {
   force?: boolean;
   now?: EditorPersistenceClock;
   onError?: (error: unknown, context: EditorPersistenceErrorContext) => void;
+  onEvent?: EditorPersistenceEventHandler;
 };
 type SaveEditorRuntimePersistenceResult<TDocument, TSelection = unknown> = {
   runtime: EditorRuntimeState<TDocument, TSelection>;
@@ -1342,6 +1409,8 @@ export {
   type CreateEditorPersistenceStateOptions,
   type EditorPersistenceClock,
   type EditorPersistenceErrorContext,
+  type EditorPersistenceEvent,
+  type EditorPersistenceEventHandler,
   type EditorPersistenceOperation,
   type EditorPersistenceState,
   type EditorPersistenceStatus,
@@ -1361,7 +1430,11 @@ export {
 import * as React from "react";
 import { EditorStorageAdapter } from "./browser.js";
 import { EditorCommandDefinition } from "./hotkeys.js";
-import { EditorPersistenceErrorContext, EditorPersistenceState } from "./persistence.js";
+import {
+  EditorPersistenceErrorContext,
+  EditorPersistenceEventHandler,
+  EditorPersistenceState,
+} from "./persistence.js";
 import {
   EditorRuntimeOptions,
   EditorRuntimeState,
@@ -1413,14 +1486,11 @@ type UsePersistentEditorRuntimeOptions<TDocument, TSelection = unknown> = UseEdi
   TSelection
 > & {
   storage: EditorStorageAdapter<TDocument>;
-  autosave?:
-    | boolean
-    | {
-        delayMs?: number;
-      };
+  autosave?: boolean | EditorAutosaveOptions;
   loadOnMount?: boolean;
   canSave?: (runtime: EditorRuntimeState<TDocument, TSelection>) => boolean;
   onPersistenceError?: (error: unknown, context: EditorPersistenceErrorContext) => void;
+  onPersistenceEvent?: EditorPersistenceEventHandler<TDocument>;
 };
 type UsePersistentEditorRuntimeResult<TDocument, TSelection = unknown> = UseEditorRuntimeResult<
   TDocument,
@@ -1429,6 +1499,15 @@ type UsePersistentEditorRuntimeResult<TDocument, TSelection = unknown> = UseEdit
   persistence: EditorPersistenceState;
   load: () => Promise<void>;
   save: (options?: { force?: boolean }) => Promise<boolean>;
+};
+type EditorAutosaveRetryOptions = {
+  attempts?: number;
+  delayMs?: number;
+};
+type EditorAutosaveOptions = {
+  delayMs?: number;
+  retry?: EditorAutosaveRetryOptions;
+  saveLatest?: boolean;
 };
 declare function usePersistentEditorRuntime<TDocument, TSelection = unknown>(
   options: UsePersistentEditorRuntimeOptions<TDocument, TSelection>,
@@ -1461,6 +1540,8 @@ declare function useEditorTreeState(
 
 export {
   type ControllableEditorStateOptions,
+  type EditorAutosaveOptions,
+  type EditorAutosaveRetryOptions,
   type UseEditorHotkeysOptions,
   type UseEditorRuntimeOptions,
   type UseEditorRuntimeResult,
@@ -1832,6 +1913,82 @@ export {
   editorShareTokenFromUrl,
   editorShareUrl,
   encodeEditorSharePayload,
+};
+```
+
+## testing.d.ts
+
+```ts
+import { EditorOperationLogMigrations, EditorOperationLogAdapter } from "./operations.js";
+import {
+  EditorDocumentMigrations,
+  EditorParseIssue,
+  EditorDocumentAdapter,
+} from "./serialization.js";
+import "./aspects.js";
+import "./hotkeys.js";
+import "./history.js";
+import "./runtime.js";
+
+type EditorAdapterCheckSeverity = "error" | "warning";
+type EditorAdapterCheckIssue = {
+  caseId: string;
+  path: string;
+  message: string;
+  severity: EditorAdapterCheckSeverity;
+};
+type EditorAdapterCheckResult<TValue> = {
+  ok: boolean;
+  value?: TValue;
+  issues: readonly EditorAdapterCheckIssue[];
+};
+type EditorDocumentAdapterCheckCase<TDocument> = {
+  id: string;
+  input: unknown;
+  expected?: TDocument;
+  migrations?: EditorDocumentMigrations<TDocument>;
+  expectIssues?: readonly EditorParseIssue[];
+  roundtrip?: boolean;
+};
+type EditorOperationLogAdapterCheckCase<TOperation> = {
+  id: string;
+  input: unknown;
+  expected?: readonly TOperation[];
+  migrations?: EditorOperationLogMigrations<TOperation>;
+  expectIssues?: readonly EditorParseIssue[];
+};
+declare class EditorAdapterContractError extends Error {
+  issues: readonly EditorAdapterCheckIssue[];
+  constructor(issues: readonly EditorAdapterCheckIssue[]);
+}
+declare function checkEditorDocumentAdapter<TDocument>(
+  adapter: EditorDocumentAdapter<TDocument>,
+  testCase: EditorDocumentAdapterCheckCase<TDocument>,
+): EditorAdapterCheckResult<TDocument>;
+declare function assertEditorDocumentAdapter<TDocument>(
+  adapter: EditorDocumentAdapter<TDocument>,
+  cases: readonly EditorDocumentAdapterCheckCase<TDocument>[],
+): void;
+declare function checkEditorOperationLogAdapter<TOperation>(
+  adapter: EditorOperationLogAdapter<TOperation>,
+  testCase: EditorOperationLogAdapterCheckCase<TOperation>,
+): EditorAdapterCheckResult<readonly TOperation[]>;
+declare function assertEditorOperationLogAdapter<TOperation>(
+  adapter: EditorOperationLogAdapter<TOperation>,
+  cases: readonly EditorOperationLogAdapterCheckCase<TOperation>[],
+): void;
+
+export {
+  type EditorAdapterCheckIssue,
+  type EditorAdapterCheckResult,
+  type EditorAdapterCheckSeverity,
+  EditorAdapterContractError,
+  type EditorDocumentAdapterCheckCase,
+  type EditorOperationLogAdapterCheckCase,
+  assertEditorDocumentAdapter,
+  assertEditorOperationLogAdapter,
+  checkEditorDocumentAdapter,
+  checkEditorOperationLogAdapter,
 };
 ```
 
