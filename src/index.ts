@@ -9,6 +9,7 @@ export * from "./indexes.js";
 export * from "./interaction.js";
 export * from "./json.js";
 export * from "./operations.js";
+export * from "./persistence.js";
 export * from "./runtime.js";
 export * from "./selection.js";
 export * from "./serialization.js";

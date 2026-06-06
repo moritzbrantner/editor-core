@@ -802,6 +802,21 @@ export {
   undoEditorOperationRuntime,
 } from "./operations.js";
 export {
+  CreateEditorPersistenceStateOptions,
+  EditorPersistenceClock,
+  EditorPersistenceErrorContext,
+  EditorPersistenceOperation,
+  EditorPersistenceState,
+  EditorPersistenceStatus,
+  LoadEditorRuntimePersistenceOptions,
+  LoadEditorRuntimePersistenceResult,
+  SaveEditorRuntimePersistenceOptions,
+  SaveEditorRuntimePersistenceResult,
+  createEditorPersistenceState,
+  loadEditorRuntimePersistence,
+  saveEditorRuntimePersistence,
+} from "./persistence.js";
+export {
   CommitEditorRuntimeOptions,
   EditorRuntimeCommandId,
   EditorRuntimeCommandsOptions,
@@ -1259,11 +1274,94 @@ export {
 };
 ```
 
+## persistence.d.ts
+
+```ts
+import { EditorStorageAdapter } from "./browser.js";
+import { EditorRuntimeSelection, EditorRuntimeState } from "./runtime.js";
+import "./aspects.js";
+import "./hotkeys.js";
+import "./history.js";
+import "./serialization.js";
+
+type EditorPersistenceStatus = "idle" | "loading" | "loaded" | "saving" | "saved" | "error";
+type EditorPersistenceOperation = "load" | "save";
+type EditorPersistenceState = {
+  status: EditorPersistenceStatus;
+  operation: EditorPersistenceOperation | null;
+  error: unknown | null;
+  loadedAt: string | null;
+  savedAt: string | null;
+  savedRevision: number | null;
+  savingRevision: number | null;
+};
+type EditorPersistenceErrorContext = {
+  operation: EditorPersistenceOperation;
+  revision?: number;
+};
+type EditorPersistenceClock = () => string;
+type CreateEditorPersistenceStateOptions = {
+  now?: EditorPersistenceClock;
+};
+type LoadEditorRuntimePersistenceOptions<TDocument, TSelection = unknown> = {
+  fallback?: TDocument;
+  selection?: EditorRuntimeSelection<TSelection>;
+  now?: EditorPersistenceClock;
+  onError?: (error: unknown, context: EditorPersistenceErrorContext) => void;
+};
+type LoadEditorRuntimePersistenceResult<TDocument, TSelection = unknown> = {
+  runtime: EditorRuntimeState<TDocument, TSelection>;
+  persistence: EditorPersistenceState;
+};
+type SaveEditorRuntimePersistenceOptions = {
+  force?: boolean;
+  now?: EditorPersistenceClock;
+  onError?: (error: unknown, context: EditorPersistenceErrorContext) => void;
+};
+type SaveEditorRuntimePersistenceResult<TDocument, TSelection = unknown> = {
+  runtime: EditorRuntimeState<TDocument, TSelection>;
+  persistence: EditorPersistenceState;
+  saved: boolean;
+  revision: number;
+};
+declare function createEditorPersistenceState(
+  options?: CreateEditorPersistenceStateOptions,
+): EditorPersistenceState;
+declare function loadEditorRuntimePersistence<TDocument, TSelection = unknown>(
+  runtime: EditorRuntimeState<TDocument, TSelection>,
+  storage: EditorStorageAdapter<TDocument>,
+  options?: LoadEditorRuntimePersistenceOptions<TDocument, TSelection>,
+): Promise<LoadEditorRuntimePersistenceResult<TDocument, TSelection>>;
+declare function saveEditorRuntimePersistence<TDocument, TSelection = unknown>(
+  runtime: EditorRuntimeState<TDocument, TSelection>,
+  storage: EditorStorageAdapter<TDocument>,
+  options?: SaveEditorRuntimePersistenceOptions,
+): Promise<SaveEditorRuntimePersistenceResult<TDocument, TSelection>>;
+
+export {
+  type CreateEditorPersistenceStateOptions,
+  type EditorPersistenceClock,
+  type EditorPersistenceErrorContext,
+  type EditorPersistenceOperation,
+  type EditorPersistenceState,
+  type EditorPersistenceStatus,
+  type LoadEditorRuntimePersistenceOptions,
+  type LoadEditorRuntimePersistenceResult,
+  type SaveEditorRuntimePersistenceOptions,
+  type SaveEditorRuntimePersistenceResult,
+  createEditorPersistenceState,
+  loadEditorRuntimePersistence,
+  saveEditorRuntimePersistence,
+};
+```
+
 ## react.d.ts
 
 ```ts
 import * as React from "react";
+import { EditorStorageAdapter } from "./browser.js";
 import { EditorCommandDefinition } from "./hotkeys.js";
+import { EditorPersistenceErrorContext, EditorPersistenceState } from "./persistence.js";
 import {
   EditorRuntimeOptions,
   EditorRuntimeState,
@@ -1310,6 +1408,31 @@ type UseEditorRuntimeResult<TDocument, TSelection = unknown> = {
 declare function useEditorRuntime<TDocument, TSelection = unknown>(
   options: UseEditorRuntimeOptions<TDocument, TSelection>,
 ): UseEditorRuntimeResult<TDocument, TSelection>;
+type UsePersistentEditorRuntimeOptions<TDocument, TSelection = unknown> = UseEditorRuntimeOptions<
+  TDocument,
+  TSelection
+> & {
+  storage: EditorStorageAdapter<TDocument>;
+  autosave?:
+    | boolean
+    | {
+        delayMs?: number;
+      };
+  loadOnMount?: boolean;
+  canSave?: (runtime: EditorRuntimeState<TDocument, TSelection>) => boolean;
+  onPersistenceError?: (error: unknown, context: EditorPersistenceErrorContext) => void;
+};
+type UsePersistentEditorRuntimeResult<TDocument, TSelection = unknown> = UseEditorRuntimeResult<
+  TDocument,
+  TSelection
+> & {
+  persistence: EditorPersistenceState;
+  load: () => Promise<void>;
+  save: (options?: { force?: boolean }) => Promise<boolean>;
+};
+declare function usePersistentEditorRuntime<TDocument, TSelection = unknown>(
+  options: UsePersistentEditorRuntimeOptions<TDocument, TSelection>,
+): UsePersistentEditorRuntimeResult<TDocument, TSelection>;
 type UseEditorHotkeysOptions<TId extends string> = {
   commands: readonly EditorCommandDefinition<TId>[];
   disabled?: boolean;
@@ -1342,10 +1465,13 @@ export {
   type UseEditorRuntimeOptions,
   type UseEditorRuntimeResult,
   type UseEditorTreeStateResult,
+  type UsePersistentEditorRuntimeOptions,
+  type UsePersistentEditorRuntimeResult,
   useControllableEditorState,
   useEditorHotkeys,
   useEditorRuntime,
   useEditorTreeState,
+  usePersistentEditorRuntime,
 };
 ```
 

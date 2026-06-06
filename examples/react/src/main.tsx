@@ -13,8 +13,6 @@ import {
   formatEditorShortcutLabel,
   readEditorDocument,
   readEditorJsonFile,
-  saveEditorStorage,
-  loadEditorStorage,
   serializeEditorDocument,
   type EditorCommandDefinition,
   type EditorDocumentAdapter,
@@ -24,7 +22,7 @@ import {
 } from "@moritzbrantner/editor-core";
 import {
   useEditorHotkeys,
-  useEditorRuntime,
+  usePersistentEditorRuntime,
   useEditorTreeState,
 } from "@moritzbrantner/editor-core/react";
 import {
@@ -188,18 +186,21 @@ function App() {
   const workspaceRef = React.useRef<HTMLDivElement>(null);
   const importFileInputRef = React.useRef<HTMLInputElement>(null);
   const tree = useEditorTreeState({ expandedIds: ["document"] });
+  const hasShareToken = editorShareTokenFromUrl(window.location.href) !== null;
   const templateQuery = useQuery({
     queryFn: loadTemplateDocument,
     queryKey: ["react-example", "template-document"],
   });
-  const runtime = useEditorRuntime<ExampleDocument, string>({
+  const runtime = usePersistentEditorRuntime<ExampleDocument, string>({
     history: historyOptions,
     initialDocument: fallbackDocument,
+    loadOnMount: !hasShareToken,
+    storage: exampleStorage,
     validate: (document) => exampleDocumentAdapter.validate?.(document) ?? [],
   });
   const [notice, setNotice] = React.useState("Ready");
   const [mode, setMode] = React.useState<"document" | "reference">("document");
-  const { commit, reset, setState, state: editor } = runtime;
+  const { commit, persistence, reset, save: saveRuntime, setState, state: editor } = runtime;
   const document = editor.document;
   const tone = accentStyles[document.accent];
   const template = templateQuery.data ?? templateDocument;
@@ -237,11 +238,6 @@ function App() {
     setNotice(navigator.clipboard ? "Share URL copied" : url);
   }, [document]);
 
-  const saveRuntimeDocument = React.useCallback(async (runtime: { document: ExampleDocument }) => {
-    await saveEditorStorage(exampleStorage, runtime.document);
-    setNotice("Saved locally");
-  }, []);
-
   const downloadDocument = React.useCallback(() => {
     downloadEditorJson(serializeEditorDocument(document, exampleDocumentAdapter), {
       filename: document.title || "editor-document",
@@ -272,16 +268,26 @@ function App() {
     () =>
       createEditorRuntimeCommands({
         getResetDocument: () => template,
-        onSave: saveRuntimeDocument,
+        include: ["undo", "redo", "reset"],
         runtime: editor,
         setRuntime: setState,
       }),
-    [editor, saveRuntimeDocument, setState, template],
+    [editor, setState, template],
   );
 
   const commands = React.useMemo<readonly EditorCommandDefinition<CommandId>[]>(
     () => [
       ...runtimeCommands,
+      {
+        disabled: editor.status === "clean" || persistence.status === "saving",
+        hotkeys: ["Mod+Alt+S"],
+        id: "save",
+        label: "Save",
+        run: async () => {
+          const saved = await saveRuntime({ force: true });
+          setNotice(saved ? "Saved locally" : "Local save failed");
+        },
+      },
       {
         hotkeys: ["Mod+Enter"],
         id: "template",
@@ -307,7 +313,15 @@ function App() {
         run: shareDocument,
       },
     ],
-    [downloadDocument, loadTemplate, runtimeCommands, shareDocument],
+    [
+      downloadDocument,
+      editor.status,
+      loadTemplate,
+      persistence.status,
+      runtimeCommands,
+      saveRuntime,
+      shareDocument,
+    ],
   );
 
   useEditorHotkeys({
@@ -343,23 +357,13 @@ function App() {
   }, [reset]);
 
   React.useEffect(() => {
-    if (editorShareTokenFromUrl(window.location.href)) {
-      return;
-    }
-
-    let mounted = true;
-    void loadEditorStorage(exampleStorage, fallbackDocument).then((storedDocument) => {
-      if (!mounted || equalsDocument(storedDocument, fallbackDocument)) {
-        return;
-      }
-      reset(storedDocument, { markSaved: true });
+    if (persistence.status === "loaded" && !equalsDocument(editor.document, fallbackDocument)) {
       setNotice("Loaded local draft");
-    });
-
-    return () => {
-      mounted = false;
-    };
-  }, [reset]);
+    }
+    if (persistence.status === "error") {
+      setNotice("Local persistence failed");
+    }
+  }, [editor.document, persistence.status]);
 
   return (
     <main

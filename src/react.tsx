@@ -1,4 +1,5 @@
 import * as React from "react";
+import type { EditorStorageAdapter } from "./browser.js";
 import {
   getEditorCommandIdFromKeyboardEvent,
   isEditorEditableTarget,
@@ -6,6 +7,13 @@ import {
   type EditorCommandDefinition,
   type EditorHotkeyEvent,
 } from "./hotkeys.js";
+import {
+  createEditorPersistenceState,
+  loadEditorRuntimePersistence,
+  saveEditorRuntimePersistence,
+  type EditorPersistenceErrorContext,
+  type EditorPersistenceState,
+} from "./persistence.js";
 import {
   commitEditorRuntime,
   createEditorRuntime,
@@ -145,6 +153,178 @@ export function useEditorRuntime<TDocument, TSelection = unknown>(
     setState,
     state,
     undo,
+  };
+}
+
+export type UsePersistentEditorRuntimeOptions<
+  TDocument,
+  TSelection = unknown,
+> = UseEditorRuntimeOptions<TDocument, TSelection> & {
+  storage: EditorStorageAdapter<TDocument>;
+  autosave?: boolean | { delayMs?: number };
+  loadOnMount?: boolean;
+  canSave?: (runtime: EditorRuntimeState<TDocument, TSelection>) => boolean;
+  onPersistenceError?: (error: unknown, context: EditorPersistenceErrorContext) => void;
+};
+
+export type UsePersistentEditorRuntimeResult<
+  TDocument,
+  TSelection = unknown,
+> = UseEditorRuntimeResult<TDocument, TSelection> & {
+  persistence: EditorPersistenceState;
+  load: () => Promise<void>;
+  save: (options?: { force?: boolean }) => Promise<boolean>;
+};
+
+const defaultEditorRuntimeAutosaveDelayMs = 750;
+
+export function usePersistentEditorRuntime<TDocument, TSelection = unknown>(
+  options: UsePersistentEditorRuntimeOptions<TDocument, TSelection>,
+): UsePersistentEditorRuntimeResult<TDocument, TSelection> {
+  const runtime = useEditorRuntime<TDocument, TSelection>(options);
+  const setRuntimeState = runtime.setState;
+  const [persistence, setPersistence] = React.useState(createEditorPersistenceState);
+  const runtimeRef = React.useRef(runtime.state);
+  const storageRef = React.useRef(options.storage);
+  const canSaveRef = React.useRef(options.canSave);
+  const onPersistenceErrorRef = React.useRef(options.onPersistenceError);
+  const saveInFlightRef = React.useRef(false);
+  const failedSaveRevisionRef = React.useRef<number | null>(null);
+  const mountedRef = React.useRef(true);
+
+  runtimeRef.current = runtime.state;
+  storageRef.current = options.storage;
+  canSaveRef.current = options.canSave;
+  onPersistenceErrorRef.current = options.onPersistenceError;
+
+  React.useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+
+  const load = React.useCallback(async () => {
+    setPersistence((previous) => ({
+      ...previous,
+      error: null,
+      operation: "load",
+      savingRevision: null,
+      status: "loading",
+    }));
+
+    const result = await loadEditorRuntimePersistence(runtimeRef.current, storageRef.current, {
+      onError: onPersistenceErrorRef.current,
+    });
+
+    if (!mountedRef.current) {
+      return;
+    }
+
+    setRuntimeState(result.runtime);
+    setPersistence(result.persistence);
+  }, [setRuntimeState]);
+
+  const save = React.useCallback(
+    async (saveOptions: { force?: boolean } = {}) => {
+      const snapshot = runtimeRef.current;
+      const canSave = canSaveRef.current ?? (() => true);
+
+      if (saveInFlightRef.current || !canSave(snapshot)) {
+        return false;
+      }
+
+      if (snapshot.status === "clean" && !saveOptions.force) {
+        const result = await saveEditorRuntimePersistence(snapshot, storageRef.current, {
+          force: saveOptions.force,
+          onError: onPersistenceErrorRef.current,
+        });
+
+        if (mountedRef.current) {
+          setPersistence(result.persistence);
+        }
+
+        return result.saved;
+      }
+
+      saveInFlightRef.current = true;
+      setPersistence((previous) => ({
+        ...previous,
+        error: null,
+        operation: "save",
+        savingRevision: snapshot.revision,
+        status: "saving",
+      }));
+
+      const result = await saveEditorRuntimePersistence(snapshot, storageRef.current, {
+        force: saveOptions.force,
+        onError: onPersistenceErrorRef.current,
+      });
+
+      saveInFlightRef.current = false;
+      if (!mountedRef.current) {
+        return result.saved;
+      }
+
+      failedSaveRevisionRef.current =
+        result.persistence.status === "error" ? result.revision : null;
+      setRuntimeState((current) =>
+        current.revision === result.revision ? result.runtime : current,
+      );
+      setPersistence(result.persistence);
+      return result.saved;
+    },
+    [setRuntimeState],
+  );
+
+  const loadOnMount = options.loadOnMount ?? true;
+
+  React.useEffect(() => {
+    if (!loadOnMount) {
+      return;
+    }
+
+    void load();
+  }, [load, loadOnMount]);
+
+  const autosave = options.autosave ?? true;
+  const autosaveEnabled = autosave !== false;
+  const autosaveDelayMs =
+    typeof autosave === "object"
+      ? (autosave.delayMs ?? defaultEditorRuntimeAutosaveDelayMs)
+      : defaultEditorRuntimeAutosaveDelayMs;
+
+  React.useEffect(() => {
+    if (!autosaveEnabled || runtime.state.status !== "dirty" || saveInFlightRef.current) {
+      return;
+    }
+
+    if (
+      persistence.status === "error" &&
+      failedSaveRevisionRef.current === runtime.state.revision
+    ) {
+      return;
+    }
+
+    const timeout = window.setTimeout(() => {
+      void save();
+    }, autosaveDelayMs);
+
+    return () => window.clearTimeout(timeout);
+  }, [
+    autosaveDelayMs,
+    autosaveEnabled,
+    persistence.status,
+    runtime.state.revision,
+    runtime.state.status,
+    save,
+  ]);
+
+  return {
+    ...runtime,
+    load,
+    persistence,
+    save,
   };
 }
 

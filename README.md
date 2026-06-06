@@ -34,6 +34,7 @@ bun add react @moritzbrantner/editor-core
 | `@moritzbrantner/editor-core/indexes`       | Entity, graph, timeline, and validation index helpers.           |
 | `@moritzbrantner/editor-core/interaction`   | Transient interaction session helpers.                           |
 | `@moritzbrantner/editor-core/operations`    | Semantic operation runtime and operation-log helpers.            |
+| `@moritzbrantner/editor-core/persistence`   | Runtime document load/save and autosave orchestration.           |
 | `@moritzbrantner/editor-core/runtime`       | Document runtime state, validation, aspects, and dirty tracking. |
 | `@moritzbrantner/editor-core/selection`     | Structured entity, range, port, and time selections.             |
 | `@moritzbrantner/editor-core/hotkeys`       | Shortcut parsing, matching, formatting, and conflict detection.  |
@@ -342,6 +343,27 @@ downloadEditorJson(document, { filename: "document" });
 
 Browser helpers are defensive in SSR or non-browser environments. Download and local storage
 helpers no-op or return fallbacks when `document`, `window`, or `localStorage` are unavailable.
+
+## Persistence
+
+Use persistence helpers to load and save runtime documents through any storage adapter:
+
+```ts
+import {
+  loadEditorRuntimePersistence,
+  saveEditorRuntimePersistence,
+} from "@moritzbrantner/editor-core/persistence";
+
+const loaded = await loadEditorRuntimePersistence(runtime, storage);
+runtime = loaded.runtime;
+
+const saved = await saveEditorRuntimePersistence(runtime, storage);
+runtime = saved.runtime;
+```
+
+Persistence stores the document only. Selection, history, revisions, and undo stacks are rebuilt by
+the runtime. React consumers can use `usePersistentEditorRuntime` from
+`@moritzbrantner/editor-core/react` for mount loading and debounced autosave.
 
 ## Share
 
