@@ -12,10 +12,12 @@ const rootDir = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const tempDir = await mkdtemp(join(tmpdir(), "editor-core-smoke-"));
 const node = process.execPath;
 const compatNode = process.env.EDITOR_CORE_COMPAT_NODE_BIN ?? node;
+const npmSmokeEnv = { ...process.env, npm_config_dry_run: "false" };
 
 try {
   const { stdout } = await execFileAsync("npm", ["pack", "--pack-destination", tempDir], {
     cwd: rootDir,
+    env: npmSmokeEnv,
   });
   const tarball = join(tempDir, stdout.trim().split("\n").at(-1));
 
@@ -38,6 +40,7 @@ async function smokeHeadlessConsumer(tarball) {
   });
   await execFileAsync("npm", ["install", "--ignore-scripts", "--no-audit", "--no-fund"], {
     cwd: consumerDir,
+    env: npmSmokeEnv,
   });
 
   assert.equal(existsSync(join(consumerDir, "node_modules", "react")), false);
@@ -190,6 +193,7 @@ async function smokeReactSubpath(tarball) {
   });
   await execFileAsync("npm", ["install", "--ignore-scripts", "--no-audit", "--no-fund"], {
     cwd: consumerDir,
+    env: npmSmokeEnv,
   });
   await mkdir(join(consumerDir, "node_modules", "react"), { recursive: true });
   await writeJson(join(consumerDir, "node_modules", "react", "package.json"), {
@@ -230,6 +234,7 @@ async function smokeBrowserBundle(tarball) {
   });
   await execFileAsync("npm", ["install", "--ignore-scripts", "--no-audit", "--no-fund"], {
     cwd: consumerDir,
+    env: npmSmokeEnv,
   });
   await writeFile(
     join(consumerDir, "index.html"),

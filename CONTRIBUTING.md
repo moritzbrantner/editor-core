@@ -43,8 +43,24 @@ Review the resulting diff before committing.
 
 ## Release Checklist
 
-1. Run `bun run verify`.
-2. Update `CHANGELOG.md`.
-3. Confirm `package.json` has the intended version.
-4. Run `bun run pack:check` and inspect the package contents.
-5. Publish with provenance from CI or with an npm token that is scoped to this package.
+The current release path is manual npm publishing. CI is validation-only and does not publish the
+package.
+
+1. Update `CHANGELOG.md`.
+2. Confirm `package.json` has the intended version.
+3. Push `main` and wait for GitHub validation to pass.
+4. Run the manual release sequence:
+
+   ```sh
+   git status --short --branch
+   bun install --frozen-lockfile
+   npm whoami
+   bun run verify:release
+   npm pack --dry-run --json
+   npm publish --dry-run --access public
+   npm publish --access public
+   ```
+
+   npm may prompt for a one-time password if two-factor authentication is enabled.
+
+5. Create and push the matching release tag after npm publish succeeds.

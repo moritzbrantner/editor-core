@@ -13,10 +13,18 @@ import { createEditorSnapshotHistory, serializeEditorDocument } from "@moritzbra
 ## Install
 
 ```sh
+npm install @moritzbrantner/editor-core
+```
+
+```sh
 bun add @moritzbrantner/editor-core
 ```
 
 For React hooks:
+
+```sh
+npm install react @moritzbrantner/editor-core
+```
 
 ```sh
 bun add react @moritzbrantner/editor-core

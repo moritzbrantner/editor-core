@@ -2,6 +2,13 @@
   "name": "@moritzbrantner/editor-core",
   "version": "0.1.0",
   "private": false,
+  "description": "Headless shared infrastructure for Moritz Brantner editor packages.",
+  "keywords": [
+    "editor",
+    "headless",
+    "react",
+    "typescript"
+  ],
   "homepage": "https://github.com/moritzbrantner/editor-core#readme",
   "bugs": {
     "url": "https://github.com/moritzbrantner/editor-core/issues"
@@ -134,6 +141,7 @@
     "size:check": "bun run build && bun run pack:check",
     "smoke:package": "node scripts/smoke-package-exports.mjs",
     "pack:check": "bun pm pack --dry-run",
+    "prepublishOnly": "bun run verify:release",
     "verify:fast": "bun run format:check && bun run lint && bun run check-types && bun run test:unit",
     "verify:release": "bun run verify:fast && bun run example:check-types && bun run test:integration && bun run test:e2e && bun run storybook:build && bun run bench:check && bun run unlighthouse && bun run pack:check",
     "verify:ci": "bun run verify:release",
