@@ -45,6 +45,13 @@ export type EditorTreeProjection<TMetadata = unknown> = {
   state: EditorTreeState;
 };
 
+export type EditorTreeItemWindow<TMetadata = unknown> = {
+  items: readonly EditorTreeItem<TMetadata>[];
+  start: number;
+  end: number;
+  total: number;
+};
+
 export type EditorTreeNodePath = readonly EditorTreeNodeId[];
 
 export type ProjectEditorTreeOptions = {
@@ -158,6 +165,20 @@ export function selectAndRevealEditorTreeNode(
   return {
     ...expandEditorTreeAncestors(state, projection, id),
     selectedId: id,
+  };
+}
+
+export function windowEditorTreeItems<TMetadata>(
+  items: readonly EditorTreeItem<TMetadata>[],
+  options: { start?: number; count: number },
+): EditorTreeItemWindow<TMetadata> {
+  const start = Math.max(0, Math.trunc(options.start ?? 0));
+  const end = Math.min(items.length, start + Math.max(0, Math.trunc(options.count)));
+  return {
+    end,
+    items: items.slice(start, end),
+    start,
+    total: items.length,
   };
 }
 

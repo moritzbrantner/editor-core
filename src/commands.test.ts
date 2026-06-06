@@ -3,6 +3,9 @@ import {
   createEditorSnapshotHistoryCommands,
   defaultEditorSnapshotHistoryCommandHotkeys,
   defaultEditorSnapshotHistoryCommandLabels,
+  getRunnableEditorCommands,
+  resolveEditorCommands,
+  type EditorContextualCommandDefinition,
   type EditorSnapshotHistoryCommandId,
 } from "./commands.js";
 import {
@@ -195,6 +198,60 @@ describe("snapshot history commands", () => {
     await undo.run?.(event);
 
     expect(onRun).toHaveBeenCalledWith({ event, id: "undo" });
+  });
+});
+
+describe("contextual editor commands", () => {
+  test("resolves availability, checked state, groups, menus, and read-only state", async () => {
+    const seen: string[] = [];
+    const definitions: readonly EditorContextualCommandDefinition<
+      "duplicate" | "delete",
+      { enabled: boolean },
+      string | null
+    >[] = [
+      {
+        canRun: ({ selection }) => selection !== null,
+        checked: ({ document }) => document.enabled,
+        group: "edit",
+        hotkeys: ["Mod+D"],
+        id: "duplicate",
+        label: "Duplicate",
+        menu: { order: 1 },
+        run: ({ selection }) => {
+          seen.push(String(selection));
+        },
+      },
+      {
+        id: "delete",
+        label: "Delete",
+      },
+    ] as const;
+    const commands = resolveEditorCommands(definitions, {
+      document: { enabled: true },
+      selection: "node-a",
+    });
+
+    expect(commands[0]).toMatchObject({
+      checked: true,
+      disabled: false,
+      group: "edit",
+      menu: { order: 1 },
+    });
+    expect(getRunnableEditorCommands(commands).map((command) => command.id)).toEqual([
+      "duplicate",
+      "delete",
+    ]);
+
+    await commands[0].run?.(event);
+    expect(seen).toEqual(["node-a"]);
+
+    expect(
+      resolveEditorCommands(definitions, {
+        document: { enabled: true },
+        readOnly: true,
+        selection: "node-a",
+      }).map((command) => command.disabled),
+    ).toEqual([true, true]);
   });
 });
 

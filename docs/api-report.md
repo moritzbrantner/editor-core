@@ -175,9 +175,40 @@ export {
 
 ```ts
 import { EditorSnapshotHistory, EditorSnapshotHistoryOptions } from "./history.js";
-import { EditorHotkeyEvent, EditorHotkeyMap, EditorCommandDefinition } from "./hotkeys.js";
+import { EditorCommandDefinition, EditorHotkeyEvent, EditorHotkeyMap } from "./hotkeys.js";
 
 type EditorSnapshotHistoryCommandId = "undo" | "redo" | "reset";
+type EditorCommandContext<TDocument, TSelection, TViewport = unknown> = {
+  document: TDocument;
+  selection: TSelection;
+  viewport?: TViewport;
+  readOnly?: boolean;
+};
+type EditorContextualCommandDefinition<
+  TId extends string,
+  TDocument,
+  TSelection,
+  TViewport = unknown,
+> = Omit<EditorCommandDefinition<TId>, "disabled" | "run"> & {
+  group?: string;
+  menu?: {
+    label?: string;
+    order?: number;
+  };
+  canRun?: (context: EditorCommandContext<TDocument, TSelection, TViewport>) => boolean;
+  checked?:
+    | boolean
+    | ((context: EditorCommandContext<TDocument, TSelection, TViewport>) => boolean);
+  run?: (context: EditorCommandContext<TDocument, TSelection, TViewport>) => void | Promise<void>;
+};
+type EditorResolvedCommandDefinition<TId extends string> = EditorCommandDefinition<TId> & {
+  group?: string;
+  menu?: {
+    label?: string;
+    order?: number;
+  };
+  checked?: boolean;
+};
 declare const defaultEditorSnapshotHistoryCommandHotkeys: EditorHotkeyMap<EditorSnapshotHistoryCommandId>;
 declare const defaultEditorSnapshotHistoryCommandLabels: Record<
   EditorSnapshotHistoryCommandId,
@@ -203,14 +234,218 @@ type EditorSnapshotHistoryCommandsOptions<TDocument> = {
 declare function createEditorSnapshotHistoryCommands<TDocument>(
   options: EditorSnapshotHistoryCommandsOptions<TDocument>,
 ): readonly EditorCommandDefinition<EditorSnapshotHistoryCommandId>[];
+declare function resolveEditorCommands<
+  TId extends string,
+  TDocument,
+  TSelection,
+  TViewport = unknown,
+>(
+  commands: readonly EditorContextualCommandDefinition<TId, TDocument, TSelection, TViewport>[],
+  context: EditorCommandContext<TDocument, TSelection, TViewport>,
+): readonly EditorResolvedCommandDefinition<TId>[];
+declare function getRunnableEditorCommands<TId extends string>(
+  commands: readonly EditorResolvedCommandDefinition<TId>[],
+): readonly EditorResolvedCommandDefinition<TId>[];
 
 export {
+  type EditorCommandContext,
+  type EditorContextualCommandDefinition,
+  type EditorResolvedCommandDefinition,
   type EditorSnapshotHistoryCommandId,
   type EditorSnapshotHistoryCommandRunContext,
   type EditorSnapshotHistoryCommandsOptions,
   createEditorSnapshotHistoryCommands,
   defaultEditorSnapshotHistoryCommandHotkeys,
   defaultEditorSnapshotHistoryCommandLabels,
+  getRunnableEditorCommands,
+  resolveEditorCommands,
+};
+```
+
+## constraints.d.ts
+
+```ts
+import { EditorEntityId, EditorTimelineRange } from "./entities.js";
+import { EditorParseIssue } from "./serialization.js";
+
+type EditorConstraintIssueOptions = {
+  entityId?: EditorEntityId;
+  message: string;
+  path?: string;
+};
+type EditorGraphConnection = {
+  sourceId: EditorEntityId;
+  sourcePortId?: string;
+  targetId: EditorEntityId;
+  targetPortId?: string;
+};
+type ValidateEditorGraphConnectionOptions = {
+  allowSelfConnection?: boolean;
+  canConnect?: (connection: EditorGraphConnection) => boolean;
+  path?: string;
+};
+type ValidateEditorTimelineRangeOptions = {
+  allowZeroDuration?: boolean;
+  max?: number;
+  min?: number;
+  path?: string;
+};
+declare function createEditorConstraintIssue(
+  options: EditorConstraintIssueOptions,
+): EditorParseIssue;
+declare function validateEditorEntityIssues<TEntity>(
+  entities: readonly TEntity[],
+  validate: (entity: TEntity) => readonly EditorParseIssue[],
+): readonly EditorParseIssue[];
+declare function validateEditorGraphConnection(
+  connection: EditorGraphConnection,
+  options?: ValidateEditorGraphConnectionOptions,
+): readonly EditorParseIssue[];
+declare function validateEditorTimelineRange(
+  range: EditorTimelineRange,
+  options?: ValidateEditorTimelineRangeOptions,
+): readonly EditorParseIssue[];
+declare function clampEditorTimelineRange(
+  range: EditorTimelineRange,
+  options?: Pick<ValidateEditorTimelineRangeOptions, "max" | "min">,
+): EditorTimelineRange;
+
+export {
+  type EditorConstraintIssueOptions,
+  type EditorGraphConnection,
+  type ValidateEditorGraphConnectionOptions,
+  type ValidateEditorTimelineRangeOptions,
+  clampEditorTimelineRange,
+  createEditorConstraintIssue,
+  validateEditorEntityIssues,
+  validateEditorGraphConnection,
+  validateEditorTimelineRange,
+};
+```
+
+## entities.d.ts
+
+```ts
+type EditorEntityId = string;
+type EditorEntityBase = {
+  id: EditorEntityId;
+  type: string;
+  parentId?: EditorEntityId | null;
+  order?: string | number;
+  metadata?: Record<string, unknown>;
+};
+type EditorEntityDocument<TEntity extends EditorEntityBase = EditorEntityBase> = {
+  entities: Record<EditorEntityId, TEntity>;
+  rootIds: readonly EditorEntityId[];
+};
+type EditorPoint = {
+  x: number;
+  y: number;
+};
+type EditorSize = {
+  height: number;
+  width: number;
+};
+type EditorBounds = EditorPoint & EditorSize;
+type EditorEntityBoundsAdapter<TEntity extends EditorEntityBase = EditorEntityBase> = {
+  getBounds: (entity: TEntity) => EditorBounds | null | undefined;
+};
+type EditorIdFactory = (prefix?: string) => EditorEntityId;
+type EditorLayerAdapter<TEntity extends EditorEntityBase = EditorEntityBase> = {
+  getBounds?: (entity: TEntity) => EditorBounds | null | undefined;
+  getParentId?: (entity: TEntity) => EditorEntityId | null | undefined;
+  getOrder?: (entity: TEntity) => string | number | undefined;
+  isLocked?: (entity: TEntity) => boolean;
+  isVisible?: (entity: TEntity) => boolean;
+};
+type EditorGraphPort = {
+  id: string;
+  label?: string;
+  direction?: "input" | "output" | "bidirectional";
+};
+type EditorGraphEdge = {
+  id: EditorEntityId;
+  sourceId: EditorEntityId;
+  targetId: EditorEntityId;
+  sourcePortId?: string;
+  targetPortId?: string;
+  type?: string;
+};
+type EditorGraphAdapter<
+  TDocument = unknown,
+  TNode extends EditorEntityBase = EditorEntityBase,
+  TEdge extends EditorGraphEdge = EditorGraphEdge,
+> = {
+  getNodes: (document: TDocument) => readonly TNode[];
+  getEdges: (document: TDocument) => readonly TEdge[];
+  getPorts?: (node: TNode) => readonly EditorGraphPort[];
+  canConnect?: (connection: {
+    sourceId: EditorEntityId;
+    sourcePortId?: string;
+    targetId: EditorEntityId;
+    targetPortId?: string;
+  }) => boolean;
+};
+type EditorWorkflowAdapter<
+  TDocument = unknown,
+  TNode extends EditorEntityBase = EditorEntityBase,
+  TTransition extends EditorGraphEdge = EditorGraphEdge,
+> = EditorGraphAdapter<TDocument, TNode, TTransition> & {
+  isStartNode?: (node: TNode) => boolean;
+  isEndNode?: (node: TNode) => boolean;
+};
+type EditorTimelineRange = {
+  start: number;
+  end: number;
+};
+type EditorTimelineTrack<TEntity extends EditorEntityBase = EditorEntityBase> = TEntity;
+type EditorTimelineItem<TEntity extends EditorEntityBase = EditorEntityBase> = TEntity & {
+  trackId: EditorEntityId;
+  range: EditorTimelineRange;
+};
+type EditorTimelineAdapter<
+  TDocument = unknown,
+  TTrack extends EditorEntityBase = EditorTimelineTrack,
+  TItem extends EditorTimelineItem = EditorTimelineItem,
+> = {
+  getTracks: (document: TDocument) => readonly TTrack[];
+  getItems: (document: TDocument) => readonly TItem[];
+  getPlayhead?: (document: TDocument) => number;
+  snapTime?: (time: number) => number;
+};
+declare function createEditorEntityDocument<TEntity extends EditorEntityBase>(
+  entities: readonly TEntity[],
+  rootIds?: readonly EditorEntityId[],
+): EditorEntityDocument<TEntity>;
+declare function getEditorEntity<TEntity extends EditorEntityBase>(
+  document: EditorEntityDocument<TEntity>,
+  id: EditorEntityId,
+): TEntity | null;
+declare function isEditorEntityId(id: unknown): id is EditorEntityId;
+declare function createIncrementingEditorIdFactory(options?: { prefix?: string }): EditorIdFactory;
+
+export {
+  type EditorBounds,
+  type EditorEntityBase,
+  type EditorEntityBoundsAdapter,
+  type EditorEntityDocument,
+  type EditorEntityId,
+  type EditorGraphAdapter,
+  type EditorGraphEdge,
+  type EditorGraphPort,
+  type EditorIdFactory,
+  type EditorLayerAdapter,
+  type EditorPoint,
+  type EditorSize,
+  type EditorTimelineAdapter,
+  type EditorTimelineItem,
+  type EditorTimelineRange,
+  type EditorTimelineTrack,
+  type EditorWorkflowAdapter,
+  createEditorEntityDocument,
+  createIncrementingEditorIdFactory,
+  getEditorEntity,
+  isEditorEntityId,
 };
 ```
 
@@ -264,6 +499,7 @@ declare function canRedoEditorHistory<TDocument>(
 type EditorTransaction<TDocument, TSelection = unknown> = {
   id: string;
   label?: string;
+  mergeKey?: string;
   before: TDocument;
   after: TDocument;
   selectionBefore?: TSelection;
@@ -428,13 +664,52 @@ export {
   writeEditorClipboardJson,
 } from "./browser.js";
 export {
+  EditorCommandContext,
+  EditorContextualCommandDefinition,
+  EditorResolvedCommandDefinition,
   EditorSnapshotHistoryCommandId,
   EditorSnapshotHistoryCommandRunContext,
   EditorSnapshotHistoryCommandsOptions,
   createEditorSnapshotHistoryCommands,
   defaultEditorSnapshotHistoryCommandHotkeys,
   defaultEditorSnapshotHistoryCommandLabels,
+  getRunnableEditorCommands,
+  resolveEditorCommands,
 } from "./commands.js";
+export {
+  EditorConstraintIssueOptions,
+  EditorGraphConnection,
+  ValidateEditorGraphConnectionOptions,
+  ValidateEditorTimelineRangeOptions,
+  clampEditorTimelineRange,
+  createEditorConstraintIssue,
+  validateEditorEntityIssues,
+  validateEditorGraphConnection,
+  validateEditorTimelineRange,
+} from "./constraints.js";
+export {
+  EditorBounds,
+  EditorEntityBase,
+  EditorEntityBoundsAdapter,
+  EditorEntityDocument,
+  EditorEntityId,
+  EditorGraphAdapter,
+  EditorGraphEdge,
+  EditorGraphPort,
+  EditorIdFactory,
+  EditorLayerAdapter,
+  EditorPoint,
+  EditorSize,
+  EditorTimelineAdapter,
+  EditorTimelineItem,
+  EditorTimelineRange,
+  EditorTimelineTrack,
+  EditorWorkflowAdapter,
+  createEditorEntityDocument,
+  createIncrementingEditorIdFactory,
+  getEditorEntity,
+  isEditorEntityId,
+} from "./entities.js";
 export {
   EditorSnapshotHistory,
   EditorSnapshotHistoryOptions,
@@ -470,6 +745,27 @@ export {
   resolveEditorHotkeys,
 } from "./hotkeys.js";
 export {
+  EditorEntityIndexes,
+  EditorGraphIndexes,
+  EditorTimelineIndexes,
+  createEditorEntityIndexes,
+  createEditorGraphIndexes,
+  createEditorTimelineIndexes,
+  groupEditorValidationIssuesByEntityId,
+} from "./indexes.js";
+export {
+  EditorInteractionSession,
+  EditorInteractionState,
+  beginEditorInteraction,
+  cancelEditorInteraction,
+  commitEditorInteraction,
+  commitEditorInteractionOperation,
+  createEditorInteractionSession,
+  idleEditorInteraction,
+  isEditorInteractionActive,
+  updateEditorInteractionPreview,
+} from "./interaction.js";
+export {
   EditorJsonObject,
   EditorJsonPrimitive,
   EditorJsonValue,
@@ -479,6 +775,32 @@ export {
   stableEditorJsonFingerprint,
   stableEditorJsonStringify,
 } from "./json.js";
+export {
+  ApplyEditorOperationOptions,
+  EditorOperation,
+  EditorOperationLogAdapter,
+  EditorOperationLogMigration,
+  EditorOperationLogMigrations,
+  EditorOperationPreflightContext,
+  EditorOperationPreflightIssue,
+  EditorOperationRuntimeCommandId,
+  EditorOperationRuntimeCommandsOptions,
+  EditorOperationRuntimeOptions,
+  EditorOperationRuntimeState,
+  ReadEditorOperationLogOptions,
+  SerializedEditorOperation,
+  SerializedEditorOperationLog,
+  applyEditorOperation,
+  createEditorOperationRuntime,
+  createEditorOperationRuntimeCommands,
+  defaultEditorOperationRuntimeCommandHotkeys,
+  defaultEditorOperationRuntimeCommandLabels,
+  migrateEditorOperationLog,
+  readEditorOperationLog,
+  redoEditorOperationRuntime,
+  serializeEditorOperationLog,
+  undoEditorOperationRuntime,
+} from "./operations.js";
 export {
   CommitEditorRuntimeOptions,
   EditorRuntimeCommandId,
@@ -505,6 +827,20 @@ export {
   validateEditorRuntime,
 } from "./runtime.js";
 export {
+  EditorSelection,
+  addEditorEntityToSelection,
+  createEditorEntitySelection,
+  editorSelectionFromTreeNode,
+  emptyEditorSelection,
+  getEditorSelectedEntityIds,
+  getEditorSelectionPrimaryEntityId,
+  getEditorSelectionTreeNodeId,
+  isEditorEntitySelected,
+  normalizeEditorSelection,
+  removeEditorEntityFromSelection,
+  toggleEditorEntitySelection,
+} from "./selection.js";
+export {
   EditorDocumentAdapter,
   EditorDocumentMigration,
   EditorDocumentMigrations,
@@ -530,6 +866,7 @@ export {
 export {
   EditorTreeAdapter,
   EditorTreeItem,
+  EditorTreeItemWindow,
   EditorTreeNode,
   EditorTreeNodeId,
   EditorTreeNodePath,
@@ -547,7 +884,165 @@ export {
   selectAndRevealEditorTreeNode,
   selectEditorTreeNode,
   toggleEditorTreeNode,
+  windowEditorTreeItems,
 } from "./tree.js";
+export {
+  EditorSnapResult,
+  EditorSnapTarget,
+  EditorTimelineViewportState,
+  EditorViewportClamp,
+  EditorViewportState,
+  FitEditorBoundsOptions,
+  createEditorTimelineViewportState,
+  createEditorViewportState,
+  doEditorBoundsIntersect,
+  editorPixelToTime,
+  editorPointToScreenPoint,
+  editorTimeToPixel,
+  fitEditorBoundsInViewport,
+  panEditorTimelineViewport,
+  panEditorViewport,
+  revealEditorBounds,
+  screenPointToEditorPoint,
+  snapEditorPoint,
+  snapEditorValue,
+  unionEditorBounds,
+  zoomEditorTimelineViewportAtPixel,
+  zoomEditorViewportAtPoint,
+} from "./viewport.js";
+```
+
+## indexes.d.ts
+
+```ts
+import {
+  EditorEntityBase,
+  EditorEntityId,
+  EditorGraphEdge,
+  EditorTimelineItem,
+  EditorEntityDocument,
+} from "./entities.js";
+import { EditorParseIssue } from "./serialization.js";
+
+type EditorEntityIndexes<TEntity extends EditorEntityBase = EditorEntityBase> = {
+  entitiesById: ReadonlyMap<EditorEntityId, TEntity>;
+  childrenByParentId: ReadonlyMap<EditorEntityId | null, readonly TEntity[]>;
+  parentByChildId: ReadonlyMap<EditorEntityId, EditorEntityId | null>;
+  orderedRootIds: readonly EditorEntityId[];
+};
+type EditorGraphIndexes<TEdge extends EditorGraphEdge = EditorGraphEdge> = {
+  edgesById: ReadonlyMap<EditorEntityId, TEdge>;
+  incomingEdgesByNodeId: ReadonlyMap<EditorEntityId, readonly TEdge[]>;
+  outgoingEdgesByNodeId: ReadonlyMap<EditorEntityId, readonly TEdge[]>;
+};
+type EditorTimelineIndexes<TItem extends EditorTimelineItem = EditorTimelineItem> = {
+  trackItemsByTrackId: ReadonlyMap<EditorEntityId, readonly TItem[]>;
+};
+declare function createEditorEntityIndexes<TEntity extends EditorEntityBase>(
+  document: EditorEntityDocument<TEntity>,
+): EditorEntityIndexes<TEntity>;
+declare function createEditorGraphIndexes<TEdge extends EditorGraphEdge>(
+  edges: readonly TEdge[],
+): EditorGraphIndexes<TEdge>;
+declare function createEditorTimelineIndexes<TItem extends EditorTimelineItem>(
+  items: readonly TItem[],
+): EditorTimelineIndexes<TItem>;
+declare function groupEditorValidationIssuesByEntityId(
+  issues: readonly EditorParseIssue[],
+): ReadonlyMap<EditorEntityId, readonly EditorParseIssue[]>;
+
+export {
+  type EditorEntityIndexes,
+  type EditorGraphIndexes,
+  type EditorTimelineIndexes,
+  createEditorEntityIndexes,
+  createEditorGraphIndexes,
+  createEditorTimelineIndexes,
+  groupEditorValidationIssuesByEntityId,
+};
+```
+
+## interaction.d.ts
+
+```ts
+import { EditorEntityId, EditorPoint } from "./entities.js";
+import { EditorOperationRuntimeState, EditorOperation } from "./operations.js";
+import "./aspects.js";
+import "./hotkeys.js";
+import "./history.js";
+import "./runtime.js";
+import "./serialization.js";
+
+type EditorInteractionState =
+  | {
+      kind: "idle";
+    }
+  | {
+      kind: "dragging";
+      ids: readonly EditorEntityId[];
+      origin: EditorPoint;
+    }
+  | {
+      kind: "resizing";
+      id: EditorEntityId;
+      handle: string;
+    }
+  | {
+      kind: "connecting";
+      fromId: EditorEntityId;
+      fromPortId?: string;
+    }
+  | {
+      kind: "scrubbing";
+      time: number;
+    };
+type EditorInteractionSession<
+  TDocument,
+  TInteraction extends EditorInteractionState = EditorInteractionState,
+> = {
+  committedDocument: TDocument;
+  previewDocument: TDocument;
+  state: TInteraction;
+};
+declare const idleEditorInteraction: EditorInteractionState;
+declare function createEditorInteractionSession<TDocument>(
+  document: TDocument,
+): EditorInteractionSession<TDocument>;
+declare function beginEditorInteraction<TDocument, TInteraction extends EditorInteractionState>(
+  session: EditorInteractionSession<TDocument>,
+  state: TInteraction,
+): EditorInteractionSession<TDocument, TInteraction>;
+declare function updateEditorInteractionPreview<
+  TDocument,
+  TInteraction extends EditorInteractionState,
+>(
+  session: EditorInteractionSession<TDocument, TInteraction>,
+  previewDocument: TDocument,
+): EditorInteractionSession<TDocument, TInteraction>;
+declare function cancelEditorInteraction<TDocument>(
+  session: EditorInteractionSession<TDocument>,
+): EditorInteractionSession<TDocument>;
+declare function commitEditorInteraction<TDocument>(
+  session: EditorInteractionSession<TDocument>,
+): EditorInteractionSession<TDocument>;
+declare function commitEditorInteractionOperation<TDocument, TSelection = unknown>(
+  runtime: EditorOperationRuntimeState<TDocument, TSelection>,
+  operation: EditorOperation<TDocument, TSelection>,
+): EditorOperationRuntimeState<TDocument, TSelection>;
+declare function isEditorInteractionActive(state: EditorInteractionState): boolean;
+
+export {
+  type EditorInteractionSession,
+  type EditorInteractionState,
+  beginEditorInteraction,
+  cancelEditorInteraction,
+  commitEditorInteraction,
+  commitEditorInteractionOperation,
+  createEditorInteractionSession,
+  idleEditorInteraction,
+  isEditorInteractionActive,
+  updateEditorInteractionPreview,
+};
 ```
 
 ## json.d.ts
@@ -573,6 +1068,194 @@ export {
   sortEditorJsonValue,
   stableEditorJsonFingerprint,
   stableEditorJsonStringify,
+};
+```
+
+## operations.d.ts
+
+```ts
+import { EditorChangeOrigin } from "./aspects.js";
+import { EditorHotkeyMap, EditorCommandDefinition } from "./hotkeys.js";
+import { EditorTransactionHistory } from "./history.js";
+import { EditorRuntimeState, EditorRuntimeOptions } from "./runtime.js";
+import { EditorParseIssue } from "./serialization.js";
+
+type EditorOperation<TDocument, TSelection = unknown> = {
+  id: string;
+  label?: string;
+  apply: (document: TDocument) => TDocument;
+  invert?: (document: TDocument) => TDocument;
+  selectionBefore?: TSelection;
+  selectionAfter?: TSelection;
+  origin?: EditorChangeOrigin;
+  mergeKey?: string;
+  metadata?: Record<string, unknown>;
+};
+type EditorOperationPreflightContext<TDocument, TSelection = unknown> = {
+  document: TDocument;
+  operation: EditorOperation<TDocument, TSelection>;
+  runtime: EditorRuntimeState<TDocument, TSelection>;
+};
+type EditorOperationPreflightIssue = {
+  path: string;
+  message: string;
+  severity?: "error" | "warning";
+};
+type EditorOperationRuntimeOptions<TDocument, TSelection = unknown> = EditorRuntimeOptions<
+  TDocument,
+  TSelection
+> & {
+  operationHistoryLimit?: number;
+  preflight?: (
+    context: EditorOperationPreflightContext<TDocument, TSelection>,
+  ) => readonly EditorOperationPreflightIssue[];
+};
+type EditorOperationRuntimeState<TDocument, TSelection = unknown> = {
+  runtime: EditorRuntimeState<TDocument, TSelection>;
+  operationHistory: EditorTransactionHistory<TDocument, TSelection>;
+  canUndo: boolean;
+  canRedo: boolean;
+  lastMergeKey: string | null;
+  issues: readonly EditorOperationPreflightIssue[];
+};
+type ApplyEditorOperationOptions = {
+  merge?: boolean;
+};
+type SerializedEditorOperation<
+  TPayload = unknown,
+  TType extends string = string,
+  TVersion extends number | string = number,
+> = {
+  id: string;
+  type: TType;
+  schemaVersion: TVersion;
+  payload: TPayload;
+  label?: string;
+  origin?: EditorChangeOrigin;
+  mergeKey?: string;
+  createdAt?: string;
+  metadata?: Record<string, unknown>;
+};
+type SerializedEditorOperationLog<
+  TPayload = unknown,
+  TFormat extends string = string,
+  TVersion extends number | string = number,
+> = {
+  format: TFormat;
+  schemaVersion: TVersion;
+  operations: readonly SerializedEditorOperation<TPayload>[];
+  exportedAt?: string;
+  metadata?: Record<string, unknown>;
+};
+type EditorOperationLogAdapter<TOperation> = {
+  format: string;
+  schemaVersion: number | string;
+  read: (input: unknown, path?: string) => TOperation;
+  normalize?: (operation: TOperation) => TOperation;
+  validate?: (operation: TOperation) => readonly EditorParseIssue[];
+};
+type EditorOperationLogMigration<TOperation> = (
+  input: SerializedEditorOperationLog<unknown>,
+  adapter: EditorOperationLogAdapter<TOperation>,
+) => SerializedEditorOperationLog<unknown> | unknown;
+type EditorOperationLogMigrations<TOperation> = Record<
+  string | number,
+  EditorOperationLogMigration<TOperation>
+>;
+type ReadEditorOperationLogOptions<TOperation> = {
+  migrations?: EditorOperationLogMigrations<TOperation>;
+  path?: string;
+};
+type EditorOperationRuntimeCommandId = "undo" | "redo";
+declare const defaultEditorOperationRuntimeCommandHotkeys: EditorHotkeyMap<EditorOperationRuntimeCommandId>;
+declare const defaultEditorOperationRuntimeCommandLabels: Record<
+  EditorOperationRuntimeCommandId,
+  string
+>;
+type EditorOperationRuntimeCommandsOptions<TDocument, TSelection = unknown> = {
+  editor: EditorOperationRuntimeState<TDocument, TSelection>;
+  setEditor: (
+    updater: (
+      editor: EditorOperationRuntimeState<TDocument, TSelection>,
+    ) => EditorOperationRuntimeState<TDocument, TSelection>,
+  ) => void;
+  hotkeys?: Partial<EditorHotkeyMap<EditorOperationRuntimeCommandId>>;
+  labels?: Partial<Record<EditorOperationRuntimeCommandId, string>>;
+  disabled?: Partial<Record<EditorOperationRuntimeCommandId, boolean>>;
+};
+declare function createEditorOperationRuntime<TDocument, TSelection = unknown>(
+  options: EditorOperationRuntimeOptions<TDocument, TSelection>,
+): EditorOperationRuntimeState<TDocument, TSelection>;
+declare function applyEditorOperation<TDocument, TSelection = unknown>(
+  state: EditorOperationRuntimeState<TDocument, TSelection>,
+  operation: EditorOperation<TDocument, TSelection>,
+  options?: ApplyEditorOperationOptions,
+): EditorOperationRuntimeState<TDocument, TSelection>;
+declare function undoEditorOperationRuntime<TDocument, TSelection = unknown>(
+  state: EditorOperationRuntimeState<TDocument, TSelection>,
+  options?: {
+    origin?: EditorChangeOrigin;
+  },
+): EditorOperationRuntimeState<TDocument, TSelection>;
+declare function redoEditorOperationRuntime<TDocument, TSelection = unknown>(
+  state: EditorOperationRuntimeState<TDocument, TSelection>,
+  options?: {
+    origin?: EditorChangeOrigin;
+  },
+): EditorOperationRuntimeState<TDocument, TSelection>;
+declare function createEditorOperationRuntimeCommands<TDocument, TSelection = unknown>(
+  options: EditorOperationRuntimeCommandsOptions<TDocument, TSelection>,
+): readonly EditorCommandDefinition<EditorOperationRuntimeCommandId>[];
+declare function serializeEditorOperationLog<
+  TPayload,
+  TFormat extends string,
+  TVersion extends number | string,
+>(
+  operations: readonly SerializedEditorOperation<TPayload>[],
+  options: {
+    format: TFormat;
+    schemaVersion: TVersion;
+    exportedAt?: string | Date | false;
+    metadata?: Record<string, unknown>;
+  },
+): SerializedEditorOperationLog<TPayload, TFormat, TVersion>;
+declare function readEditorOperationLog<TOperation>(
+  input: unknown,
+  adapter: EditorOperationLogAdapter<TOperation>,
+  options?: ReadEditorOperationLogOptions<TOperation>,
+): readonly TOperation[];
+declare function migrateEditorOperationLog<TOperation>(
+  input: unknown,
+  adapter: EditorOperationLogAdapter<TOperation>,
+  migrations?: EditorOperationLogMigrations<TOperation>,
+  seenVersions?: ReadonlySet<string>,
+): unknown;
+
+export {
+  type ApplyEditorOperationOptions,
+  type EditorOperation,
+  type EditorOperationLogAdapter,
+  type EditorOperationLogMigration,
+  type EditorOperationLogMigrations,
+  type EditorOperationPreflightContext,
+  type EditorOperationPreflightIssue,
+  type EditorOperationRuntimeCommandId,
+  type EditorOperationRuntimeCommandsOptions,
+  type EditorOperationRuntimeOptions,
+  type EditorOperationRuntimeState,
+  type ReadEditorOperationLogOptions,
+  type SerializedEditorOperation,
+  type SerializedEditorOperationLog,
+  applyEditorOperation,
+  createEditorOperationRuntime,
+  createEditorOperationRuntimeCommands,
+  defaultEditorOperationRuntimeCommandHotkeys,
+  defaultEditorOperationRuntimeCommandLabels,
+  migrateEditorOperationLog,
+  readEditorOperationLog,
+  redoEditorOperationRuntime,
+  serializeEditorOperationLog,
+  undoEditorOperationRuntime,
 };
 ```
 
@@ -802,6 +1485,94 @@ export {
 };
 ```
 
+## selection.d.ts
+
+```ts
+import { EditorEntityId } from "./entities.js";
+import { EditorTreeNode, EditorTreeNodeId } from "./tree.js";
+
+type EditorSelection =
+  | {
+      kind: "empty";
+    }
+  | {
+      kind: "entity";
+      ids: readonly EditorEntityId[];
+      anchorId?: EditorEntityId;
+    }
+  | {
+      kind: "range";
+      anchorId: EditorEntityId;
+      focusId: EditorEntityId;
+    }
+  | {
+      kind: "port";
+      entityId: EditorEntityId;
+      portId: string;
+    }
+  | {
+      kind: "time";
+      start: number;
+      end: number;
+      trackIds?: readonly EditorEntityId[];
+    };
+declare const emptyEditorSelection: EditorSelection;
+declare function createEditorEntitySelection(
+  ids: readonly EditorEntityId[],
+  anchorId?: EditorEntityId | undefined,
+): EditorSelection;
+declare function getEditorSelectedEntityIds(selection: EditorSelection | null): EditorEntityId[];
+declare function isEditorEntitySelected(
+  selection: EditorSelection | null,
+  id: EditorEntityId,
+): boolean;
+declare function addEditorEntityToSelection(
+  selection: EditorSelection | null,
+  id: EditorEntityId,
+): EditorSelection;
+declare function removeEditorEntityFromSelection(
+  selection: EditorSelection | null,
+  id: EditorEntityId,
+): EditorSelection;
+declare function toggleEditorEntitySelection(
+  selection: EditorSelection | null,
+  id: EditorEntityId,
+): EditorSelection;
+declare function normalizeEditorSelection(
+  selection: EditorSelection | null,
+  exists: (id: EditorEntityId) => boolean,
+): EditorSelection;
+declare function editorSelectionFromTreeNode(
+  node:
+    | EditorTreeNode<{
+        entityId?: EditorEntityId;
+      }>
+    | EditorTreeNode,
+): EditorSelection;
+declare function getEditorSelectionPrimaryEntityId(
+  selection: EditorSelection | null,
+): EditorEntityId | null;
+declare function getEditorSelectionTreeNodeId(
+  selection: EditorSelection | null,
+  mapEntityIdToTreeNodeId?: (id: EditorEntityId) => EditorTreeNodeId | null | undefined,
+): EditorTreeNodeId | null;
+
+export {
+  type EditorSelection,
+  addEditorEntityToSelection,
+  createEditorEntitySelection,
+  editorSelectionFromTreeNode,
+  emptyEditorSelection,
+  getEditorSelectedEntityIds,
+  getEditorSelectionPrimaryEntityId,
+  getEditorSelectionTreeNodeId,
+  isEditorEntitySelected,
+  normalizeEditorSelection,
+  removeEditorEntityFromSelection,
+  toggleEditorEntitySelection,
+};
+```
+
 ## serialization.d.ts
 
 ```ts
@@ -982,6 +1753,12 @@ type EditorTreeProjection<TMetadata = unknown> = {
   parentIdsById: ReadonlyMap<EditorTreeNodeId, EditorTreeNodeId | null>;
   state: EditorTreeState;
 };
+type EditorTreeItemWindow<TMetadata = unknown> = {
+  items: readonly EditorTreeItem<TMetadata>[];
+  start: number;
+  end: number;
+  total: number;
+};
 type EditorTreeNodePath = readonly EditorTreeNodeId[];
 type ProjectEditorTreeOptions = {
   state?: EditorTreeState;
@@ -1022,10 +1799,18 @@ declare function selectAndRevealEditorTreeNode(
   projection: Pick<EditorTreeProjection, "parentIdsById">,
   id: EditorTreeNodeId,
 ): EditorTreeState;
+declare function windowEditorTreeItems<TMetadata>(
+  items: readonly EditorTreeItem<TMetadata>[],
+  options: {
+    start?: number;
+    count: number;
+  },
+): EditorTreeItemWindow<TMetadata>;
 
 export {
   type EditorTreeAdapter,
   type EditorTreeItem,
+  type EditorTreeItemWindow,
   type EditorTreeNode,
   type EditorTreeNodeId,
   type EditorTreeNodePath,
@@ -1043,5 +1828,127 @@ export {
   selectAndRevealEditorTreeNode,
   selectEditorTreeNode,
   toggleEditorTreeNode,
+  windowEditorTreeItems,
+};
+```
+
+## viewport.d.ts
+
+```ts
+import { EditorBounds, EditorPoint } from "./entities.js";
+
+type EditorViewportState = {
+  x: number;
+  y: number;
+  zoom: number;
+};
+type EditorTimelineViewportState = {
+  start: number;
+  end: number;
+  pixelsPerUnit: number;
+};
+type EditorViewportClamp = {
+  minZoom?: number;
+  maxZoom?: number;
+};
+type EditorSnapTarget = {
+  value: number;
+  id?: string;
+  kind?: string;
+};
+type EditorSnapResult = {
+  value: number;
+  snapped: boolean;
+  target?: EditorSnapTarget;
+};
+type FitEditorBoundsOptions = EditorViewportClamp & {
+  padding?: number;
+  viewportSize: {
+    height: number;
+    width: number;
+  };
+};
+declare function createEditorViewportState(
+  state?: Partial<EditorViewportState>,
+): EditorViewportState;
+declare function panEditorViewport(
+  viewport: EditorViewportState,
+  delta: EditorPoint,
+): EditorViewportState;
+declare function zoomEditorViewportAtPoint(
+  viewport: EditorViewportState,
+  zoom: number,
+  point: EditorPoint,
+  clamp?: EditorViewportClamp,
+): EditorViewportState;
+declare function screenPointToEditorPoint(
+  point: EditorPoint,
+  viewport: EditorViewportState,
+): EditorPoint;
+declare function editorPointToScreenPoint(
+  point: EditorPoint,
+  viewport: EditorViewportState,
+): EditorPoint;
+declare function fitEditorBoundsInViewport(
+  bounds: EditorBounds,
+  options: FitEditorBoundsOptions,
+): EditorViewportState;
+declare function unionEditorBounds(bounds: readonly EditorBounds[]): EditorBounds | null;
+declare function doEditorBoundsIntersect(left: EditorBounds, right: EditorBounds): boolean;
+declare function snapEditorValue(
+  value: number,
+  targets: readonly EditorSnapTarget[],
+  threshold?: number,
+): EditorSnapResult;
+declare function snapEditorPoint(
+  point: EditorPoint,
+  targets: {
+    x?: readonly EditorSnapTarget[];
+    y?: readonly EditorSnapTarget[];
+  },
+  threshold?: number,
+): EditorPoint;
+declare function revealEditorBounds(
+  bounds: readonly EditorBounds[],
+  options: FitEditorBoundsOptions,
+): EditorViewportState | null;
+declare function createEditorTimelineViewportState(
+  state?: Partial<EditorTimelineViewportState>,
+): EditorTimelineViewportState;
+declare function editorTimeToPixel(time: number, viewport: EditorTimelineViewportState): number;
+declare function editorPixelToTime(pixel: number, viewport: EditorTimelineViewportState): number;
+declare function panEditorTimelineViewport(
+  viewport: EditorTimelineViewportState,
+  deltaUnits: number,
+): EditorTimelineViewportState;
+declare function zoomEditorTimelineViewportAtPixel(
+  viewport: EditorTimelineViewportState,
+  pixelsPerUnit: number,
+  pixel: number,
+): EditorTimelineViewportState;
+
+export {
+  type EditorSnapResult,
+  type EditorSnapTarget,
+  type EditorTimelineViewportState,
+  type EditorViewportClamp,
+  type EditorViewportState,
+  type FitEditorBoundsOptions,
+  createEditorTimelineViewportState,
+  createEditorViewportState,
+  doEditorBoundsIntersect,
+  editorPixelToTime,
+  editorPointToScreenPoint,
+  editorTimeToPixel,
+  fitEditorBoundsInViewport,
+  panEditorTimelineViewport,
+  panEditorViewport,
+  revealEditorBounds,
+  screenPointToEditorPoint,
+  snapEditorPoint,
+  snapEditorValue,
+  unionEditorBounds,
+  zoomEditorTimelineViewportAtPixel,
+  zoomEditorViewportAtPoint,
 };
 ```

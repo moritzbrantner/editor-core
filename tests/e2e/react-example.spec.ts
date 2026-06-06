@@ -18,11 +18,14 @@ test("edits the React example document and updates editor state", async ({ page 
   await page.getByRole("button", { name: /Moss/u }).click();
   await expect(page.getByRole("button", { name: /Moss/u })).toHaveAttribute("aria-pressed", "true");
 
-  await page.getByRole("button", { name: /Save Local/u }).click();
+  await page.getByRole("button", { name: /^Save/u }).click();
   await expect(page.getByRole("status")).toContainText("Saved locally");
 
   await page.getByRole("button", { name: /Undo/u }).click();
-  await expect(page.getByRole("status")).toContainText("Undid last edit");
+  await expect(page.getByRole("button", { name: /Moss/u })).toHaveAttribute(
+    "aria-pressed",
+    "false",
+  );
 
   await page.getByLabel("Import document JSON file").setInputFiles({
     buffer: Buffer.from(
@@ -41,4 +44,23 @@ test("edits the React example document and updates editor state", async ({ page 
   });
   await expect(title).toHaveValue("Imported Draft");
   await expect(page.getByRole("status")).toContainText("JSON imported");
+});
+
+test("uses the reference editor primitives", async ({ page }) => {
+  await page.goto("/");
+
+  await page.getByRole("tab", { name: "Reference editor" }).click();
+  await expect(page.getByRole("tab", { name: "Layers" })).toBeVisible();
+
+  await page.getByRole("tab", { name: "Graph" }).click();
+  await page.getByRole("button", { name: "Drag node A" }).click();
+  await expect(page.getByText("20, 0")).toBeVisible();
+  await page.getByRole("button", { name: "Connect A to A" }).click();
+  await expect(page.getByText("Connections must target a different entity.")).toBeVisible();
+
+  await page.getByRole("tab", { name: "Timeline" }).click();
+  await page.getByRole("button", { name: "Trim clip to snap" }).click();
+  await expect(page.getByText("0-12")).toBeVisible();
+  await page.getByRole("button", { name: /Undo/u }).click();
+  await expect(page.getByText("0-10")).toBeVisible();
 });

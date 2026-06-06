@@ -1,8 +1,21 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import * as React from "react";
+import {
+  applyEditorOperation,
+  createEditorEntitySelection,
+  createEditorOperationRuntime,
+  createEditorViewportState,
+  editorPixelToTime,
+  editorPointToScreenPoint,
+  editorTimeToPixel,
+  panEditorViewport,
+  screenPointToEditorPoint,
+  type EditorSelection,
+} from "@moritzbrantner/editor-core";
 import { useControllableEditorState, useEditorTreeState } from "@moritzbrantner/editor-core/react";
 import {
   projectEditorTree,
+  windowEditorTreeItems,
   type EditorTreeAdapter,
   type EditorTreeItem,
 } from "@moritzbrantner/editor-core/tree";
@@ -89,6 +102,92 @@ function TreeItemRow({
   );
 }
 
+function FoundationPrimitivesFixture() {
+  const [editor, setEditor] = React.useState(() =>
+    createEditorOperationRuntime<{ value: number }, EditorSelection>({
+      initialDocument: { value: 0 },
+      initialSelection: createEditorEntitySelection(["entity-1"]),
+    }),
+  );
+  const [viewport, setViewport] = React.useState(() =>
+    createEditorViewportState({ x: 10, y: 20, zoom: 2 }),
+  );
+  const largeTree = React.useMemo(
+    () =>
+      projectEditorTree(
+        { sections: Array.from({ length: 100 }, (_, index) => `Section ${index}`), title: "Large" },
+        demoTreeAdapter,
+        { state: { expandedIds: ["document"], selectedId: "document.sections.5" } },
+      ),
+    [],
+  );
+  const windowedTree = windowEditorTreeItems(largeTree.items, { count: 6, start: 3 });
+  const documentPoint = screenPointToEditorPoint({ x: 30, y: 40 }, viewport);
+  const screenPoint = editorPointToScreenPoint(documentPoint, viewport);
+  const timelinePixel = editorTimeToPixel(4, { end: 12, pixelsPerUnit: 16, start: 0 });
+  const timelineTime = editorPixelToTime(timelinePixel, {
+    end: 12,
+    pixelsPerUnit: 16,
+    start: 0,
+  });
+
+  return (
+    <div className="grid max-w-4xl gap-4 rounded-lg border border-slate-200 bg-white p-4 text-slate-800 shadow-sm">
+      <div className="grid gap-3 md:grid-cols-3">
+        <button
+          className="min-h-10 rounded-md border border-slate-300 bg-slate-50 px-3 text-sm font-bold"
+          onClick={() =>
+            setEditor((current) =>
+              applyEditorOperation(current, {
+                apply: (document) => ({ value: document.value + 1 }),
+                id: "increment",
+                selectionAfter: createEditorEntitySelection(["entity-1"]),
+              }),
+            )
+          }
+          type="button"
+        >
+          Value {editor.runtime.document.value}
+        </button>
+        <button
+          className="min-h-10 rounded-md border border-slate-300 bg-slate-50 px-3 text-sm font-bold"
+          onClick={() => setViewport((current) => panEditorViewport(current, { x: 5, y: -5 }))}
+          type="button"
+        >
+          Viewport {viewport.x}, {viewport.y}
+        </button>
+        <div className="rounded-md border border-slate-200 bg-slate-50 p-2 text-sm font-bold">
+          Timeline {timelinePixel}px / {timelineTime}s
+        </div>
+      </div>
+
+      <div className="grid gap-2 rounded-md border border-slate-200 bg-slate-50 p-3">
+        <p className="m-0 text-xs font-bold text-slate-500 uppercase">
+          Tree rows {windowedTree.start}-{windowedTree.end} of {windowedTree.total}
+        </p>
+        {windowedTree.items.map((item) => (
+          <TreeItemRow item={item} key={item.node.id} onSelect={() => {}} />
+        ))}
+      </div>
+
+      <dl className="m-0 grid gap-2 text-sm md:grid-cols-3">
+        <Metric label="Selection" value={editor.runtime.selection?.kind ?? "empty"} />
+        <Metric label="Document point" value={`${documentPoint.x}, ${documentPoint.y}`} />
+        <Metric label="Screen point" value={`${screenPoint.x}, ${screenPoint.y}`} />
+      </dl>
+    </div>
+  );
+}
+
+function Metric({ label, value }: { label: string; value: React.ReactNode }) {
+  return (
+    <div className="rounded-md border border-slate-200 bg-slate-50 p-2">
+      <dt className="text-xs font-bold text-slate-500 uppercase">{label}</dt>
+      <dd className="m-0 mt-1 font-bold text-slate-800">{value}</dd>
+    </div>
+  );
+}
+
 const meta = {
   args: {
     initialTitle: "Hook-driven document",
@@ -103,3 +202,7 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 export const Default: Story = {};
+
+export const FoundationPrimitives: Story = {
+  render: () => <FoundationPrimitivesFixture />,
+};

@@ -55,6 +55,13 @@ async function smokeHeadlessConsumer(tarball) {
       import { editorShareUrl } from "@moritzbrantner/editor-core/share";
       import { ensureEditorJsonFilename } from "@moritzbrantner/editor-core/browser";
       import { createEditorSnapshotHistoryCommands } from "@moritzbrantner/editor-core/commands";
+      import { validateEditorGraphConnection } from "@moritzbrantner/editor-core/constraints";
+      import { createEditorEntityDocument } from "@moritzbrantner/editor-core/entities";
+      import { createEditorEntityIndexes } from "@moritzbrantner/editor-core/indexes";
+      import { createEditorInteractionSession } from "@moritzbrantner/editor-core/interaction";
+      import { createEditorOperationRuntime } from "@moritzbrantner/editor-core/operations";
+      import { createEditorEntitySelection } from "@moritzbrantner/editor-core/selection";
+      import { createEditorViewportState } from "@moritzbrantner/editor-core/viewport";
 
       if ("useEditorHotkeys" in core || "useEditorTreeState" in core) {
         throw new Error("React hooks leaked from the root entrypoint");
@@ -84,9 +91,19 @@ async function smokeHeadlessConsumer(tarball) {
         history,
         setHistory() {},
       });
+      const entityDocument = createEditorEntityDocument([{ id: "node", type: "node" }]);
+      const indexes = createEditorEntityIndexes(entityDocument);
+      const interaction = createEditorInteractionSession(history.present);
+      const operationRuntime = createEditorOperationRuntime({ initialDocument: history.present });
+      const selection = createEditorEntitySelection(["node"]);
+      const viewport = createEditorViewportState({ zoom: 2 });
+      const graphIssues = validateEditorGraphConnection({ sourceId: "node", targetId: "node" });
 
       if (tree.root.id !== "document") {
         throw new Error("Tree projection failed");
+      }
+      if (!indexes.entitiesById.has("node") || interaction.state.kind !== "idle" || operationRuntime.canUndo || selection.kind !== "entity" || viewport.zoom !== 2 || graphIssues.length === 0) {
+        throw new Error("New foundation subpaths failed");
       }
     `,
   );
@@ -114,7 +131,9 @@ async function smokeHeadlessConsumer(tarball) {
     `
       import {
         createEditorSnapshotHistory,
+        createEditorOperationRuntime,
         type EditorSnapshotHistory,
+        type EditorGraphAdapter,
       } from "@moritzbrantner/editor-core";
       import type { EditorTreeAdapter } from "@moritzbrantner/editor-core/tree";
 
@@ -125,9 +144,20 @@ async function smokeHeadlessConsumer(tarball) {
           return { id: "document", label: document.title };
         },
       };
+      const runtime = createEditorOperationRuntime({ initialDocument: { title: "Draft" } });
+      const graphAdapter: EditorGraphAdapter<
+        { nodes: Array<{ id: string; type: "node" }>; edges: Array<{ id: string; sourceId: string; targetId: string }> },
+        { id: string; type: "node" },
+        { id: string; sourceId: string; targetId: string }
+      > = {
+        getEdges: (document) => document.edges,
+        getNodes: (document) => document.nodes,
+      };
 
       void history;
       void adapter;
+      void runtime;
+      void graphAdapter;
     `,
   );
   await writeJson(join(consumerDir, "tsconfig.json"), {

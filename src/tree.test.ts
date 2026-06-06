@@ -9,6 +9,7 @@ import {
   selectAndRevealEditorTreeNode,
   selectEditorTreeNode,
   toggleEditorTreeNode,
+  windowEditorTreeItems,
   type EditorTreeAdapter,
 } from "./tree.js";
 
@@ -171,5 +172,20 @@ describe("editor tree", () => {
       expandedIds: ["document", "document.fields"],
       selectedId: "document.fields.title",
     });
+  });
+
+  test("windows visible items for virtualized trees", () => {
+    const projection = projectEditorTree({ title: "Draft" }, adapter);
+
+    expect(windowEditorTreeItems(projection.items, { count: 2, start: 1 })).toMatchObject({
+      end: 3,
+      start: 1,
+      total: 4,
+    });
+    expect(
+      windowEditorTreeItems(projection.items, { count: 2, start: 1 }).items.map(
+        (item) => item.node.id,
+      ),
+    ).toEqual(["document.fields", "document.fields.title"]);
   });
 });

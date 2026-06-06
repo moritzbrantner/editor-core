@@ -105,6 +105,7 @@ export function canRedoEditorHistory<TDocument>(
 export type EditorTransaction<TDocument, TSelection = unknown> = {
   id: string;
   label?: string;
+  mergeKey?: string;
   before: TDocument;
   after: TDocument;
   selectionBefore?: TSelection;

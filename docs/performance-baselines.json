@@ -6,6 +6,10 @@
     },
     "tree projection": {
       "hz": 32305.05
+    },
+    "entity indexes": {
+      "hz": 200,
+      "maxRegressionRatio": 0.5
     }
   }
 }

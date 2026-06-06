@@ -33,6 +33,7 @@ import {
   type EditorTreeItem,
   type EditorTreeNode,
 } from "@moritzbrantner/editor-core/tree";
+import { ReferenceEditor } from "./reference-editor";
 import "./styles.css";
 
 type Accent = "graphite" | "cobalt" | "moss" | "coral";
@@ -197,6 +198,7 @@ function App() {
     validate: (document) => exampleDocumentAdapter.validate?.(document) ?? [],
   });
   const [notice, setNotice] = React.useState("Ready");
+  const [mode, setMode] = React.useState<"document" | "reference">("document");
   const { commit, reset, setState, state: editor } = runtime;
   const document = editor.document;
   const tone = accentStyles[document.accent];
@@ -372,6 +374,26 @@ function App() {
           <h1 className="m-0 text-[clamp(2rem,5vw,4.8rem)] leading-[0.95] font-extrabold">
             React editor example
           </h1>
+          <div className="mt-4 flex flex-wrap gap-2" role="tablist">
+            <button
+              aria-selected={mode === "document"}
+              className="min-h-10 cursor-pointer rounded-md border border-[#d8d1c6] bg-white px-3 text-sm font-bold text-slate-700 aria-selected:border-blue-500 aria-selected:bg-blue-50 aria-selected:text-blue-700"
+              onClick={() => setMode("document")}
+              role="tab"
+              type="button"
+            >
+              Document editor
+            </button>
+            <button
+              aria-selected={mode === "reference"}
+              className="min-h-10 cursor-pointer rounded-md border border-[#d8d1c6] bg-white px-3 text-sm font-bold text-slate-700 aria-selected:border-blue-500 aria-selected:bg-blue-50 aria-selected:text-blue-700"
+              onClick={() => setMode("reference")}
+              role="tab"
+              type="button"
+            >
+              Reference editor
+            </button>
+          </div>
         </div>
         <p
           className="m-0 min-w-45 rounded-lg border border-[#d8d1c6] bg-[#fffdf8]/75 px-3 py-2.5 text-center text-slate-500"
@@ -381,105 +403,109 @@ function App() {
         </p>
       </header>
 
-      <section
-        aria-label="Editor workspace"
-        className="mx-auto grid max-w-[1180px] items-stretch gap-4 lg:grid-cols-[minmax(0,1fr)_340px]"
-      >
-        <div className="grid overflow-hidden rounded-lg border border-[#d8d1c6] bg-[#fffdf8] shadow-[0_24px_60px_rgba(47,36,24,0.1)] [grid-template-rows:auto_minmax(360px,1fr)] max-sm:[grid-template-rows:auto_minmax(300px,1fr)]">
-          <input
-            aria-label="Document title"
-            className={`w-full border-0 border-b border-[#d8d1c6] bg-transparent px-5 py-5 text-[clamp(2rem,6vw,5.6rem)] leading-[0.96] font-extrabold text-slate-800 outline-none sm:px-7 sm:pt-7 sm:pb-5 ${tone.focus}`}
-            onChange={(event) => patchDocument({ title: event.target.value })}
-            value={document.title}
-          />
-          <textarea
-            aria-label="Document body"
-            className={`min-h-[300px] w-full resize-y border-0 bg-transparent px-5 py-5 text-[1.08rem] leading-7 text-slate-700 outline-none sm:min-h-[360px] sm:px-7 sm:py-6 ${tone.focus}`}
-            onChange={(event) => patchDocument({ body: event.target.value })}
-            value={document.body}
-          />
-        </div>
+      {mode === "reference" ? <ReferenceEditor /> : null}
 
-        <aside
-          aria-label="Document controls"
-          className="flex flex-col gap-4 rounded-lg border border-[#d8d1c6] bg-[#fffdf8] p-4 shadow-[0_24px_60px_rgba(47,36,24,0.1)]"
+      {mode === "document" ? (
+        <section
+          aria-label="Editor workspace"
+          className="mx-auto grid max-w-[1180px] items-stretch gap-4 lg:grid-cols-[minmax(0,1fr)_340px]"
         >
-          <div aria-label="Commands" className="grid gap-2.5">
+          <div className="grid overflow-hidden rounded-lg border border-[#d8d1c6] bg-[#fffdf8] shadow-[0_24px_60px_rgba(47,36,24,0.1)] [grid-template-rows:auto_minmax(360px,1fr)] max-sm:[grid-template-rows:auto_minmax(300px,1fr)]">
             <input
-              accept="application/json,.json"
-              aria-label="Import document JSON file"
-              className="hidden"
-              onChange={(event) => {
-                const file = event.target.files?.[0];
-                event.target.value = "";
-                if (file) {
-                  void importDocumentFile(file);
-                }
-              }}
-              ref={importFileInputRef}
-              type="file"
+              aria-label="Document title"
+              className={`w-full border-0 border-b border-[#d8d1c6] bg-transparent px-5 py-5 text-[clamp(2rem,6vw,5.6rem)] leading-[0.96] font-extrabold text-slate-800 outline-none sm:px-7 sm:pt-7 sm:pb-5 ${tone.focus}`}
+              onChange={(event) => patchDocument({ title: event.target.value })}
+              value={document.title}
             />
-            {commands.map((command) => (
-              <button
-                className={`flex min-h-11 cursor-pointer items-center justify-between gap-3 rounded-lg border border-[#d8d1c6] bg-white px-3 py-2.5 text-slate-800 disabled:cursor-not-allowed disabled:text-slate-400 ${tone.soft}`}
-                disabled={command.disabled}
-                key={command.id}
-                onClick={() => void command.run?.(buttonCommandEvent)}
-                title={command.hotkeys?.map(formatEditorShortcutLabel).join(", ")}
-                type="button"
-              >
-                <span>{command.label}</span>
-                <kbd className="min-w-19 rounded-md border border-slate-300 bg-slate-50 px-1.5 py-1 text-center text-xs text-slate-600">
-                  {command.hotkeys?.[0] ? formatEditorShortcutLabel(command.hotkeys[0]) : ""}
-                </kbd>
-              </button>
-            ))}
+            <textarea
+              aria-label="Document body"
+              className={`min-h-[300px] w-full resize-y border-0 bg-transparent px-5 py-5 text-[1.08rem] leading-7 text-slate-700 outline-none sm:min-h-[360px] sm:px-7 sm:py-6 ${tone.focus}`}
+              onChange={(event) => patchDocument({ body: event.target.value })}
+              value={document.body}
+            />
           </div>
 
-          <fieldset className="m-0 border-0 p-0">
-            <legend className="mb-2.5 text-sm font-bold text-slate-500 uppercase">Accent</legend>
-            <div className="grid grid-cols-2 gap-2.5">
-              {(Object.keys(accentLabels) as Accent[]).map((accent) => (
+          <aside
+            aria-label="Document controls"
+            className="flex flex-col gap-4 rounded-lg border border-[#d8d1c6] bg-[#fffdf8] p-4 shadow-[0_24px_60px_rgba(47,36,24,0.1)]"
+          >
+            <div aria-label="Commands" className="grid gap-2.5">
+              <input
+                accept="application/json,.json"
+                aria-label="Import document JSON file"
+                className="hidden"
+                onChange={(event) => {
+                  const file = event.target.files?.[0];
+                  event.target.value = "";
+                  if (file) {
+                    void importDocumentFile(file);
+                  }
+                }}
+                ref={importFileInputRef}
+                type="file"
+              />
+              {commands.map((command) => (
                 <button
-                  aria-pressed={document.accent === accent}
-                  className={`flex min-h-20 cursor-pointer items-end rounded-lg border border-[#d8d1c6] p-2.5 text-white outline-offset-2 aria-pressed:outline-3 ${accentStyles[accent].swatch}`}
-                  key={accent}
-                  onClick={() => patchDocument({ accent })}
-                  title={accentLabels[accent]}
+                  className={`flex min-h-11 cursor-pointer items-center justify-between gap-3 rounded-lg border border-[#d8d1c6] bg-white px-3 py-2.5 text-slate-800 disabled:cursor-not-allowed disabled:text-slate-400 ${tone.soft}`}
+                  disabled={command.disabled}
+                  key={command.id}
+                  onClick={() => void command.run?.(buttonCommandEvent)}
+                  title={command.hotkeys?.map(formatEditorShortcutLabel).join(", ")}
                   type="button"
                 >
-                  <span className="text-sm font-extrabold">{accentLabels[accent]}</span>
+                  <span>{command.label}</span>
+                  <kbd className="min-w-19 rounded-md border border-slate-300 bg-slate-50 px-1.5 py-1 text-center text-xs text-slate-600">
+                    {command.hotkeys?.[0] ? formatEditorShortcutLabel(command.hotkeys[0]) : ""}
+                  </kbd>
                 </button>
               ))}
             </div>
-          </fieldset>
 
-          <dl className="m-0 grid grid-cols-2 gap-2.5">
-            <Metric label="Words" tone={tone.accent} value={countWords(document.body)} />
-            <Metric label="State" tone={tone.accent} value={editor.status} />
-            <Metric label="Undo" tone={tone.accent} value={editor.canUndo ? "Ready" : "None"} />
-            <Metric label="Redo" tone={tone.accent} value={editor.canRedo ? "Ready" : "None"} />
-            <Metric
-              label="Template"
-              tone={tone.accent}
-              value={templateQuery.isSuccess ? "Cached" : "Loading"}
-            />
-            <Metric
-              label="Version"
-              tone={tone.accent}
-              value={exampleDocumentAdapter.schemaVersion}
-            />
-          </dl>
+            <fieldset className="m-0 border-0 p-0">
+              <legend className="mb-2.5 text-sm font-bold text-slate-500 uppercase">Accent</legend>
+              <div className="grid grid-cols-2 gap-2.5">
+                {(Object.keys(accentLabels) as Accent[]).map((accent) => (
+                  <button
+                    aria-pressed={document.accent === accent}
+                    className={`flex min-h-20 cursor-pointer items-end rounded-lg border border-[#d8d1c6] p-2.5 text-white outline-offset-2 aria-pressed:outline-3 ${accentStyles[accent].swatch}`}
+                    key={accent}
+                    onClick={() => patchDocument({ accent })}
+                    title={accentLabels[accent]}
+                    type="button"
+                  >
+                    <span className="text-sm font-extrabold">{accentLabels[accent]}</span>
+                  </button>
+                ))}
+              </div>
+            </fieldset>
 
-          <EditingTreePanel
-            items={treeProjection.items}
-            onSelect={tree.select}
-            onToggle={tree.toggle}
-            selectedNode={selectedTreeNode}
-            tone={tone.accent}
-          />
-        </aside>
-      </section>
+            <dl className="m-0 grid grid-cols-2 gap-2.5">
+              <Metric label="Words" tone={tone.accent} value={countWords(document.body)} />
+              <Metric label="State" tone={tone.accent} value={editor.status} />
+              <Metric label="Undo" tone={tone.accent} value={editor.canUndo ? "Ready" : "None"} />
+              <Metric label="Redo" tone={tone.accent} value={editor.canRedo ? "Ready" : "None"} />
+              <Metric
+                label="Template"
+                tone={tone.accent}
+                value={templateQuery.isSuccess ? "Cached" : "Loading"}
+              />
+              <Metric
+                label="Version"
+                tone={tone.accent}
+                value={exampleDocumentAdapter.schemaVersion}
+              />
+            </dl>
+
+            <EditingTreePanel
+              items={treeProjection.items}
+              onSelect={tree.select}
+              onToggle={tree.toggle}
+              selectedNode={selectedTreeNode}
+              tone={tone.accent}
+            />
+          </aside>
+        </section>
+      ) : null}
     </main>
   );
 }

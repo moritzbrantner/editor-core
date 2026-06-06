@@ -51,9 +51,33 @@
       "types": "./dist/commands.d.ts",
       "import": "./dist/commands.js"
     },
+    "./constraints": {
+      "types": "./dist/constraints.d.ts",
+      "import": "./dist/constraints.js"
+    },
+    "./entities": {
+      "types": "./dist/entities.d.ts",
+      "import": "./dist/entities.js"
+    },
     "./runtime": {
       "types": "./dist/runtime.d.ts",
       "import": "./dist/runtime.js"
+    },
+    "./indexes": {
+      "types": "./dist/indexes.d.ts",
+      "import": "./dist/indexes.js"
+    },
+    "./interaction": {
+      "types": "./dist/interaction.d.ts",
+      "import": "./dist/interaction.js"
+    },
+    "./operations": {
+      "types": "./dist/operations.d.ts",
+      "import": "./dist/operations.js"
+    },
+    "./selection": {
+      "types": "./dist/selection.d.ts",
+      "import": "./dist/selection.js"
     },
     "./share": {
       "types": "./dist/share.d.ts",
@@ -62,6 +86,10 @@
     "./tree": {
       "types": "./dist/tree.d.ts",
       "import": "./dist/tree.js"
+    },
+    "./viewport": {
+      "types": "./dist/viewport.d.ts",
+      "import": "./dist/viewport.js"
     },
     "./react": {
       "types": "./dist/react.d.ts",
@@ -82,7 +110,7 @@
     "test:integration": "bun run build && bun run smoke:package && node scripts/check-api-snapshot.mjs",
     "test:e2e": "bun run example:build && bun run test:e2e:run",
     "test:e2e:run": "playwright test",
-    "build": "tsup src/index.ts src/aspects.ts src/history.ts src/json.ts src/serialization.ts src/hotkeys.ts src/browser.ts src/commands.ts src/runtime.ts src/share.ts src/tree.ts src/react.tsx --format esm --dts --clean --out-dir dist",
+    "build": "tsup src/index.ts src/aspects.ts src/history.ts src/json.ts src/serialization.ts src/hotkeys.ts src/browser.ts src/commands.ts src/constraints.ts src/entities.ts src/indexes.ts src/interaction.ts src/operations.ts src/runtime.ts src/selection.ts src/share.ts src/tree.ts src/viewport.ts src/react.tsx --format esm --dts --clean --out-dir dist",
     "example:dev": "vite --config examples/react/vite.config.ts --host 0.0.0.0",
     "example:check-types": "tsc -p examples/react/tsconfig.json --noEmit",
     "example:build": "vite build --config examples/react/vite.config.ts",

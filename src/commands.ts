@@ -9,6 +9,40 @@ import type { EditorCommandDefinition, EditorHotkeyEvent, EditorHotkeyMap } from
 
 export type EditorSnapshotHistoryCommandId = "undo" | "redo" | "reset";
 
+export type EditorCommandContext<TDocument, TSelection, TViewport = unknown> = {
+  document: TDocument;
+  selection: TSelection;
+  viewport?: TViewport;
+  readOnly?: boolean;
+};
+
+export type EditorContextualCommandDefinition<
+  TId extends string,
+  TDocument,
+  TSelection,
+  TViewport = unknown,
+> = Omit<EditorCommandDefinition<TId>, "disabled" | "run"> & {
+  group?: string;
+  menu?: {
+    label?: string;
+    order?: number;
+  };
+  canRun?: (context: EditorCommandContext<TDocument, TSelection, TViewport>) => boolean;
+  checked?:
+    | boolean
+    | ((context: EditorCommandContext<TDocument, TSelection, TViewport>) => boolean);
+  run?: (context: EditorCommandContext<TDocument, TSelection, TViewport>) => void | Promise<void>;
+};
+
+export type EditorResolvedCommandDefinition<TId extends string> = EditorCommandDefinition<TId> & {
+  group?: string;
+  menu?: {
+    label?: string;
+    order?: number;
+  };
+  checked?: boolean;
+};
+
 export const defaultEditorSnapshotHistoryCommandHotkeys: EditorHotkeyMap<EditorSnapshotHistoryCommandId> =
   {
     undo: ["Mod+Z"],
@@ -82,6 +116,40 @@ export function createEditorSnapshotHistoryCommands<TDocument>(
       },
     };
   });
+}
+
+export function resolveEditorCommands<
+  TId extends string,
+  TDocument,
+  TSelection,
+  TViewport = unknown,
+>(
+  commands: readonly EditorContextualCommandDefinition<TId, TDocument, TSelection, TViewport>[],
+  context: EditorCommandContext<TDocument, TSelection, TViewport>,
+): readonly EditorResolvedCommandDefinition<TId>[] {
+  return commands.map((command) => {
+    const disabled = context.readOnly === true || command.canRun?.(context) === false;
+    return {
+      checked: typeof command.checked === "function" ? command.checked(context) : command.checked,
+      disabled,
+      group: command.group,
+      hotkeys: command.hotkeys,
+      id: command.id,
+      label: command.label,
+      menu: command.menu,
+      run: async () => {
+        if (!disabled) {
+          await command.run?.(context);
+        }
+      },
+    };
+  });
+}
+
+export function getRunnableEditorCommands<TId extends string>(
+  commands: readonly EditorResolvedCommandDefinition<TId>[],
+): readonly EditorResolvedCommandDefinition<TId>[] {
+  return commands.filter((command) => !command.disabled);
 }
 
 function isEditorSnapshotHistoryCommandDisabled<TDocument>(

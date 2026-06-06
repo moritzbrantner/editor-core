@@ -21,6 +21,7 @@ Track these scenarios when reviewing benchmark output:
 | --------------------------------- | -------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
 | Stable JSON stringify             | `stable JSON stringify`                                        | Deterministic key ordering for medium editor documents without surprising allocation spikes. |
 | Tree projection                   | `tree projection`                                              | Linear projection cost as node count grows.                                                  |
+| Entity indexes                    | `entity indexes`                                               | Linear parent/child and root ordering cost for large entity documents.                       |
 | Large share payload encode/decode | Add when share payload benchmarks become noisy enough to track | Compression should only be chosen when it produces a meaningfully smaller token.             |
 
 If a benchmark changes substantially, include the before and after output in the pull request. Run

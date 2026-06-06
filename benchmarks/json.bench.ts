@@ -1,4 +1,6 @@
 import { bench, describe } from "vitest";
+import { createEditorEntityDocument } from "../src/entities.js";
+import { createEditorEntityIndexes } from "../src/indexes.js";
 import { stableEditorJsonStringify } from "../src/json.js";
 import { projectEditorTree, type EditorTreeAdapter } from "../src/tree.js";
 
@@ -33,6 +35,15 @@ const benchmarkTreeAdapter: EditorTreeAdapter<BenchmarkDocument> = {
   },
 };
 
+const benchmarkEntityDocument = createEditorEntityDocument(
+  Array.from({ length: 1000 }, (_, index) => ({
+    id: `entity-${index}`,
+    order: index,
+    parentId: index % 10 === 0 ? null : `entity-${Math.floor(index / 10) * 10}`,
+    type: "layer",
+  })),
+);
+
 describe("editor-core benchmarks", () => {
   bench("stable JSON stringify", () => {
     stableEditorJsonStringify(benchmarkDocument);
@@ -40,5 +51,9 @@ describe("editor-core benchmarks", () => {
 
   bench("tree projection", () => {
     projectEditorTree(benchmarkDocument, benchmarkTreeAdapter);
+  });
+
+  bench("entity indexes", () => {
+    createEditorEntityIndexes(benchmarkEntityDocument);
   });
 });

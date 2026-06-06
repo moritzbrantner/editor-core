@@ -29,9 +29,16 @@ bun add react @moritzbrantner/editor-core
 | `@moritzbrantner/editor-core`               | Headless exports except React hooks.                             |
 | `@moritzbrantner/editor-core/history`       | Snapshot and transaction undo/redo helpers.                      |
 | `@moritzbrantner/editor-core/commands`      | Command definitions for snapshot history actions.                |
+| `@moritzbrantner/editor-core/constraints`   | Shared constraint and validation helpers.                        |
+| `@moritzbrantner/editor-core/entities`      | Shared entity ids, bounds, and domain adapter types.             |
+| `@moritzbrantner/editor-core/indexes`       | Entity, graph, timeline, and validation index helpers.           |
+| `@moritzbrantner/editor-core/interaction`   | Transient interaction session helpers.                           |
+| `@moritzbrantner/editor-core/operations`    | Semantic operation runtime and operation-log helpers.            |
 | `@moritzbrantner/editor-core/runtime`       | Document runtime state, validation, aspects, and dirty tracking. |
+| `@moritzbrantner/editor-core/selection`     | Structured entity, range, port, and time selections.             |
 | `@moritzbrantner/editor-core/hotkeys`       | Shortcut parsing, matching, formatting, and conflict detection.  |
 | `@moritzbrantner/editor-core/tree`          | Adapter-driven tree projection and tree UI state.                |
+| `@moritzbrantner/editor-core/viewport`      | Canvas and timeline viewport math.                               |
 | `@moritzbrantner/editor-core/serialization` | Versioned JSON document envelopes and migrations.                |
 | `@moritzbrantner/editor-core/json`          | Stable JSON sorting, stringifying, and equality helpers.         |
 | `@moritzbrantner/editor-core/browser`       | Browser file, clipboard, download, and storage helpers.          |
@@ -91,6 +98,25 @@ const commands = createEditorSnapshotHistoryCommands({
 });
 ```
 
+Contextual commands can derive disabled and checked state from editor state:
+
+```ts
+import { resolveEditorCommands } from "@moritzbrantner/editor-core/commands";
+
+const commands = resolveEditorCommands(
+  [
+    {
+      id: "duplicate",
+      label: "Duplicate",
+      hotkeys: ["Mod+D"],
+      canRun: ({ selection }) => selection.kind === "entity",
+      run: ({ document }) => duplicateSelection(document),
+    },
+  ],
+  { document, selection },
+);
+```
+
 ## Runtime
 
 Use the runtime when an editor needs document state, undo/redo, selection, validation, derived
@@ -123,6 +149,99 @@ const commands = createEditorRuntimeCommands({
     runtime = update(runtime);
   },
 });
+```
+
+## Operations
+
+Use operation runtime for editors that need semantic undo/redo, merged drag transactions, and
+selection restoration:
+
+```ts
+import {
+  applyEditorOperation,
+  createEditorOperationRuntime,
+  readEditorOperationLog,
+  serializeEditorOperationLog,
+  undoEditorOperationRuntime,
+} from "@moritzbrantner/editor-core/operations";
+
+let editor = createEditorOperationRuntime({
+  initialDocument: { nodes: { a: { x: 0, y: 0 } } },
+  initialSelection: { kind: "entity", ids: ["a"] },
+});
+
+editor = applyEditorOperation(
+  editor,
+  {
+    id: "move-node",
+    mergeKey: "drag:a",
+    apply: (document) => ({ nodes: { a: { x: 10, y: 0 } } }),
+    selectionAfter: { kind: "entity", ids: ["a"] },
+  },
+  { merge: true },
+);
+
+editor = undoEditorOperationRuntime(editor);
+
+const log = serializeEditorOperationLog(
+  [{ id: "move-a", type: "move", schemaVersion: 1, payload: { x: 10 } }],
+  {
+    format: "@example/operations",
+    schemaVersion: 1,
+  },
+);
+const operations = readEditorOperationLog(log, {
+  format: "@example/operations",
+  schemaVersion: 1,
+  read: (input) => input,
+});
+```
+
+## Entities, Selection, Indexes
+
+Entity primitives are optional adapter targets for layer, graph, workflow, and timeline packages:
+
+```ts
+import { createEditorEntityDocument } from "@moritzbrantner/editor-core/entities";
+import { createEditorEntityIndexes } from "@moritzbrantner/editor-core/indexes";
+import { createEditorEntitySelection } from "@moritzbrantner/editor-core/selection";
+
+const document = createEditorEntityDocument([
+  { id: "layer-a", type: "layer", order: 1 },
+  { id: "layer-b", type: "layer", order: 2 },
+]);
+const indexes = createEditorEntityIndexes(document);
+const selection = createEditorEntitySelection(["layer-a"]);
+```
+
+## Constraints
+
+Use shared constraints when multiple editor families need the same validation shape:
+
+```ts
+import {
+  validateEditorGraphConnection,
+  validateEditorTimelineRange,
+} from "@moritzbrantner/editor-core/constraints";
+
+validateEditorGraphConnection({ sourceId: "node-a", targetId: "node-b" });
+validateEditorTimelineRange({ start: 0, end: 24 }, { min: 0 });
+```
+
+## Viewport And Interaction
+
+Viewport helpers keep pan/zoom and timeline math headless:
+
+```ts
+import {
+  createEditorViewportState,
+  screenPointToEditorPoint,
+  zoomEditorViewportAtPoint,
+} from "@moritzbrantner/editor-core/viewport";
+
+let viewport = createEditorViewportState({ zoom: 1 });
+viewport = zoomEditorViewportAtPoint(viewport, 2, { x: 200, y: 100 });
+const point = screenPointToEditorPoint({ x: 220, y: 120 }, viewport);
 ```
 
 ## Hotkeys
