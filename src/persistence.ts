@@ -161,6 +161,25 @@ export type SaveEditorRuntimeConflictPersistenceResult<
   TSelection = unknown,
 > = SaveEditorRuntimePersistenceResult<TDocument, TSelection>;
 
+type EditorPersistenceLoadedDocument<TDocument> = {
+  document: TDocument;
+  revisionToken: EditorRevisionToken | null;
+};
+
+type EditorPersistenceLoadOperation<TDocument> =
+  () => Promise<EditorPersistenceLoadedDocument<TDocument> | null>;
+
+type EditorPersistenceSaveOperation<TDocument, TSelection> = (
+  runtime: EditorRuntimeState<TDocument, TSelection>,
+  revisionToken: EditorRevisionToken | null,
+) => Promise<EditorRevisionToken | null>;
+
+type EditorPersistenceRevisionOptions = {
+  revisionToken?: EditorRevisionToken | null;
+  emitRevisionToken?: boolean;
+  handleConflicts?: boolean;
+};
+
 const defaultEditorPersistenceClock: EditorPersistenceClock = () => new Date().toISOString();
 
 export function createEditorPersistenceState(
@@ -186,62 +205,14 @@ export async function loadEditorRuntimePersistence<TDocument, TSelection = unkno
   storage: EditorStorageAdapter<TDocument>,
   options: LoadEditorRuntimePersistenceOptions<TDocument, TSelection> = {},
 ): Promise<LoadEditorRuntimePersistenceResult<TDocument, TSelection>> {
-  const now = options.now ?? defaultEditorPersistenceClock;
-  options.onEvent?.({ revision: runtime.revision, type: "load-start" });
-
-  try {
-    const storedDocument = await storage.load();
-    const document = storedDocument ?? options.fallback ?? runtime.document;
-    const loadedRuntime = resetEditorRuntime(runtime, document, {
-      markSaved: true,
-      selection: options.selection,
-    });
-    const timestamp = now();
-    options.onEvent?.({
-      loadedAt: timestamp,
-      revision: loadedRuntime.revision,
-      type: "load-success",
-    });
-
-    return {
-      persistence: {
-        error: null,
-        loadedAt: timestamp,
-        operation: "load",
-        savedAt: timestamp,
-        savedRevision: loadedRuntime.revision,
-        savingRevision: null,
-        revisionToken: null,
-        conflict: null,
-        status: "loaded",
-      },
-      runtime: loadedRuntime,
-    };
-  } catch (error) {
-    options.onError?.(error, { operation: "load" });
-    options.onEvent?.({ error, type: "load-error" });
-
-    const document = options.fallback ?? runtime.document;
-    const fallbackRuntime = resetEditorRuntime(runtime, document, {
-      markSaved: true,
-      selection: options.selection,
-    });
-
-    return {
-      persistence: {
-        error,
-        loadedAt: null,
-        operation: "load",
-        savedAt: null,
-        savedRevision: fallbackRuntime.revision,
-        savingRevision: null,
-        revisionToken: null,
-        conflict: null,
-        status: "error",
-      },
-      runtime: fallbackRuntime,
-    };
-  }
+  return loadEditorRuntimePersistenceCore(
+    runtime,
+    async () => {
+      const document = await storage.load();
+      return document === null ? null : { document, revisionToken: null };
+    },
+    options,
+  );
 }
 
 export async function saveEditorRuntimePersistence<TDocument, TSelection = unknown>(
@@ -249,78 +220,14 @@ export async function saveEditorRuntimePersistence<TDocument, TSelection = unkno
   storage: EditorStorageAdapter<TDocument>,
   options: SaveEditorRuntimePersistenceOptions = {},
 ): Promise<SaveEditorRuntimePersistenceResult<TDocument, TSelection>> {
-  const revision = runtime.revision;
-  const now = options.now ?? defaultEditorPersistenceClock;
-
-  if (runtime.status === "clean" && !options.force) {
-    options.onEvent?.({
-      reason: "clean",
-      revision,
-      type: "save-skipped",
-    });
-    return {
-      persistence: {
-        error: null,
-        loadedAt: null,
-        operation: null,
-        savedAt: null,
-        savedRevision: runtime.savedRevision,
-        savingRevision: null,
-        revisionToken: null,
-        conflict: null,
-        status: "idle",
-      },
-      revision,
-      runtime,
-      saved: false,
-    };
-  }
-
-  options.onEvent?.({ revision, type: "save-start" });
-
-  try {
-    await storage.save(runtime.document);
-    const savedRuntime = markEditorRuntimeSaved(runtime);
-    const timestamp = now();
-    options.onEvent?.({ revision, savedAt: timestamp, type: "save-success" });
-
-    return {
-      persistence: {
-        error: null,
-        loadedAt: null,
-        operation: "save",
-        savedAt: timestamp,
-        savedRevision: revision,
-        savingRevision: null,
-        revisionToken: null,
-        conflict: null,
-        status: "saved",
-      },
-      revision,
-      runtime: savedRuntime,
-      saved: true,
-    };
-  } catch (error) {
-    options.onError?.(error, { operation: "save", revision });
-    options.onEvent?.({ error, revision, type: "save-error" });
-
-    return {
-      persistence: {
-        error,
-        loadedAt: null,
-        operation: "save",
-        savedAt: null,
-        savedRevision: runtime.savedRevision,
-        savingRevision: null,
-        revisionToken: null,
-        conflict: null,
-        status: "error",
-      },
-      revision,
-      runtime,
-      saved: false,
-    };
-  }
+  return saveEditorRuntimePersistenceCore(
+    runtime,
+    async (snapshot) => {
+      await storage.save(snapshot.document);
+      return null;
+    },
+    options,
+  );
 }
 
 export async function loadEditorRuntimeConflictPersistence<TDocument, TSelection = unknown>(
@@ -328,11 +235,52 @@ export async function loadEditorRuntimeConflictPersistence<TDocument, TSelection
   storage: EditorConflictStorageAdapter<TDocument>,
   options: LoadEditorRuntimeConflictPersistenceOptions<TDocument, TSelection> = {},
 ): Promise<LoadEditorRuntimeConflictPersistenceResult<TDocument, TSelection>> {
+  return loadEditorRuntimePersistenceCore(
+    runtime,
+    async () => {
+      const persisted = await storage.load();
+      return persisted
+        ? {
+            document: persisted.document,
+            revisionToken: persisted.revisionToken ?? null,
+          }
+        : null;
+    },
+    options,
+    { emitRevisionToken: true },
+  );
+}
+
+export async function saveEditorRuntimeConflictPersistence<TDocument, TSelection = unknown>(
+  runtime: EditorRuntimeState<TDocument, TSelection>,
+  storage: EditorConflictStorageAdapter<TDocument>,
+  options: SaveEditorRuntimeConflictPersistenceOptions = {},
+): Promise<SaveEditorRuntimeConflictPersistenceResult<TDocument, TSelection>> {
+  return saveEditorRuntimePersistenceCore(
+    runtime,
+    async (snapshot, revisionToken) => {
+      const savedDocument = await storage.save({
+        document: snapshot.document,
+        revisionToken,
+      });
+      return savedDocument.revisionToken ?? null;
+    },
+    options,
+    { emitRevisionToken: true, handleConflicts: true, revisionToken: options.revisionToken },
+  );
+}
+
+async function loadEditorRuntimePersistenceCore<TDocument, TSelection>(
+  runtime: EditorRuntimeState<TDocument, TSelection>,
+  loadDocument: EditorPersistenceLoadOperation<TDocument>,
+  options: LoadEditorRuntimePersistenceOptions<TDocument, TSelection>,
+  revisionOptions: EditorPersistenceRevisionOptions = {},
+): Promise<LoadEditorRuntimePersistenceResult<TDocument, TSelection>> {
   const now = options.now ?? defaultEditorPersistenceClock;
   options.onEvent?.({ revision: runtime.revision, type: "load-start" });
 
   try {
-    const persisted = await storage.load();
+    const persisted = await loadDocument();
     const document = persisted?.document ?? options.fallback ?? runtime.document;
     const loadedRuntime = resetEditorRuntime(runtime, document, {
       markSaved: true,
@@ -345,20 +293,14 @@ export async function loadEditorRuntimeConflictPersistence<TDocument, TSelection
       revision: loadedRuntime.revision,
       type: "load-success",
     });
-    options.onEvent?.({ revisionToken, type: "revision-token-updated" });
+    emitRevisionTokenUpdated(options, revisionToken, revisionOptions);
 
     return {
-      persistence: {
-        conflict: null,
-        error: null,
-        loadedAt: timestamp,
-        operation: "load",
+      persistence: createLoadedPersistenceState({
+        revision: loadedRuntime.revision,
         revisionToken,
-        savedAt: timestamp,
-        savedRevision: loadedRuntime.revision,
-        savingRevision: null,
-        status: "loaded",
-      },
+        timestamp,
+      }),
       runtime: loadedRuntime,
     };
   } catch (error) {
@@ -372,29 +314,25 @@ export async function loadEditorRuntimeConflictPersistence<TDocument, TSelection
     });
 
     return {
-      persistence: {
-        conflict: null,
+      persistence: createLoadErrorPersistenceState({
         error,
-        loadedAt: null,
-        operation: "load",
+        revision: fallbackRuntime.revision,
         revisionToken: null,
-        savedAt: null,
-        savedRevision: fallbackRuntime.revision,
-        savingRevision: null,
-        status: "error",
-      },
+      }),
       runtime: fallbackRuntime,
     };
   }
 }
 
-export async function saveEditorRuntimeConflictPersistence<TDocument, TSelection = unknown>(
+async function saveEditorRuntimePersistenceCore<TDocument, TSelection>(
   runtime: EditorRuntimeState<TDocument, TSelection>,
-  storage: EditorConflictStorageAdapter<TDocument>,
-  options: SaveEditorRuntimeConflictPersistenceOptions = {},
-): Promise<SaveEditorRuntimeConflictPersistenceResult<TDocument, TSelection>> {
+  saveDocument: EditorPersistenceSaveOperation<TDocument, TSelection>,
+  options: SaveEditorRuntimePersistenceOptions,
+  revisionOptions: EditorPersistenceRevisionOptions = {},
+): Promise<SaveEditorRuntimePersistenceResult<TDocument, TSelection>> {
   const revision = runtime.revision;
   const now = options.now ?? defaultEditorPersistenceClock;
+  const revisionToken = revisionOptions.revisionToken ?? null;
 
   if (runtime.status === "clean" && !options.force) {
     options.onEvent?.({
@@ -403,17 +341,10 @@ export async function saveEditorRuntimeConflictPersistence<TDocument, TSelection
       type: "save-skipped",
     });
     return {
-      persistence: {
-        conflict: null,
-        error: null,
-        loadedAt: null,
-        operation: null,
-        revisionToken: options.revisionToken ?? null,
-        savedAt: null,
+      persistence: createSkippedSavePersistenceState({
+        revisionToken,
         savedRevision: runtime.savedRevision,
-        savingRevision: null,
-        status: "idle",
-      },
+      }),
       revision,
       runtime,
       saved: false,
@@ -423,49 +354,34 @@ export async function saveEditorRuntimeConflictPersistence<TDocument, TSelection
   options.onEvent?.({ revision, type: "save-start" });
 
   try {
-    const savedDocument = await storage.save({
-      document: runtime.document,
-      revisionToken: options.revisionToken ?? null,
-    });
+    const savedRevisionToken = await saveDocument(runtime, revisionToken);
     const savedRuntime = markEditorRuntimeSaved(runtime);
     const timestamp = now();
-    const revisionToken = savedDocument.revisionToken ?? null;
     options.onEvent?.({ revision, savedAt: timestamp, type: "save-success" });
-    options.onEvent?.({ revisionToken, type: "revision-token-updated" });
+    emitRevisionTokenUpdated(options, savedRevisionToken, revisionOptions);
 
     return {
-      persistence: {
-        conflict: null,
-        error: null,
-        loadedAt: null,
-        operation: "save",
-        revisionToken,
-        savedAt: timestamp,
-        savedRevision: revision,
-        savingRevision: null,
-        status: "saved",
-      },
+      persistence: createSavedPersistenceState({
+        revision,
+        revisionToken: savedRevisionToken,
+        timestamp,
+      }),
       revision,
       runtime: savedRuntime,
       saved: true,
     };
   } catch (error) {
-    if (error instanceof EditorPersistenceConflictError) {
+    if (revisionOptions.handleConflicts && error instanceof EditorPersistenceConflictError) {
       options.onError?.(error, { operation: "save", revision });
       options.onEvent?.({ error, revision, type: "save-conflict" });
 
       return {
-        persistence: {
+        persistence: createSaveErrorPersistenceState({
           conflict: error,
           error,
-          loadedAt: null,
-          operation: "save",
-          revisionToken: options.revisionToken ?? null,
-          savedAt: null,
+          revisionToken,
           savedRevision: runtime.savedRevision,
-          savingRevision: null,
-          status: "error",
-        },
+        }),
         revision,
         runtime,
         saved: false,
@@ -476,22 +392,119 @@ export async function saveEditorRuntimeConflictPersistence<TDocument, TSelection
     options.onEvent?.({ error, revision, type: "save-error" });
 
     return {
-      persistence: {
+      persistence: createSaveErrorPersistenceState({
         conflict: null,
         error,
-        loadedAt: null,
-        operation: "save",
-        revisionToken: options.revisionToken ?? null,
-        savedAt: null,
+        revisionToken,
         savedRevision: runtime.savedRevision,
-        savingRevision: null,
-        status: "error",
-      },
+      }),
       revision,
       runtime,
       saved: false,
     };
   }
+}
+
+function createLoadedPersistenceState(options: {
+  revision: number;
+  revisionToken: EditorRevisionToken | null;
+  timestamp: string;
+}): EditorPersistenceState {
+  return {
+    conflict: null,
+    error: null,
+    loadedAt: options.timestamp,
+    operation: "load",
+    revisionToken: options.revisionToken,
+    savedAt: options.timestamp,
+    savedRevision: options.revision,
+    savingRevision: null,
+    status: "loaded",
+  };
+}
+
+function createLoadErrorPersistenceState(options: {
+  error: unknown;
+  revision: number;
+  revisionToken: EditorRevisionToken | null;
+}): EditorPersistenceState {
+  return {
+    conflict: null,
+    error: options.error,
+    loadedAt: null,
+    operation: "load",
+    revisionToken: options.revisionToken,
+    savedAt: null,
+    savedRevision: options.revision,
+    savingRevision: null,
+    status: "error",
+  };
+}
+
+function createSkippedSavePersistenceState(options: {
+  revisionToken: EditorRevisionToken | null;
+  savedRevision: number;
+}): EditorPersistenceState {
+  return {
+    conflict: null,
+    error: null,
+    loadedAt: null,
+    operation: null,
+    revisionToken: options.revisionToken,
+    savedAt: null,
+    savedRevision: options.savedRevision,
+    savingRevision: null,
+    status: "idle",
+  };
+}
+
+function createSavedPersistenceState(options: {
+  revision: number;
+  revisionToken: EditorRevisionToken | null;
+  timestamp: string;
+}): EditorPersistenceState {
+  return {
+    conflict: null,
+    error: null,
+    loadedAt: null,
+    operation: "save",
+    revisionToken: options.revisionToken,
+    savedAt: options.timestamp,
+    savedRevision: options.revision,
+    savingRevision: null,
+    status: "saved",
+  };
+}
+
+function createSaveErrorPersistenceState(options: {
+  conflict: EditorPersistenceConflictError | null;
+  error: unknown;
+  revisionToken: EditorRevisionToken | null;
+  savedRevision: number;
+}): EditorPersistenceState {
+  return {
+    conflict: options.conflict,
+    error: options.error,
+    loadedAt: null,
+    operation: "save",
+    revisionToken: options.revisionToken,
+    savedAt: null,
+    savedRevision: options.savedRevision,
+    savingRevision: null,
+    status: "error",
+  };
+}
+
+function emitRevisionTokenUpdated<TDocument>(
+  options: { onEvent?: EditorPersistenceEventHandler<TDocument> },
+  revisionToken: EditorRevisionToken | null,
+  revisionOptions: EditorPersistenceRevisionOptions,
+): void {
+  if (!revisionOptions.emitRevisionToken) {
+    return;
+  }
+
+  options.onEvent?.({ revisionToken, type: "revision-token-updated" });
 }
 
 export function clearEditorPersistenceConflict(
