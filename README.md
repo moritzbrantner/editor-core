@@ -37,12 +37,15 @@ bun add react @moritzbrantner/editor-core
 | `@moritzbrantner/editor-core`               | Headless exports except React hooks.                             |
 | `@moritzbrantner/editor-core/history`       | Snapshot and transaction undo/redo helpers.                      |
 | `@moritzbrantner/editor-core/commands`      | Command definitions for snapshot history actions.                |
+| `@moritzbrantner/editor-core/collaboration` | Presence, remote operation dedupe, and revision-token types.     |
 | `@moritzbrantner/editor-core/constraints`   | Shared constraint and validation helpers.                        |
 | `@moritzbrantner/editor-core/entities`      | Shared entity ids, bounds, and domain adapter types.             |
 | `@moritzbrantner/editor-core/indexes`       | Entity, graph, timeline, and validation index helpers.           |
 | `@moritzbrantner/editor-core/interaction`   | Transient interaction session helpers.                           |
 | `@moritzbrantner/editor-core/operations`    | Semantic operation runtime and operation-log helpers.            |
 | `@moritzbrantner/editor-core/persistence`   | Runtime document load/save and autosave orchestration.           |
+| `@moritzbrantner/editor-core/patches`       | Immutable JSON diff, patch application, and patch inversion.     |
+| `@moritzbrantner/editor-core/plugins`       | Plugin registry composition for commands, validators, aspects.   |
 | `@moritzbrantner/editor-core/runtime`       | Document runtime state, validation, aspects, and dirty tracking. |
 | `@moritzbrantner/editor-core/selection`     | Structured entity, range, port, and time selections.             |
 | `@moritzbrantner/editor-core/hotkeys`       | Shortcut parsing, matching, formatting, and conflict detection.  |
@@ -211,6 +214,70 @@ const operations = readEditorOperationLog(log, {
   read: (input) => input,
 });
 ```
+
+## Collaboration
+
+Use collaboration primitives to track remote presence and ignore duplicate operation envelopes
+without choosing a transport or CRDT:
+
+```ts
+import {
+  createEditorCollaborationState,
+  dedupeEditorRemoteOperations,
+  updateEditorPresence,
+} from "@moritzbrantner/editor-core/collaboration";
+
+let collaboration = createEditorCollaborationState({ clientId: "client-a" });
+collaboration = updateEditorPresence(collaboration, {
+  clientId: "client-b",
+  label: "Reviewer",
+  selection: { kind: "entity", ids: ["node-a"] },
+});
+
+const remoteOperations = [
+  {
+    clientId: "client-b",
+    id: "op-1",
+    operation: { type: "rename", title: "Published" },
+  },
+];
+const result = dedupeEditorRemoteOperations(collaboration, remoteOperations);
+collaboration = result.state;
+```
+
+## Patches
+
+Diff JSON-compatible values and apply immutable patches:
+
+```ts
+import { applyEditorPatch, diffEditorJson } from "@moritzbrantner/editor-core/patches";
+
+const patch = diffEditorJson({ title: "Draft" }, { title: "Published" });
+const next = applyEditorPatch({ title: "Draft" }, patch);
+```
+
+Patches include old values by default so `invertEditorPatch` can restore previous values. If
+`includeOldValues: false` is used, inversion is not guaranteed to restore the original value. Array
+move detection is intentionally not included.
+
+## Plugins
+
+Compose feature modules into runtime options and contextual commands:
+
+```ts
+import {
+  createEditorPluginRegistry,
+  resolveEditorPluginRuntimeOptions,
+} from "@moritzbrantner/editor-core/plugins";
+
+const registry = createEditorPluginRegistry([metadataPlugin, graphPlugin]);
+const runtimeOptions = resolveEditorPluginRuntimeOptions(registry, {
+  initialDocument,
+});
+```
+
+Plugins are plain objects. They can contribute commands, validators, aspects, and operation
+preflight hooks.
 
 ## Entities, Selection, Indexes
 
@@ -410,6 +477,35 @@ runtime = saved.runtime;
 Persistence stores the document only. Selection, history, revisions, and undo stacks are rebuilt by
 the runtime. React consumers can use `usePersistentEditorRuntime` from
 `@moritzbrantner/editor-core/react` for mount loading and debounced autosave.
+
+Use conflict-aware persistence when storage exposes revision tokens:
+
+```ts
+import {
+  saveEditorRuntimeConflictPersistence,
+  type EditorConflictStorageAdapter,
+  type EditorPersistedDocument,
+} from "@moritzbrantner/editor-core/persistence";
+
+async function saveToServer(
+  document: Document,
+  revisionToken: string | number | null,
+): Promise<EditorPersistedDocument<Document>> {
+  return { document, revisionToken };
+}
+
+const storage: EditorConflictStorageAdapter<Document> = {
+  load: () => ({ document: initialDocument, revisionToken: "etag-1" }),
+  save: ({ document, revisionToken }) => saveToServer(document, revisionToken),
+};
+
+const saved = await saveEditorRuntimeConflictPersistence(runtime, storage, {
+  revisionToken: "etag-1",
+});
+```
+
+React consumers can use `useConflictAwareEditorRuntime` for the same load, save, autosave, retry,
+and latest-save behavior with revision-token tracking.
 
 ## Share
 

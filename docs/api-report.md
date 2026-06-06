@@ -173,6 +173,109 @@ export {
 };
 ```
 
+## collaboration.d.ts
+
+```ts
+type EditorClientId = string;
+type EditorActorId = string;
+type EditorRevisionToken = string | number;
+type EditorPresence<TSelection = unknown> = {
+  clientId: EditorClientId;
+  actorId?: EditorActorId;
+  selection?: TSelection | null;
+  cursor?: unknown;
+  color?: string;
+  label?: string;
+  lastSeenAt?: string;
+  metadata?: Record<string, unknown>;
+};
+type EditorRemoteOperation<TOperation = unknown> = {
+  id: string;
+  clientId: EditorClientId;
+  actorId?: EditorActorId;
+  revision?: EditorRevisionToken;
+  operation: TOperation;
+  receivedAt?: string;
+  metadata?: Record<string, unknown>;
+};
+type EditorCollaborationState<TSelection = unknown> = {
+  clientId: EditorClientId;
+  revision: EditorRevisionToken | null;
+  seenOperationIds: readonly string[];
+  presence: Record<EditorClientId, EditorPresence<TSelection>>;
+};
+type CreateEditorCollaborationStateOptions<TSelection = unknown> = {
+  clientId: EditorClientId;
+  revision?: EditorRevisionToken | null;
+  seenOperationIds?: readonly string[];
+  presence?: Record<EditorClientId, EditorPresence<TSelection>>;
+};
+type PruneEditorPresenceOptions = {
+  now: string | Date;
+  maxAgeMs: number;
+};
+type MarkEditorRemoteOperationSeenOptions = {
+  limit?: number;
+};
+type DedupeEditorRemoteOperationsOptions = MarkEditorRemoteOperationSeenOptions & {
+  includeLocalClient?: boolean;
+};
+type DedupeEditorRemoteOperationsResult<TOperation, TSelection = unknown> = {
+  state: EditorCollaborationState<TSelection>;
+  operations: readonly EditorRemoteOperation<TOperation>[];
+};
+declare function createEditorCollaborationState<TSelection = unknown>(
+  options: CreateEditorCollaborationStateOptions<TSelection>,
+): EditorCollaborationState<TSelection>;
+declare function updateEditorPresence<TSelection>(
+  state: EditorCollaborationState<TSelection>,
+  presence: EditorPresence<TSelection>,
+): EditorCollaborationState<TSelection>;
+declare function removeEditorPresence<TSelection>(
+  state: EditorCollaborationState<TSelection>,
+  clientId: EditorClientId,
+): EditorCollaborationState<TSelection>;
+declare function pruneEditorPresence<TSelection>(
+  state: EditorCollaborationState<TSelection>,
+  options: PruneEditorPresenceOptions,
+): EditorCollaborationState<TSelection>;
+declare function hasSeenEditorRemoteOperation(
+  state: EditorCollaborationState,
+  operationId: string,
+): boolean;
+declare function markEditorRemoteOperationSeen<TSelection>(
+  state: EditorCollaborationState<TSelection>,
+  operationId: string,
+  options?: MarkEditorRemoteOperationSeenOptions,
+): EditorCollaborationState<TSelection>;
+declare function dedupeEditorRemoteOperations<TOperation, TSelection = unknown>(
+  state: EditorCollaborationState<TSelection>,
+  operations: readonly EditorRemoteOperation<TOperation>[],
+  options?: DedupeEditorRemoteOperationsOptions,
+): DedupeEditorRemoteOperationsResult<TOperation, TSelection>;
+
+export {
+  type CreateEditorCollaborationStateOptions,
+  type DedupeEditorRemoteOperationsOptions,
+  type DedupeEditorRemoteOperationsResult,
+  type EditorActorId,
+  type EditorClientId,
+  type EditorCollaborationState,
+  type EditorPresence,
+  type EditorRemoteOperation,
+  type EditorRevisionToken,
+  type MarkEditorRemoteOperationSeenOptions,
+  type PruneEditorPresenceOptions,
+  createEditorCollaborationState,
+  dedupeEditorRemoteOperations,
+  hasSeenEditorRemoteOperation,
+  markEditorRemoteOperationSeen,
+  pruneEditorPresence,
+  removeEditorPresence,
+  updateEditorPresence,
+};
+```
+
 ## commands.d.ts
 
 ```ts
@@ -692,6 +795,26 @@ export {
   resolveEditorCommands,
 } from "./commands.js";
 export {
+  CreateEditorCollaborationStateOptions,
+  DedupeEditorRemoteOperationsOptions,
+  DedupeEditorRemoteOperationsResult,
+  EditorActorId,
+  EditorClientId,
+  EditorCollaborationState,
+  EditorPresence,
+  EditorRemoteOperation,
+  EditorRevisionToken,
+  MarkEditorRemoteOperationSeenOptions,
+  PruneEditorPresenceOptions,
+  createEditorCollaborationState,
+  dedupeEditorRemoteOperations,
+  hasSeenEditorRemoteOperation,
+  markEditorRemoteOperationSeen,
+  pruneEditorPresence,
+  removeEditorPresence,
+  updateEditorPresence,
+} from "./collaboration.js";
+export {
   EditorConstraintIssueOptions,
   EditorGraphConnection,
   ValidateEditorGraphConnectionOptions,
@@ -818,21 +941,51 @@ export {
 } from "./operations.js";
 export {
   CreateEditorPersistenceStateOptions,
+  EditorConflictStorageAdapter,
+  EditorPersistedDocument,
   EditorPersistenceClock,
+  EditorPersistenceConflictError,
   EditorPersistenceErrorContext,
   EditorPersistenceEvent,
   EditorPersistenceEventHandler,
   EditorPersistenceOperation,
   EditorPersistenceState,
   EditorPersistenceStatus,
+  LoadEditorRuntimeConflictPersistenceOptions,
+  LoadEditorRuntimeConflictPersistenceResult,
   LoadEditorRuntimePersistenceOptions,
   LoadEditorRuntimePersistenceResult,
+  SaveEditorRuntimeConflictPersistenceOptions,
+  SaveEditorRuntimeConflictPersistenceResult,
   SaveEditorRuntimePersistenceOptions,
   SaveEditorRuntimePersistenceResult,
+  clearEditorPersistenceConflict,
   createEditorPersistenceState,
+  loadEditorRuntimeConflictPersistence,
   loadEditorRuntimePersistence,
+  saveEditorRuntimeConflictPersistence,
   saveEditorRuntimePersistence,
 } from "./persistence.js";
+export {
+  ApplyEditorPatchOptions,
+  DiffEditorJsonOptions,
+  EditorPatch,
+  EditorPatchOperation,
+  EditorPatchPath,
+  applyEditorPatch,
+  diffEditorJson,
+  invertEditorPatch,
+  isEditorPatchEmpty,
+} from "./patches.js";
+export {
+  EditorPlugin,
+  EditorPluginDiagnostic,
+  EditorPluginRegistry,
+  createEditorPluginRegistry,
+  getEditorPluginDiagnostics,
+  resolveEditorPluginCommands,
+  resolveEditorPluginRuntimeOptions,
+} from "./plugins.js";
 export {
   CommitEditorRuntimeOptions,
   EditorRuntimeCommandId,
@@ -1303,10 +1456,66 @@ export {
 };
 ```
 
+## patches.d.ts
+
+```ts
+type EditorPatchPath = readonly (string | number)[];
+type EditorPatchOperation =
+  | {
+      op: "add";
+      path: EditorPatchPath;
+      value: unknown;
+    }
+  | {
+      op: "remove";
+      path: EditorPatchPath;
+      oldValue?: unknown;
+    }
+  | {
+      op: "replace";
+      path: EditorPatchPath;
+      value: unknown;
+      oldValue?: unknown;
+    };
+type EditorPatch = readonly EditorPatchOperation[];
+type DiffEditorJsonOptions = {
+  equals?: (left: unknown, right: unknown) => boolean;
+  includeOldValues?: boolean;
+};
+type ApplyEditorPatchOptions = {
+  strict?: boolean;
+};
+declare function diffEditorJson(
+  left: unknown,
+  right: unknown,
+  options?: DiffEditorJsonOptions,
+): EditorPatch;
+declare function applyEditorPatch(
+  value: unknown,
+  patch: EditorPatch,
+  options?: ApplyEditorPatchOptions,
+): unknown;
+declare function invertEditorPatch(patch: EditorPatch): EditorPatch;
+declare function isEditorPatchEmpty(patch: EditorPatch): boolean;
+
+export {
+  type ApplyEditorPatchOptions,
+  type DiffEditorJsonOptions,
+  type EditorPatch,
+  type EditorPatchOperation,
+  type EditorPatchPath,
+  applyEditorPatch,
+  diffEditorJson,
+  invertEditorPatch,
+  isEditorPatchEmpty,
+};
+```
+
 ## persistence.d.ts
 
 ```ts
 import { EditorStorageAdapter } from "./browser.js";
+import { EditorRevisionToken } from "./collaboration.js";
 import { EditorRuntimeSelection, EditorRuntimeState } from "./runtime.js";
 import "./aspects.js";
 import "./hotkeys.js";
@@ -1323,6 +1532,8 @@ type EditorPersistenceState = {
   savedAt: string | null;
   savedRevision: number | null;
   savingRevision: number | null;
+  revisionToken?: EditorRevisionToken | null;
+  conflict?: EditorPersistenceConflictError | null;
 };
 type EditorPersistenceErrorContext = {
   operation: EditorPersistenceOperation;
@@ -1358,6 +1569,15 @@ type EditorPersistenceEvent<_TDocument = unknown> =
       error: unknown;
     }
   | {
+      type: "save-conflict";
+      revision: number;
+      error: EditorPersistenceConflictError;
+    }
+  | {
+      type: "revision-token-updated";
+      revisionToken: EditorRevisionToken | null;
+    }
+  | {
       type: "save-skipped";
       revision: number;
       reason: "clean" | "blocked" | "in-flight";
@@ -1391,6 +1611,46 @@ type SaveEditorRuntimePersistenceResult<TDocument, TSelection = unknown> = {
   saved: boolean;
   revision: number;
 };
+type EditorPersistedDocument<TDocument> = {
+  document: TDocument;
+  revisionToken?: EditorRevisionToken | null;
+  metadata?: Record<string, unknown>;
+};
+type EditorConflictStorageAdapter<TDocument> = {
+  load: () =>
+    | EditorPersistedDocument<TDocument>
+    | null
+    | Promise<EditorPersistedDocument<TDocument> | null>;
+  save: (
+    value: EditorPersistedDocument<TDocument>,
+  ) => EditorPersistedDocument<TDocument> | Promise<EditorPersistedDocument<TDocument>>;
+};
+declare class EditorPersistenceConflictError extends Error {
+  readonly local: EditorPersistedDocument<unknown>;
+  readonly remote?: EditorPersistedDocument<unknown>;
+  constructor(
+    message: string,
+    options: {
+      local: EditorPersistedDocument<unknown>;
+      remote?: EditorPersistedDocument<unknown>;
+    },
+  );
+}
+type LoadEditorRuntimeConflictPersistenceOptions<
+  TDocument,
+  TSelection = unknown,
+> = LoadEditorRuntimePersistenceOptions<TDocument, TSelection>;
+type LoadEditorRuntimeConflictPersistenceResult<
+  TDocument,
+  TSelection = unknown,
+> = LoadEditorRuntimePersistenceResult<TDocument, TSelection>;
+type SaveEditorRuntimeConflictPersistenceOptions = SaveEditorRuntimePersistenceOptions & {
+  revisionToken?: EditorRevisionToken | null;
+};
+type SaveEditorRuntimeConflictPersistenceResult<
+  TDocument,
+  TSelection = unknown,
+> = SaveEditorRuntimePersistenceResult<TDocument, TSelection>;
 declare function createEditorPersistenceState(
   options?: CreateEditorPersistenceStateOptions,
 ): EditorPersistenceState;
@@ -1404,23 +1664,115 @@ declare function saveEditorRuntimePersistence<TDocument, TSelection = unknown>(
   storage: EditorStorageAdapter<TDocument>,
   options?: SaveEditorRuntimePersistenceOptions,
 ): Promise<SaveEditorRuntimePersistenceResult<TDocument, TSelection>>;
+declare function loadEditorRuntimeConflictPersistence<TDocument, TSelection = unknown>(
+  runtime: EditorRuntimeState<TDocument, TSelection>,
+  storage: EditorConflictStorageAdapter<TDocument>,
+  options?: LoadEditorRuntimeConflictPersistenceOptions<TDocument, TSelection>,
+): Promise<LoadEditorRuntimeConflictPersistenceResult<TDocument, TSelection>>;
+declare function saveEditorRuntimeConflictPersistence<TDocument, TSelection = unknown>(
+  runtime: EditorRuntimeState<TDocument, TSelection>,
+  storage: EditorConflictStorageAdapter<TDocument>,
+  options?: SaveEditorRuntimeConflictPersistenceOptions,
+): Promise<SaveEditorRuntimeConflictPersistenceResult<TDocument, TSelection>>;
+declare function clearEditorPersistenceConflict(
+  persistence: EditorPersistenceState,
+): EditorPersistenceState;
 
 export {
   type CreateEditorPersistenceStateOptions,
+  type EditorConflictStorageAdapter,
+  type EditorPersistedDocument,
   type EditorPersistenceClock,
+  EditorPersistenceConflictError,
   type EditorPersistenceErrorContext,
   type EditorPersistenceEvent,
   type EditorPersistenceEventHandler,
   type EditorPersistenceOperation,
   type EditorPersistenceState,
   type EditorPersistenceStatus,
+  type LoadEditorRuntimeConflictPersistenceOptions,
+  type LoadEditorRuntimeConflictPersistenceResult,
   type LoadEditorRuntimePersistenceOptions,
   type LoadEditorRuntimePersistenceResult,
+  type SaveEditorRuntimeConflictPersistenceOptions,
+  type SaveEditorRuntimeConflictPersistenceResult,
   type SaveEditorRuntimePersistenceOptions,
   type SaveEditorRuntimePersistenceResult,
+  clearEditorPersistenceConflict,
   createEditorPersistenceState,
+  loadEditorRuntimeConflictPersistence,
   loadEditorRuntimePersistence,
+  saveEditorRuntimeConflictPersistence,
   saveEditorRuntimePersistence,
+};
+```
+
+## plugins.d.ts
+
+```ts
+import { EditorAspectDefinition } from "./aspects.js";
+import {
+  EditorContextualCommandDefinition,
+  EditorCommandDiagnostic,
+  EditorCommandContext,
+  EditorResolvedCommandDefinition,
+} from "./commands.js";
+import { EditorOperationPreflightContext, EditorOperationPreflightIssue } from "./operations.js";
+import { EditorRuntimeValidator, EditorRuntimeOptions } from "./runtime.js";
+import "./history.js";
+import "./hotkeys.js";
+import "./serialization.js";
+
+type EditorPlugin<TDocument = unknown, TSelection = unknown> = {
+  id: string;
+  label?: string;
+  commands?: readonly EditorContextualCommandDefinition<string, TDocument, TSelection>[];
+  validators?: readonly EditorRuntimeValidator<TDocument>[];
+  aspects?: readonly EditorAspectDefinition<TDocument, unknown>[];
+  operationPreflight?: readonly ((
+    context: EditorOperationPreflightContext<TDocument, TSelection>,
+  ) => readonly EditorOperationPreflightIssue[])[];
+  metadata?: Record<string, unknown>;
+};
+type EditorPluginRegistry<TDocument, TSelection> = {
+  plugins: readonly EditorPlugin<TDocument, TSelection>[];
+  commands: readonly EditorContextualCommandDefinition<string, TDocument, TSelection>[];
+  validators: readonly EditorRuntimeValidator<TDocument>[];
+  aspects: readonly EditorAspectDefinition<TDocument, unknown>[];
+};
+type EditorPluginDiagnostic = {
+  pluginId: string;
+  path: string;
+  message: string;
+  severity: "error" | "warning";
+};
+declare function createEditorPluginRegistry<TDocument, TSelection>(
+  plugins: readonly EditorPlugin<TDocument, TSelection>[],
+): EditorPluginRegistry<TDocument, TSelection>;
+declare function getEditorPluginDiagnostics<TDocument, TSelection>(
+  registry: EditorPluginRegistry<TDocument, TSelection>,
+): readonly (EditorPluginDiagnostic | EditorCommandDiagnostic<string>)[];
+declare function resolveEditorPluginRuntimeOptions<TDocument, TSelection>(
+  registry: EditorPluginRegistry<TDocument, TSelection>,
+  baseOptions: EditorRuntimeOptions<TDocument, TSelection>,
+): EditorRuntimeOptions<TDocument, TSelection> & {
+  preflight: (
+    context: EditorOperationPreflightContext<TDocument, TSelection>,
+  ) => readonly EditorOperationPreflightIssue[];
+};
+declare function resolveEditorPluginCommands<TDocument, TSelection>(
+  registry: EditorPluginRegistry<TDocument, TSelection>,
+  context: EditorCommandContext<TDocument, TSelection>,
+): readonly EditorResolvedCommandDefinition<string>[];
+
+export {
+  type EditorPlugin,
+  type EditorPluginDiagnostic,
+  type EditorPluginRegistry,
+  createEditorPluginRegistry,
+  getEditorPluginDiagnostics,
+  resolveEditorPluginCommands,
+  resolveEditorPluginRuntimeOptions,
 };
 ```
 
@@ -1433,6 +1785,7 @@ import { EditorCommandDefinition } from "./hotkeys.js";
 import {
   EditorPersistenceErrorContext,
   EditorPersistenceEventHandler,
+  EditorConflictStorageAdapter,
   EditorPersistenceState,
 } from "./persistence.js";
 import {
@@ -1444,6 +1797,7 @@ import {
   EditorRuntimeSelection,
 } from "./runtime.js";
 import { EditorTreeState, EditorTreeNodeId } from "./tree.js";
+import "./collaboration.js";
 import "./aspects.js";
 import "./history.js";
 import "./serialization.js";
@@ -1500,6 +1854,20 @@ type UsePersistentEditorRuntimeResult<TDocument, TSelection = unknown> = UseEdit
   load: () => Promise<void>;
   save: (options?: { force?: boolean }) => Promise<boolean>;
 };
+type UseConflictAwareEditorRuntimeOptions<TDocument, TSelection = unknown> = Omit<
+  UsePersistentEditorRuntimeOptions<TDocument, TSelection>,
+  "storage"
+> & {
+  storage: EditorConflictStorageAdapter<TDocument>;
+};
+type UseConflictAwareEditorRuntimeResult<TDocument, TSelection = unknown> = UseEditorRuntimeResult<
+  TDocument,
+  TSelection
+> & {
+  persistence: EditorPersistenceState;
+  load: () => Promise<void>;
+  save: (options?: { force?: boolean }) => Promise<boolean>;
+};
 type EditorAutosaveRetryOptions = {
   attempts?: number;
   delayMs?: number;
@@ -1512,6 +1880,9 @@ type EditorAutosaveOptions = {
 declare function usePersistentEditorRuntime<TDocument, TSelection = unknown>(
   options: UsePersistentEditorRuntimeOptions<TDocument, TSelection>,
 ): UsePersistentEditorRuntimeResult<TDocument, TSelection>;
+declare function useConflictAwareEditorRuntime<TDocument, TSelection = unknown>(
+  options: UseConflictAwareEditorRuntimeOptions<TDocument, TSelection>,
+): UseConflictAwareEditorRuntimeResult<TDocument, TSelection>;
 type UseEditorHotkeysOptions<TId extends string> = {
   commands: readonly EditorCommandDefinition<TId>[];
   disabled?: boolean;
@@ -1542,12 +1913,15 @@ export {
   type ControllableEditorStateOptions,
   type EditorAutosaveOptions,
   type EditorAutosaveRetryOptions,
+  type UseConflictAwareEditorRuntimeOptions,
+  type UseConflictAwareEditorRuntimeResult,
   type UseEditorHotkeysOptions,
   type UseEditorRuntimeOptions,
   type UseEditorRuntimeResult,
   type UseEditorTreeStateResult,
   type UsePersistentEditorRuntimeOptions,
   type UsePersistentEditorRuntimeResult,
+  useConflictAwareEditorRuntime,
   useControllableEditorState,
   useEditorHotkeys,
   useEditorRuntime,

@@ -4,10 +4,17 @@ import { createRoot } from "react-dom/client";
 import { afterEach, describe, expect, test, vi } from "vitest";
 import type { EditorStorageAdapter } from "./browser.js";
 import {
+  EditorPersistenceConflictError,
+  type EditorConflictStorageAdapter,
+  type EditorPersistedDocument,
+} from "./persistence.js";
+import {
   useControllableEditorState,
+  useConflictAwareEditorRuntime,
   useEditorHotkeys,
   useEditorRuntime,
   usePersistentEditorRuntime,
+  type UseConflictAwareEditorRuntimeResult,
   type UsePersistentEditorRuntimeResult,
 } from "./react.js";
 
@@ -16,6 +23,7 @@ type Document = {
 };
 
 type PersistentRuntimeResult = UsePersistentEditorRuntimeResult<Document, string>;
+type ConflictRuntimeResult = UseConflictAwareEditorRuntimeResult<Document, string>;
 
 const initialDocument: Document = { title: "Initial" };
 
@@ -335,6 +343,80 @@ describe("persistent editor runtime hook", () => {
   });
 });
 
+describe("conflict-aware editor runtime hook", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+  });
+
+  test("loads revision tokens and saves with the latest token", async () => {
+    const storage = createConflictMemoryStorage<Document>({
+      document: { title: "Stored" },
+      revisionToken: "server-1",
+    });
+    storage.save.mockImplementationOnce((value) => {
+      storage.value = { document: value.document, revisionToken: "server-2" };
+      return storage.value;
+    });
+    const fixture = renderConflictAwareRuntime({ storage });
+
+    await flushEffects();
+    expect(fixture.result.state.document).toEqual({ title: "Stored" });
+    expect(fixture.result.persistence.revisionToken).toBe("server-1");
+
+    act(() => {
+      fixture.result.commit({ title: "Saved" });
+    });
+    await act(async () => {
+      await fixture.result.save();
+    });
+
+    expect(storage.save).toHaveBeenCalledWith({
+      document: { title: "Saved" },
+      revisionToken: "server-1",
+    });
+    expect(fixture.result.persistence.revisionToken).toBe("server-2");
+    expect(fixture.result.state.status).toBe("clean");
+    fixture.unmount();
+  });
+
+  test("exposes conflicts and keeps runtime dirty", async () => {
+    const storage = createConflictMemoryStorage<Document>({
+      document: initialDocument,
+      revisionToken: "server-1",
+    });
+    const onPersistenceEvent = vi.fn();
+    const fixture = renderConflictAwareRuntime({ onPersistenceEvent, storage });
+
+    await flushEffects();
+    act(() => {
+      fixture.result.commit({ title: "Local" });
+    });
+
+    const conflict = new EditorPersistenceConflictError("stale revision", {
+      local: { document: { title: "Local" }, revisionToken: "server-1" },
+      remote: { document: { title: "Remote" }, revisionToken: "server-2" },
+    });
+    storage.save.mockImplementationOnce(() => {
+      throw conflict;
+    });
+
+    await act(async () => {
+      await fixture.result.save();
+    });
+
+    expect(fixture.result.state.status).toBe("dirty");
+    expect(fixture.result.persistence.conflict).toBe(conflict);
+    expect(fixture.result.persistence.revisionToken).toBe("server-1");
+    expect(onPersistenceEvent).toHaveBeenCalledWith({
+      error: conflict,
+      revision: fixture.result.state.revision,
+      type: "save-conflict",
+    });
+    fixture.unmount();
+  });
+});
+
 describe("editor react hooks", () => {
   afterEach(() => {
     vi.restoreAllMocks();
@@ -494,6 +576,61 @@ function renderPersistentRuntime(options: {
   };
 }
 
+function renderConflictAwareRuntime(options: {
+  autosave?:
+    | boolean
+    | { delayMs?: number; retry?: { attempts?: number; delayMs?: number }; saveLatest?: boolean };
+  loadOnMount?: boolean;
+  onPersistenceError?: (
+    error: unknown,
+    context: { operation: "load" | "save"; revision?: number },
+  ) => void;
+  onPersistenceEvent?: (event: unknown) => void;
+  storage: ConflictMemoryStorage<Document>;
+}): {
+  get result(): ConflictRuntimeResult;
+  unmount: () => void;
+} {
+  const container = document.createElement("div");
+  const root = createRoot(container);
+  let result: ConflictRuntimeResult | null = null;
+
+  function Fixture() {
+    result = useConflictAwareEditorRuntime<Document, string>({
+      autosave: options.autosave,
+      history: {
+        equals(left, right) {
+          return left.title === right.title;
+        },
+      },
+      initialDocument,
+      loadOnMount: options.loadOnMount,
+      onPersistenceError: options.onPersistenceError,
+      onPersistenceEvent: options.onPersistenceEvent,
+      storage: options.storage,
+    });
+    return null;
+  }
+
+  act(() => {
+    root.render(<Fixture />);
+  });
+
+  return {
+    get result() {
+      if (!result) {
+        throw new Error("Conflict-aware runtime fixture did not render.");
+      }
+      return result;
+    },
+    unmount() {
+      act(() => {
+        root.unmount();
+      });
+    },
+  };
+}
+
 function renderHook<TResult>(useHook: () => TResult): {
   get result(): TResult;
   unmount: () => void;
@@ -593,6 +730,30 @@ function createMemoryStorage<TValue>(initialValue: TValue | null): MemoryStorage
   storage.load = vi.fn(() => storage.value);
   storage.save = vi.fn((value: TValue) => {
     storage.value = value;
+  });
+
+  return storage;
+}
+
+type ConflictMemoryStorage<TValue> = EditorConflictStorageAdapter<TValue> & {
+  value: EditorPersistedDocument<TValue> | null;
+  load: ReturnType<typeof vi.fn<() => EditorPersistedDocument<TValue> | null>>;
+  save: ReturnType<
+    typeof vi.fn<(value: EditorPersistedDocument<TValue>) => EditorPersistedDocument<TValue>>
+  >;
+};
+
+function createConflictMemoryStorage<TValue>(
+  initialValue: EditorPersistedDocument<TValue> | null,
+): ConflictMemoryStorage<TValue> {
+  const storage = {
+    value: initialValue,
+  } as ConflictMemoryStorage<TValue>;
+
+  storage.load = vi.fn(() => storage.value);
+  storage.save = vi.fn((value: EditorPersistedDocument<TValue>) => {
+    storage.value = value;
+    return value;
   });
 
   return storage;

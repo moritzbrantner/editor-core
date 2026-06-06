@@ -62,6 +62,10 @@
       "types": "./dist/commands.d.ts",
       "import": "./dist/commands.js"
     },
+    "./collaboration": {
+      "types": "./dist/collaboration.d.ts",
+      "import": "./dist/collaboration.js"
+    },
     "./constraints": {
       "types": "./dist/constraints.d.ts",
       "import": "./dist/constraints.js"
@@ -89,6 +93,14 @@
     "./persistence": {
       "types": "./dist/persistence.d.ts",
       "import": "./dist/persistence.js"
+    },
+    "./patches": {
+      "types": "./dist/patches.d.ts",
+      "import": "./dist/patches.js"
+    },
+    "./plugins": {
+      "types": "./dist/plugins.d.ts",
+      "import": "./dist/plugins.js"
     },
     "./selection": {
       "types": "./dist/selection.d.ts",
@@ -125,7 +137,7 @@
     "test:integration": "bun run build && bun run smoke:package && node scripts/check-api-snapshot.mjs",
     "test:e2e": "bun run example:build && bun run test:e2e:run",
     "test:e2e:run": "playwright test",
-    "build": "tsup src/index.ts src/aspects.ts src/history.ts src/json.ts src/serialization.ts src/testing.ts src/hotkeys.ts src/browser.ts src/commands.ts src/constraints.ts src/entities.ts src/indexes.ts src/interaction.ts src/operations.ts src/persistence.ts src/runtime.ts src/selection.ts src/share.ts src/tree.ts src/viewport.ts src/react.tsx --format esm --dts --clean --out-dir dist",
+    "build": "tsup src/index.ts src/aspects.ts src/history.ts src/json.ts src/serialization.ts src/testing.ts src/hotkeys.ts src/browser.ts src/commands.ts src/collaboration.ts src/constraints.ts src/entities.ts src/indexes.ts src/interaction.ts src/operations.ts src/persistence.ts src/patches.ts src/plugins.ts src/runtime.ts src/selection.ts src/share.ts src/tree.ts src/viewport.ts src/react.tsx --format esm --dts --clean --out-dir dist",
     "example:dev": "vite --config examples/react/vite.config.ts --host 0.0.0.0",
     "example:check-types": "tsc -p examples/react/tsconfig.json --noEmit",
     "example:build": "vite build --config examples/react/vite.config.ts",

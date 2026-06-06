@@ -14,7 +14,17 @@ _No unreleased changes._
 - Added persistence lifecycle events for load/save observability.
 - Improved React autosave behavior with latest-revision follow-up saves and optional retry.
 - Added command diagnostics for duplicate ids, invalid hotkeys, conflicts, and empty labels.
-- Added adoption documentation for adapters, persistence, commands, and runtime selection.
+- Added collaboration primitives for presence state, remote operation dedupe, and revision-token
+  tracking.
+- Added JSON-compatible patch diff, apply, and inversion helpers.
+- Added plugin registry helpers for composing commands, validators, aspects, and operation
+  preflight hooks.
+- Added conflict-aware persistence helpers and a React hook for revision-token-backed storage.
+- Added adoption documentation for adapters, persistence, commands, runtime selection,
+  collaboration, patches, plugins, and conflict-aware persistence.
+- Compatibility: `EditorPersistenceState` can now carry `revisionToken` and `conflict` when
+  conflict-aware persistence is used; those fields are optional for consumers that construct state
+  objects manually.
 
 ## 0.1.1
 

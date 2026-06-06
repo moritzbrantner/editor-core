@@ -66,9 +66,24 @@ async function smokeHeadlessConsumer(tarball) {
       import { createEditorOperationRuntime } from "@moritzbrantner/editor-core/operations";
       import { createEditorEntitySelection } from "@moritzbrantner/editor-core/selection";
       import { createEditorViewportState } from "@moritzbrantner/editor-core/viewport";
+      import { createEditorCollaborationState } from "@moritzbrantner/editor-core/collaboration";
+      import { applyEditorPatch, diffEditorJson } from "@moritzbrantner/editor-core/patches";
+      import { createEditorPluginRegistry } from "@moritzbrantner/editor-core/plugins";
+      import {
+        EditorPersistenceConflictError,
+        saveEditorRuntimeConflictPersistence,
+      } from "@moritzbrantner/editor-core/persistence";
 
       if ("useEditorHotkeys" in core || "useEditorTreeState" in core) {
         throw new Error("React hooks leaked from the root entrypoint");
+      }
+      if (
+        typeof core.createEditorCollaborationState !== "function" ||
+        typeof core.diffEditorJson !== "function" ||
+        typeof core.createEditorPluginRegistry !== "function" ||
+        typeof core.saveEditorRuntimeConflictPersistence !== "function"
+      ) {
+        throw new Error("New headless helpers are missing from the root entrypoint");
       }
 
       const history = createEditorSnapshotHistory({ title: "Draft" });
@@ -108,12 +123,37 @@ async function smokeHeadlessConsumer(tarball) {
       const selection = createEditorEntitySelection(["node"]);
       const viewport = createEditorViewportState({ zoom: 2 });
       const graphIssues = validateEditorGraphConnection({ sourceId: "node", targetId: "node" });
+      const collaboration = createEditorCollaborationState({ clientId: "client-a" });
+      const patch = diffEditorJson({ title: "Draft" }, { title: "Published" });
+      const patched = applyEditorPatch({ title: "Draft" }, patch);
+      const registry = createEditorPluginRegistry([{ id: "smoke-plugin" }]);
+      const dirtyRuntime = core.commitEditorRuntime(
+        core.createEditorRuntime({ initialDocument: { title: "Draft" } }),
+        { title: "Saved" },
+      );
+      let savedRevisionToken;
+      const conflictStorage = {
+        load: () => ({ document: { title: "Draft" }, revisionToken: "server-1" }),
+        save(value) {
+          savedRevisionToken = value.revisionToken;
+          return { document: value.document, revisionToken: "server-2" };
+        },
+      };
+      const conflictSaved = await saveEditorRuntimeConflictPersistence(dirtyRuntime, conflictStorage, {
+        revisionToken: "server-1",
+      });
+      const conflict = new EditorPersistenceConflictError("stale revision", {
+        local: { document: dirtyRuntime.document, revisionToken: "server-1" },
+      });
 
       if (tree.root.id !== "document") {
         throw new Error("Tree projection failed");
       }
       if (!adapterCheck.ok || !indexes.entitiesById.has("node") || interaction.state.kind !== "idle" || operationRuntime.canUndo || selection.kind !== "entity" || viewport.zoom !== 2 || graphIssues.length === 0) {
         throw new Error("New foundation subpaths failed");
+      }
+      if (collaboration.clientId !== "client-a" || patched.title !== "Published" || registry.plugins.length !== 1 || !conflictSaved.saved || conflictSaved.persistence.revisionToken !== "server-2" || savedRevisionToken !== "server-1" || conflict.name !== "EditorPersistenceConflictError") {
+        throw new Error("New release subpaths failed");
       }
     `,
   );
@@ -145,6 +185,13 @@ async function smokeHeadlessConsumer(tarball) {
         type EditorSnapshotHistory,
         type EditorGraphAdapter,
       } from "@moritzbrantner/editor-core";
+      import type {
+        EditorCollaborationState,
+        EditorRemoteOperation,
+      } from "@moritzbrantner/editor-core/collaboration";
+      import type { EditorPatch } from "@moritzbrantner/editor-core/patches";
+      import type { EditorPlugin } from "@moritzbrantner/editor-core/plugins";
+      import type { EditorConflictStorageAdapter } from "@moritzbrantner/editor-core/persistence";
       import type { EditorDocumentAdapterCheckCase } from "@moritzbrantner/editor-core/testing";
       import type { EditorTreeAdapter } from "@moritzbrantner/editor-core/tree";
 
@@ -169,12 +216,34 @@ async function smokeHeadlessConsumer(tarball) {
         id: "document",
         input: { title: "Draft" },
       };
+      const collaborationState: EditorCollaborationState<string> = {
+        clientId: "client-a",
+        presence: {},
+        revision: null,
+        seenOperationIds: [],
+      };
+      const remoteOperation: EditorRemoteOperation<{ type: "rename" }> = {
+        clientId: "client-b",
+        id: "op-1",
+        operation: { type: "rename" },
+      };
+      const patch: EditorPatch = [{ op: "replace", path: ["title"], value: "Published" }];
+      const plugin: EditorPlugin<Document, string> = { id: "metadata" };
+      const conflictStorage: EditorConflictStorageAdapter<Document> = {
+        load: () => ({ document: { title: "Draft" }, revisionToken: "server-1" }),
+        save: (value) => value,
+      };
 
       void history;
       void adapter;
       void runtime;
       void graphAdapter;
       void adapterCase;
+      void collaborationState;
+      void remoteOperation;
+      void patch;
+      void plugin;
+      void conflictStorage;
     `,
   );
   await writeJson(join(consumerDir, "tsconfig.json"), {
@@ -227,8 +296,8 @@ async function smokeReactSubpath(tarball) {
   await writeFile(
     join(consumerDir, "react-subpath.mjs"),
     `
-      import { useEditorHotkeys, useEditorTreeState } from "@moritzbrantner/editor-core/react";
-      if (typeof useEditorHotkeys !== "function" || typeof useEditorTreeState !== "function") {
+      import { useConflictAwareEditorRuntime, useEditorHotkeys, useEditorTreeState } from "@moritzbrantner/editor-core/react";
+      if (typeof useEditorHotkeys !== "function" || typeof useEditorTreeState !== "function" || typeof useConflictAwareEditorRuntime !== "function") {
         throw new Error("React subpath did not load");
       }
     `,

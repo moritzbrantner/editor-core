@@ -9,8 +9,11 @@ import {
 } from "./hotkeys.js";
 import {
   createEditorPersistenceState,
+  loadEditorRuntimeConflictPersistence,
   loadEditorRuntimePersistence,
+  saveEditorRuntimeConflictPersistence,
   saveEditorRuntimePersistence,
+  type EditorConflictStorageAdapter,
   type EditorPersistenceErrorContext,
   type EditorPersistenceEventHandler,
   type EditorPersistenceState,
@@ -178,6 +181,67 @@ export type UsePersistentEditorRuntimeResult<
   save: (options?: { force?: boolean }) => Promise<boolean>;
 };
 
+export type UseConflictAwareEditorRuntimeOptions<TDocument, TSelection = unknown> = Omit<
+  UsePersistentEditorRuntimeOptions<TDocument, TSelection>,
+  "storage"
+> & {
+  storage: EditorConflictStorageAdapter<TDocument>;
+};
+
+export type UseConflictAwareEditorRuntimeResult<
+  TDocument,
+  TSelection = unknown,
+> = UseEditorRuntimeResult<TDocument, TSelection> & {
+  persistence: EditorPersistenceState;
+  load: () => Promise<void>;
+  save: (options?: { force?: boolean }) => Promise<boolean>;
+};
+
+type UsePersistentEditorRuntimeCoreOptions<TDocument, TSelection, TStorage> =
+  UseEditorRuntimeOptions<TDocument, TSelection> & {
+    storage: TStorage;
+    autosave?: boolean | EditorAutosaveOptions;
+    loadOnMount?: boolean;
+    canSave?: (runtime: EditorRuntimeState<TDocument, TSelection>) => boolean;
+    onPersistenceError?: (error: unknown, context: EditorPersistenceErrorContext) => void;
+    onPersistenceEvent?: EditorPersistenceEventHandler<TDocument>;
+  };
+
+type EditorPersistenceLoadOperation<TDocument, TSelection, TStorage> = (
+  runtime: EditorRuntimeState<TDocument, TSelection>,
+  storage: TStorage,
+  options: {
+    onError?: (error: unknown, context: EditorPersistenceErrorContext) => void;
+    onEvent?: EditorPersistenceEventHandler<TDocument>;
+  },
+) => Promise<{
+  runtime: EditorRuntimeState<TDocument, TSelection>;
+  persistence: EditorPersistenceState;
+}>;
+
+type EditorPersistenceSaveOperation<TDocument, TSelection, TStorage> = (
+  runtime: EditorRuntimeState<TDocument, TSelection>,
+  storage: TStorage,
+  options: {
+    force?: boolean;
+    onError?: (error: unknown, context: EditorPersistenceErrorContext) => void;
+    onEvent?: EditorPersistenceEventHandler<TDocument>;
+  },
+  persistence: EditorPersistenceState,
+) => Promise<{
+  runtime: EditorRuntimeState<TDocument, TSelection>;
+  persistence: EditorPersistenceState;
+  saved: boolean;
+  revision: number;
+}>;
+
+type EditorPersistenceStrategy<TDocument, TSelection, TStorage> = {
+  load: EditorPersistenceLoadOperation<TDocument, TSelection, TStorage>;
+  save: EditorPersistenceSaveOperation<TDocument, TSelection, TStorage>;
+  prepareLoad: (persistence: EditorPersistenceState) => EditorPersistenceState;
+  prepareSave: (persistence: EditorPersistenceState) => EditorPersistenceState;
+};
+
 const defaultEditorRuntimeAutosaveDelayMs = 750;
 const defaultEditorRuntimeAutosaveRetryDelayMs = 1500;
 
@@ -195,10 +259,31 @@ export type EditorAutosaveOptions = {
 export function usePersistentEditorRuntime<TDocument, TSelection = unknown>(
   options: UsePersistentEditorRuntimeOptions<TDocument, TSelection>,
 ): UsePersistentEditorRuntimeResult<TDocument, TSelection> {
+  return usePersistentEditorRuntimeCore<TDocument, TSelection, EditorStorageAdapter<TDocument>>(
+    options,
+    editorStoragePersistenceStrategy,
+  );
+}
+
+export function useConflictAwareEditorRuntime<TDocument, TSelection = unknown>(
+  options: UseConflictAwareEditorRuntimeOptions<TDocument, TSelection>,
+): UseConflictAwareEditorRuntimeResult<TDocument, TSelection> {
+  return usePersistentEditorRuntimeCore<
+    TDocument,
+    TSelection,
+    EditorConflictStorageAdapter<TDocument>
+  >(options, conflictAwarePersistenceStrategy);
+}
+
+function usePersistentEditorRuntimeCore<TDocument, TSelection, TStorage>(
+  options: UsePersistentEditorRuntimeCoreOptions<TDocument, TSelection, TStorage>,
+  strategy: EditorPersistenceStrategy<TDocument, TSelection, TStorage>,
+): UsePersistentEditorRuntimeResult<TDocument, TSelection> {
   const runtime = useEditorRuntime<TDocument, TSelection>(options);
   const setRuntimeState = runtime.setState;
   const [persistence, setPersistence] = React.useState(createEditorPersistenceState);
   const runtimeRef = React.useRef(runtime.state);
+  const persistenceRef = React.useRef(persistence);
   const storageRef = React.useRef(options.storage);
   const canSaveRef = React.useRef(options.canSave);
   const onPersistenceErrorRef = React.useRef(options.onPersistenceError);
@@ -212,6 +297,7 @@ export function usePersistentEditorRuntime<TDocument, TSelection = unknown>(
   const [saveSignal, setSaveSignal] = React.useState(0);
 
   runtimeRef.current = runtime.state;
+  persistenceRef.current = persistence;
   storageRef.current = options.storage;
   canSaveRef.current = options.canSave;
   onPersistenceErrorRef.current = options.onPersistenceError;
@@ -229,15 +315,9 @@ export function usePersistentEditorRuntime<TDocument, TSelection = unknown>(
   }, []);
 
   const load = React.useCallback(async () => {
-    setPersistence((previous) => ({
-      ...previous,
-      error: null,
-      operation: "load",
-      savingRevision: null,
-      status: "loading",
-    }));
+    setPersistence((previous) => strategy.prepareLoad(previous));
 
-    const result = await loadEditorRuntimePersistence(runtimeRef.current, storageRef.current, {
+    const result = await strategy.load(runtimeRef.current, storageRef.current, {
       onError: onPersistenceErrorRef.current,
       onEvent: onPersistenceEventRef.current,
     });
@@ -248,7 +328,7 @@ export function usePersistentEditorRuntime<TDocument, TSelection = unknown>(
 
     setRuntimeState(result.runtime);
     setPersistence(result.persistence);
-  }, [setRuntimeState]);
+  }, [setRuntimeState, strategy]);
 
   const autosaveOptions = normalizeEditorAutosaveOptions(options.autosave);
   const save = React.useCallback(
@@ -278,11 +358,16 @@ export function usePersistentEditorRuntime<TDocument, TSelection = unknown>(
       }
 
       if (snapshot.status === "clean" && !saveOptions.force) {
-        const result = await saveEditorRuntimePersistence(snapshot, storageRef.current, {
-          force: saveOptions.force,
-          onError: onPersistenceErrorRef.current,
-          onEvent: onPersistenceEventRef.current,
-        });
+        const result = await strategy.save(
+          snapshot,
+          storageRef.current,
+          {
+            force: saveOptions.force,
+            onError: onPersistenceErrorRef.current,
+            onEvent: onPersistenceEventRef.current,
+          },
+          persistenceRef.current,
+        );
 
         if (mountedRef.current) {
           setPersistence(result.persistence);
@@ -292,19 +377,25 @@ export function usePersistentEditorRuntime<TDocument, TSelection = unknown>(
       }
 
       saveInFlightRef.current = true;
-      setPersistence((previous) => ({
-        ...previous,
-        error: null,
-        operation: "save",
-        savingRevision: snapshot.revision,
-        status: "saving",
-      }));
+      setPersistence((previous) =>
+        strategy.prepareSave({
+          ...previous,
+          operation: "save",
+          savingRevision: snapshot.revision,
+          status: "saving",
+        }),
+      );
 
-      const result = await saveEditorRuntimePersistence(snapshot, storageRef.current, {
-        force: saveOptions.force,
-        onError: onPersistenceErrorRef.current,
-        onEvent: onPersistenceEventRef.current,
-      });
+      const result = await strategy.save(
+        snapshot,
+        storageRef.current,
+        {
+          force: saveOptions.force,
+          onError: onPersistenceErrorRef.current,
+          onEvent: onPersistenceEventRef.current,
+        },
+        persistenceRef.current,
+      );
 
       saveInFlightRef.current = false;
       if (!mountedRef.current) {
@@ -327,7 +418,7 @@ export function usePersistentEditorRuntime<TDocument, TSelection = unknown>(
       }
       return result.saved;
     },
-    [autosaveOptions.enabled, autosaveOptions.saveLatest, setRuntimeState],
+    [autosaveOptions.enabled, autosaveOptions.saveLatest, setRuntimeState, strategy],
   );
 
   const saveWithAutosaveRetry = React.useCallback(async () => {
@@ -423,6 +514,111 @@ export function usePersistentEditorRuntime<TDocument, TSelection = unknown>(
     save,
   };
 }
+
+function loadEditorStorageRuntimePersistence<TDocument, TSelection>(
+  runtime: EditorRuntimeState<TDocument, TSelection>,
+  storage: EditorStorageAdapter<TDocument>,
+  options: {
+    onError?: (error: unknown, context: EditorPersistenceErrorContext) => void;
+    onEvent?: EditorPersistenceEventHandler<TDocument>;
+  },
+) {
+  return loadEditorRuntimePersistence(runtime, storage, options);
+}
+
+function saveEditorStorageRuntimePersistence<TDocument, TSelection>(
+  runtime: EditorRuntimeState<TDocument, TSelection>,
+  storage: EditorStorageAdapter<TDocument>,
+  options: {
+    force?: boolean;
+    onError?: (error: unknown, context: EditorPersistenceErrorContext) => void;
+    onEvent?: EditorPersistenceEventHandler<TDocument>;
+  },
+  persistence: EditorPersistenceState,
+) {
+  void persistence;
+  return saveEditorRuntimePersistence(runtime, storage, options);
+}
+
+function loadConflictAwareRuntimePersistence<TDocument, TSelection>(
+  runtime: EditorRuntimeState<TDocument, TSelection>,
+  storage: EditorConflictStorageAdapter<TDocument>,
+  options: {
+    onError?: (error: unknown, context: EditorPersistenceErrorContext) => void;
+    onEvent?: EditorPersistenceEventHandler<TDocument>;
+  },
+) {
+  return loadEditorRuntimeConflictPersistence(runtime, storage, options);
+}
+
+function saveConflictAwareRuntimePersistence<TDocument, TSelection>(
+  runtime: EditorRuntimeState<TDocument, TSelection>,
+  storage: EditorConflictStorageAdapter<TDocument>,
+  options: {
+    force?: boolean;
+    onError?: (error: unknown, context: EditorPersistenceErrorContext) => void;
+    onEvent?: EditorPersistenceEventHandler<TDocument>;
+  },
+  persistence: EditorPersistenceState,
+) {
+  return saveEditorRuntimeConflictPersistence(runtime, storage, {
+    ...options,
+    revisionToken: persistence.revisionToken,
+  });
+}
+
+function prepareEditorStorageLoadPersistence(
+  persistence: EditorPersistenceState,
+): EditorPersistenceState {
+  return {
+    ...persistence,
+    error: null,
+    operation: "load",
+    savingRevision: null,
+    status: "loading",
+  };
+}
+
+function prepareEditorStorageSavePersistence(
+  persistence: EditorPersistenceState,
+): EditorPersistenceState {
+  return {
+    ...persistence,
+    error: null,
+  };
+}
+
+function prepareConflictAwareLoadPersistence(
+  persistence: EditorPersistenceState,
+): EditorPersistenceState {
+  return {
+    ...prepareEditorStorageLoadPersistence(persistence),
+    conflict: null,
+  };
+}
+
+function prepareConflictAwareSavePersistence(
+  persistence: EditorPersistenceState,
+): EditorPersistenceState {
+  return {
+    ...prepareEditorStorageSavePersistence(persistence),
+    conflict: null,
+  };
+}
+
+const editorStoragePersistenceStrategy = {
+  load: loadEditorStorageRuntimePersistence,
+  prepareLoad: prepareEditorStorageLoadPersistence,
+  prepareSave: prepareEditorStorageSavePersistence,
+  save: saveEditorStorageRuntimePersistence,
+};
+
+const conflictAwarePersistenceStrategy = {
+  load: loadConflictAwareRuntimePersistence,
+  prepareLoad: prepareConflictAwareLoadPersistence,
+  prepareSave: prepareConflictAwareSavePersistence,
+  save: saveConflictAwareRuntimePersistence,
+};
 
 function normalizeEditorAutosaveOptions(autosave: boolean | EditorAutosaveOptions | undefined): {
   delayMs: number;

@@ -7,14 +7,16 @@ Use this checklist for npm releases of `@moritzbrantner/editor-core`.
 Choose the next version before publishing. The package is already published on npm, so every
 release must use a version that does not already exist on the registry.
 
-For the next release, use `0.1.1` because the current changes are release-process and benchmark
-validation improvements without public API changes.
+For the next release, use `0.2.0` because the current changes add public APIs. npm `latest` was
+checked as `0.1.0` on June 7, 2026.
 
 Before tagging or publishing, confirm the current npm state:
 
 ```sh
 npm view @moritzbrantner/editor-core version dist-tags --json
 ```
+
+Verify the registry state again immediately before publishing.
 
 While the package is in `0.x`, breaking changes may ship in minor releases, but every breaking
 change must be called out in `CHANGELOG.md`.

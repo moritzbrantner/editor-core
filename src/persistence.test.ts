@@ -2,9 +2,16 @@ import { describe, expect, test, vi } from "vitest";
 import type { EditorStorageAdapter } from "./browser.js";
 import { commitEditorRuntime, createEditorRuntime, type EditorRuntimeState } from "./runtime.js";
 import {
+  EditorPersistenceConflictError,
+  clearEditorPersistenceConflict,
   createEditorPersistenceState,
+  loadEditorRuntimeConflictPersistence,
   loadEditorRuntimePersistence,
+  saveEditorRuntimeConflictPersistence,
   saveEditorRuntimePersistence,
+  type EditorConflictStorageAdapter,
+  type EditorPersistedDocument,
+  type EditorPersistenceState,
 } from "./persistence.js";
 
 type Document = {
@@ -17,12 +24,32 @@ const clock = () => "2026-06-06T12:00:00.000Z";
 describe("editor persistence", () => {
   test("creates default idle persistence state", () => {
     expect(createEditorPersistenceState({ now: clock })).toEqual({
+      conflict: null,
+      error: null,
+      loadedAt: null,
+      operation: null,
+      revisionToken: null,
+      savedAt: null,
+      savedRevision: null,
+      savingRevision: null,
+      status: "idle",
+    });
+  });
+
+  test("accepts persistence state objects without conflict fields", () => {
+    const persistence: EditorPersistenceState = {
       error: null,
       loadedAt: null,
       operation: null,
       savedAt: null,
       savedRevision: null,
       savingRevision: null,
+      status: "idle",
+    };
+
+    expect(clearEditorPersistenceConflict(persistence)).toMatchObject({
+      conflict: null,
+      error: null,
       status: "idle",
     });
   });
@@ -178,6 +205,131 @@ describe("editor persistence", () => {
       type: "save-error",
     });
   });
+
+  test("loads conflict-aware persisted documents with revision tokens", async () => {
+    const onEvent = vi.fn();
+    const runtime = commitEditorRuntime(createRuntime(), { body: "Dirty", title: "Dirty" });
+    const storage = createConflictMemoryStorage<Document>({
+      document: { body: "Stored", title: "Stored" },
+      revisionToken: "server-1",
+    });
+
+    const result = await loadEditorRuntimeConflictPersistence(runtime, storage, {
+      now: clock,
+      onEvent,
+    });
+
+    expect(result.runtime.document).toEqual({ body: "Stored", title: "Stored" });
+    expect(result.runtime.status).toBe("clean");
+    expect(result.persistence).toMatchObject({
+      revisionToken: "server-1",
+      status: "loaded",
+    });
+    expect(onEvent).toHaveBeenCalledWith({
+      revisionToken: "server-1",
+      type: "revision-token-updated",
+    });
+  });
+
+  test("saves conflict-aware documents and updates revision tokens", async () => {
+    const onEvent = vi.fn();
+    const runtime = commitEditorRuntime(createRuntime(), { body: "Saved", title: "Saved" });
+    const storage = createConflictMemoryStorage<Document>(null);
+    storage.save = vi.fn((value) => {
+      storage.value = { document: value.document, revisionToken: "server-2" };
+      return storage.value;
+    });
+
+    const result = await saveEditorRuntimeConflictPersistence(runtime, storage, {
+      now: clock,
+      onEvent,
+      revisionToken: "server-1",
+    });
+
+    expect(storage.save).toHaveBeenCalledWith({
+      document: { body: "Saved", title: "Saved" },
+      revisionToken: "server-1",
+    });
+    expect(result.saved).toBe(true);
+    expect(result.runtime.status).toBe("clean");
+    expect(result.persistence.revisionToken).toBe("server-2");
+    expect(onEvent).toHaveBeenCalledWith({
+      revisionToken: "server-2",
+      type: "revision-token-updated",
+    });
+  });
+
+  test("keeps runtime dirty and exposes conflict state on stale saves", async () => {
+    const onError = vi.fn();
+    const onEvent = vi.fn();
+    const runtime = commitEditorRuntime(createRuntime(), { body: "Local", title: "Local" });
+    const conflict = new EditorPersistenceConflictError("stale revision", {
+      local: { document: runtime.document, revisionToken: "server-1" },
+      remote: {
+        document: { body: "Remote", title: "Remote" },
+        revisionToken: "server-2",
+      },
+    });
+    const storage = createConflictMemoryStorage<Document>(null);
+    storage.save = vi.fn(() => {
+      throw conflict;
+    });
+
+    const result = await saveEditorRuntimeConflictPersistence(runtime, storage, {
+      onError,
+      onEvent,
+      revisionToken: "server-1",
+    });
+
+    expect(result.saved).toBe(false);
+    expect(result.runtime).toBe(runtime);
+    expect(result.runtime.status).toBe("dirty");
+    expect(result.persistence.conflict).toBe(conflict);
+    expect(result.persistence.error).toBe(conflict);
+    expect(result.persistence.revisionToken).toBe("server-1");
+    expect(onError).toHaveBeenCalledWith(conflict, {
+      operation: "save",
+      revision: runtime.revision,
+    });
+    expect(onEvent).toHaveBeenCalledWith({
+      error: conflict,
+      revision: runtime.revision,
+      type: "save-conflict",
+    });
+  });
+
+  test("clears only conflict-owned errors", () => {
+    const conflict = new EditorPersistenceConflictError("stale revision", {
+      local: { document: { body: "Local", title: "Local" }, revisionToken: "server-1" },
+    });
+    const otherError = new Error("network failed");
+    const basePersistence = createEditorPersistenceState();
+
+    expect(
+      clearEditorPersistenceConflict({
+        ...basePersistence,
+        conflict,
+        error: conflict,
+        status: "error",
+      }),
+    ).toMatchObject({
+      conflict: null,
+      error: null,
+      status: "error",
+    });
+    expect(
+      clearEditorPersistenceConflict({
+        ...basePersistence,
+        conflict,
+        error: otherError,
+        status: "error",
+      }),
+    ).toMatchObject({
+      conflict: null,
+      error: otherError,
+      status: "error",
+    });
+  });
 });
 
 function createRuntime(): EditorRuntimeState<Document, string> {
@@ -218,4 +370,28 @@ function createThrowingStorage<TValue>(operation: "load" | "save"): EditorStorag
       }
     },
   };
+}
+
+type ConflictMemoryStorage<TValue> = EditorConflictStorageAdapter<TValue> & {
+  value: EditorPersistedDocument<TValue> | null;
+  load: ReturnType<typeof vi.fn<() => EditorPersistedDocument<TValue> | null>>;
+  save: ReturnType<
+    typeof vi.fn<(value: EditorPersistedDocument<TValue>) => EditorPersistedDocument<TValue>>
+  >;
+};
+
+function createConflictMemoryStorage<TValue>(
+  initialValue: EditorPersistedDocument<TValue> | null,
+): ConflictMemoryStorage<TValue> {
+  const storage = {
+    value: initialValue,
+  } as ConflictMemoryStorage<TValue>;
+
+  storage.load = vi.fn(() => storage.value);
+  storage.save = vi.fn((value: EditorPersistedDocument<TValue>) => {
+    storage.value = value;
+    return value;
+  });
+
+  return storage;
 }

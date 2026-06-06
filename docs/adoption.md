@@ -219,6 +219,105 @@ const operations = readEditorOperationLog(exported, operationAdapter);
 
 Use `assertEditorOperationLogAdapter` from `/testing` for operation-log adapter coverage.
 
+## Collaboration
+
+Use collaboration primitives when downstream editors exchange operation envelopes through their own
+transport. `editor-core` only tracks local client identity, remote presence, seen operation ids, and
+revision tokens:
+
+```ts
+import {
+  createEditorCollaborationState,
+  dedupeEditorRemoteOperations,
+} from "@moritzbrantner/editor-core/collaboration";
+
+let collaboration = createEditorCollaborationState({
+  clientId: "client-a",
+  revision: "server-1",
+});
+
+const deduped = dedupeEditorRemoteOperations(collaboration, incomingOperations);
+collaboration = deduped.state;
+```
+
+Apply `deduped.operations` through the downstream editor's own operation adapter. Local-client
+operations are ignored by default.
+
+## Patches
+
+Use patch helpers for JSON-compatible editor documents when a downstream package needs change
+summaries, simple conflict previews, or reversible updates:
+
+```ts
+import {
+  applyEditorPatch,
+  diffEditorJson,
+  invertEditorPatch,
+} from "@moritzbrantner/editor-core/patches";
+
+const patch = diffEditorJson(previousDocument, nextDocument);
+const restored = applyEditorPatch(nextDocument, invertEditorPatch(patch));
+```
+
+Patch paths are arrays of string and number segments. Patches include old values by default so
+`invertEditorPatch` can restore previous values; if `includeOldValues: false` is used, inversion is
+not guaranteed to restore the original value. Array move detection is intentionally not included.
+
+## Plugins
+
+Use plugin registries when a downstream editor is assembled from feature modules:
+
+```ts
+import {
+  createEditorPluginRegistry,
+  getEditorPluginDiagnostics,
+  resolveEditorPluginRuntimeOptions,
+} from "@moritzbrantner/editor-core/plugins";
+
+const registry = createEditorPluginRegistry([metadataPlugin, timelinePlugin]);
+const diagnostics = getEditorPluginDiagnostics(registry);
+const runtimeOptions = resolveEditorPluginRuntimeOptions(registry, { initialDocument });
+```
+
+Run diagnostics in development or CI to catch duplicate plugin ids, duplicate aspect ids, and
+command problems before rendering UI.
+
+## Conflict-Aware Persistence
+
+Use conflict-aware persistence for server-backed storage that requires a revision token such as an
+ETag or version:
+
+```ts
+import {
+  loadEditorRuntimeConflictPersistence,
+  saveEditorRuntimeConflictPersistence,
+  type EditorConflictStorageAdapter,
+  type EditorPersistedDocument,
+} from "@moritzbrantner/editor-core/persistence";
+
+async function saveToServer(
+  value: EditorPersistedDocument<Document>,
+): Promise<EditorPersistedDocument<Document>> {
+  return value;
+}
+
+const storage: EditorConflictStorageAdapter<Document> = {
+  load: async (): Promise<EditorPersistedDocument<Document>> => ({
+    document: initialDocument,
+    revisionToken: "etag-1",
+  }),
+  save: async (value): Promise<EditorPersistedDocument<Document>> => saveToServer(value),
+};
+
+const loaded = await loadEditorRuntimeConflictPersistence(runtime, storage);
+const saved = await saveEditorRuntimeConflictPersistence(loaded.runtime, storage, {
+  revisionToken: loaded.persistence.revisionToken,
+});
+```
+
+Storage adapters should throw `EditorPersistenceConflictError` when a save is stale. The runtime
+stays dirty, persistence exposes the conflict, and a `save-conflict` event is emitted.
+
 ## Command Diagnostics
 
 Run command diagnostics in development or CI to catch duplicate ids and bad shortcuts:
@@ -242,5 +341,6 @@ Before releasing a downstream editor package:
   failures.
 - Run command diagnostics against the command set used by the UI.
 - Verify persistence load, clean save skip, dirty save, save failure, and autosave retry behavior.
+- Verify conflict-aware persistence with matching tokens, stale tokens, and conflict recovery.
 - Smoke import every public subpath used by the package.
 - Update downstream changelog entries for schema-version bumps and migration behavior.
