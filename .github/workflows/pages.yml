@@ -12,7 +12,7 @@ permissions:
 
 jobs:
   deploy:
-    uses: moritzbrantner/reusable-workflows/.github/workflows/deploy-pages.yml@main
+    uses: moritzbrantner/reusable-workflows/.github/workflows/deploy-pages.yml@168665a7ef15df591e410b0bae3f629cc0e8051e
     permissions:
       contents: read
       id-token: write

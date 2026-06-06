@@ -15,7 +15,7 @@ concurrency:
 
 jobs:
   fast-validation:
-    uses: moritzbrantner/reusable-workflows/.github/workflows/fast-validation.yml@main
+    uses: moritzbrantner/reusable-workflows/.github/workflows/fast-validation.yml@168665a7ef15df591e410b0bae3f629cc0e8051e
     permissions:
       contents: read
       packages: read
@@ -30,7 +30,7 @@ jobs:
       unit_test_command: "bun run test:unit"
 
   integration-validation:
-    uses: moritzbrantner/reusable-workflows/.github/workflows/integration-validation.yml@main
+    uses: moritzbrantner/reusable-workflows/.github/workflows/integration-validation.yml@168665a7ef15df591e410b0bae3f629cc0e8051e
     permissions:
       contents: read
       packages: read
@@ -43,7 +43,7 @@ jobs:
       artifact_paths: ""
 
   e2e-validation:
-    uses: moritzbrantner/reusable-workflows/.github/workflows/e2e-validation.yml@main
+    uses: moritzbrantner/reusable-workflows/.github/workflows/e2e-validation.yml@168665a7ef15df591e410b0bae3f629cc0e8051e
     permissions:
       contents: read
       packages: read
@@ -59,7 +59,7 @@ jobs:
         test-results
 
   storybook-validation:
-    uses: moritzbrantner/reusable-workflows/.github/workflows/storybook-validation.yml@main
+    uses: moritzbrantner/reusable-workflows/.github/workflows/storybook-validation.yml@168665a7ef15df591e410b0bae3f629cc0e8051e
     permissions:
       contents: read
       packages: read
@@ -76,7 +76,7 @@ jobs:
         test-results
 
   performance-validation:
-    uses: moritzbrantner/reusable-workflows/.github/workflows/performance-validation.yml@main
+    uses: moritzbrantner/reusable-workflows/.github/workflows/performance-validation.yml@168665a7ef15df591e410b0bae3f629cc0e8051e
     permissions:
       contents: read
       packages: read
