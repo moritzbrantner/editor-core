@@ -10,6 +10,32 @@
     "entity indexes": {
       "hz": 200,
       "maxRegressionRatio": 0.5
+    },
+    "runtime commit with validation and aspects": {
+      "hz": 7000
+    },
+    "operation runtime merged drag sequence": {
+      "hz": 10000,
+      "maxRegressionRatio": 0.6
+    },
+    "operation runtime undo redo": {
+      "hz": 3500,
+      "maxRegressionRatio": 0.6
+    },
+    "graph indexes": {
+      "hz": 5000
+    },
+    "timeline indexes": {
+      "hz": 7200
+    },
+    "viewport bulk coordinate transforms": {
+      "hz": 52000
+    },
+    "selection normalize large entity set": {
+      "hz": 8600
+    },
+    "serialization read migrated document": {
+      "hz": 35000
     }
   }
 }

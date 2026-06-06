@@ -16,6 +16,9 @@ describe("share", () => {
     const url = editorShareUrl("https://example.com", "/editor", "plain.token", "state");
     expect(url).toBe("https://example.com/editor?state=plain.token");
     expect(editorShareTokenFromUrl(url, "state")).toBe("plain.token");
+    expect(editorShareTokenFromUrl("https://example.com/editor?share=plain.default")).toBe(
+      "plain.default",
+    );
     expect(editorShareUrl("https://example.com", "/editor?state=old", "plain.new", "state")).toBe(
       "https://example.com/editor?state=plain.new",
     );
@@ -60,6 +63,7 @@ describe("share", () => {
   test("rejects malformed tokens", async () => {
     await expect(decodeEditorSharePayload("bad")).rejects.toThrow("invalid");
     await expect(decodeEditorSharePayload("unknown.token")).rejects.toThrow("unknown encoding");
+    await expect(decodeEditorSharePayload("v2.token")).rejects.toThrow("unknown encoding");
     await expect(decodeEditorSharePayload("plain.not-json")).rejects.toThrow("invalid");
   });
 

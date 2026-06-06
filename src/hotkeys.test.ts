@@ -44,6 +44,21 @@ describe("hotkeys", () => {
     ).toBe("select-all");
   });
 
+  test("ignores invalid hotkeys and editable targets when resolving command ids", () => {
+    const input = document.createElement("input");
+    expect(
+      getEditorCommandIdFromKeyboardEvent(event({ key: "k", metaKey: true, target: input }), [
+        { hotkeys: ["Mod+K"], id: "palette", label: "Palette" },
+      ]),
+    ).toBeNull();
+    expect(
+      getEditorCommandIdFromKeyboardEvent(event({ key: "p", metaKey: true }), [
+        { hotkeys: ["Mod+K+P"], id: "palette", label: "Palette" },
+        { hotkeys: ["Mod+P"], id: "print", label: "Print" },
+      ]),
+    ).toBe("print");
+  });
+
   test("captures labels and detects conflicts", () => {
     expect(getEditorHotkeyFromKeyboardEvent(event({ key: "d", ctrlKey: true }))).toBe("Mod+D");
     expect(formatEditorShortcutLabel("mod+shift+delete")).toBe("Mod+Shift+Delete");

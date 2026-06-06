@@ -161,6 +161,21 @@ describe("editor runtime", () => {
     expect(runtime.status).toBe("clean");
   });
 
+  test("reset can update selection without changing document revision", () => {
+    const runtime = resetEditorRuntime(
+      createTestRuntime(),
+      { body: "Hello", title: "Draft" },
+      {
+        selection: "body",
+      },
+    );
+
+    expect(runtime.document).toEqual({ body: "Hello", title: "Draft" });
+    expect(runtime.selection).toBe("body");
+    expect(runtime.revision).toBe(0);
+    expect(runtime.status).toBe("clean");
+  });
+
   test("selection changes do not mark dirty or increment revision", () => {
     const runtime = setEditorRuntimeSelection(createTestRuntime(), "body");
 
@@ -175,6 +190,23 @@ describe("editor runtime", () => {
       validate,
     });
 
+    expect(validateEditorRuntime(runtime).issues).toEqual([
+      { path: "title", message: "Title is required." },
+    ]);
+  });
+
+  test("re-runs validators when validation is requested", () => {
+    let requiredTitle = false;
+    const runtime = createEditorRuntime({
+      initialDocument: { body: "Body", title: "" },
+      validate: (document) =>
+        requiredTitle && document.title.length === 0
+          ? [{ path: "title", message: "Title is required." }]
+          : [],
+    });
+
+    expect(runtime.issues).toEqual([]);
+    requiredTitle = true;
     expect(validateEditorRuntime(runtime).issues).toEqual([
       { path: "title", message: "Title is required." },
     ]);

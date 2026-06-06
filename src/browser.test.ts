@@ -36,6 +36,17 @@ describe("browser helpers", () => {
     await expect(readEditorJsonFile(new File(['{"value":1}'], "value.json"))).resolves.toEqual({
       value: 1,
     });
+    await expect(
+      readEditorJsonFile(new File(['{"value":"bad"}'], "value.json"), {
+        parse(input) {
+          const value = input as { value?: unknown };
+          if (typeof value.value !== "number") {
+            throw new Error("Expected numeric value.");
+          }
+          return { value: value.value };
+        },
+      }),
+    ).rejects.toThrow("Expected numeric value.");
 
     const storage = createLocalStorageEditorStorage<{ value: number }>({ key: "editor" });
     await saveEditorStorage(storage, { value: 2 });
@@ -91,6 +102,8 @@ describe("browser helpers", () => {
 
   test("writes and reads clipboard JSON with fallback", async () => {
     const fallback = {};
+    vi.stubGlobal("navigator", {});
+
     await expect(writeEditorClipboardJson({ value: 1 }, { fallback })).resolves.toBe(false);
     expect(fallback).toEqual({ text: '{"value":1}' });
     await expect(readEditorClipboardJson({ fallback })).resolves.toEqual({ value: 1 });

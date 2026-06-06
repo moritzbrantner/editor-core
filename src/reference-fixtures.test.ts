@@ -9,9 +9,12 @@ import {
 import {
   applyEditorOperation,
   createEditorOperationRuntime,
+  redoEditorOperationRuntime,
   undoEditorOperationRuntime,
   type EditorOperation,
 } from "./operations.js";
+import { loadEditorRuntimePersistence, saveEditorRuntimePersistence } from "./persistence.js";
+import { commitEditorRuntime, createEditorRuntime } from "./runtime.js";
 import { createEditorEntitySelection, type EditorSelection } from "./selection.js";
 import { projectEditorTree } from "./tree.js";
 import { revealEditorBounds, snapEditorValue } from "./viewport.js";
@@ -98,7 +101,19 @@ describe("headless reference editor fixtures", () => {
     ]);
     expect(tree.items.map((item) => item.node.id)).toEqual(["document", "group"]);
     expect(runtime.operationHistory.undoStack).toHaveLength(1);
-    expect(undoEditorOperationRuntime(runtime).runtime.document.layers.layerA.order).toBe(1);
+
+    const undone = undoEditorOperationRuntime(runtime);
+    expect(undone.runtime.document.layers.layerA.order).toBe(1);
+    expect(
+      createEditorEntityIndexes(
+        createEditorEntityDocument(Object.values(undone.runtime.document.layers)),
+      )
+        .childrenByParentId.get("group")
+        ?.map((layer) => layer.id),
+    ).toEqual(["layerA", "layerB"]);
+
+    const redone = redoEditorOperationRuntime(undone);
+    expect(redone.runtime.document.layers.layerA.order).toBe(3);
   });
 
   test("graph drag merges and connection validation blocks invalid edges", () => {
@@ -151,6 +166,17 @@ describe("headless reference editor fixtures", () => {
     expect(runtime.issues).toEqual([
       { path: "edges.next", message: "Connections must target a different entity." },
     ]);
+
+    runtime = applyEditorOperation(runtime, {
+      apply: (document) => ({
+        ...document,
+        edges: [...document.edges, { id: "a-b", sourceId: "a", targetId: "b" }],
+      }),
+      id: "connect-valid",
+      selectionAfter: createEditorEntitySelection(["a-b"]),
+    });
+    expect(runtime.issues).toEqual([]);
+    expect(runtime.runtime.document.edges).toEqual([{ id: "a-b", sourceId: "a", targetId: "b" }]);
   });
 
   test("workflow invalid transition is blocked through preflight", () => {
@@ -238,28 +264,39 @@ describe("headless reference editor fixtures", () => {
     });
     const snappedEnd = snapEditorValue(11.8, [{ kind: "frame", value: 12 }], 0.5).value;
 
-    runtime = applyEditorOperation(runtime, {
-      apply: (document) => ({
-        ...document,
-        clips: {
-          ...document.clips,
-          clip: {
-            ...document.clips.clip,
-            range: { ...document.clips.clip.range, end: snappedEnd },
-          },
-        },
-      }),
-      id: "trim-clip",
-      selectionAfter: selection,
-    });
+    runtime = applyEditorOperation(runtime, trimClipEnd(snappedEnd, selection), { merge: true });
+    runtime = applyEditorOperation(runtime, trimClipEnd(12, selection), { merge: true });
 
     const indexes = createEditorTimelineIndexes(Object.values(runtime.runtime.document.clips));
     expect(validateEditorTimelineRange(runtime.runtime.document.clips.clip.range)).toEqual([]);
     expect(indexes.trackItemsByTrackId.get("track")?.[0]?.id).toBe("clip");
+    expect(runtime.operationHistory.undoStack).toHaveLength(1);
 
     runtime = undoEditorOperationRuntime(runtime);
     expect(runtime.runtime.document.clips.clip.range).toEqual({ end: 10, start: 0 });
     expect(runtime.runtime.selection).toEqual(selection);
+  });
+
+  test("persistence saves dirty runtime documents and reloads clean state", async () => {
+    const storage = createMemoryStorage<{ title: string }>(null);
+    let runtime = createEditorRuntime({
+      initialDocument: { title: "Draft" },
+    });
+
+    runtime = commitEditorRuntime(runtime, { title: "Saved" });
+    expect(runtime.status).toBe("dirty");
+
+    const saved = await saveEditorRuntimePersistence(runtime, storage);
+    expect(saved.saved).toBe(true);
+    expect(saved.runtime.status).toBe("clean");
+    expect(storage.value).toEqual({ title: "Saved" });
+
+    const loaded = await loadEditorRuntimePersistence(
+      createEditorRuntime({ initialDocument: { title: "Fallback" } }),
+      storage,
+    );
+    expect(loaded.runtime.document).toEqual({ title: "Saved" });
+    expect(loaded.runtime.status).toBe("clean");
   });
 });
 
@@ -284,7 +321,49 @@ function moveGraphNode(x: number): EditorOperation<GraphDocumentFixture, EditorS
   };
 }
 
+function trimClipEnd(
+  end: number,
+  selection: EditorSelection,
+): EditorOperation<TimelineDocumentFixture, EditorSelection> {
+  return {
+    apply: (document) => ({
+      ...document,
+      clips: {
+        ...document.clips,
+        clip: {
+          ...document.clips.clip,
+          range: { ...document.clips.clip.range, end },
+        },
+      },
+    }),
+    id: "trim-clip",
+    mergeKey: "trim:clip:end",
+    selectionAfter: selection,
+  };
+}
+
 type GraphDocumentFixture = {
   edges: Array<{ id: string; sourceId: string; targetId: string }>;
   nodes: Record<string, { bounds: EditorBounds; id: string; type: "node" }>;
 };
+
+type TimelineDocumentFixture = {
+  clips: Record<
+    string,
+    { id: string; range: { end: number; start: number }; trackId: string; type: "clip" }
+  >;
+  playhead: number;
+  tracks: Record<string, { id: string; type: "track" }>;
+};
+
+function createMemoryStorage<TValue>(initialValue: TValue | null) {
+  return {
+    value: initialValue,
+    load() {
+      return this.value;
+    },
+    save(value: TValue) {
+      this.value = value;
+    },
+  };
+}

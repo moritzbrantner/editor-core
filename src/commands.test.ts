@@ -253,6 +253,36 @@ describe("contextual editor commands", () => {
       }).map((command) => command.disabled),
     ).toEqual([true, true]);
   });
+
+  test("returns only enabled commands and no-op runs commands without handlers", async () => {
+    const commands = resolveEditorCommands(
+      [
+        {
+          id: "rename",
+          label: "Rename",
+          run: () => {},
+        },
+        {
+          canRun: () => false,
+          id: "delete",
+          label: "Delete",
+        },
+        {
+          id: "inspect",
+          label: "Inspect",
+        },
+      ],
+      { document: { enabled: true }, selection: "node-a" },
+    );
+
+    expect(getRunnableEditorCommands(commands).map((command) => command.id)).toEqual([
+      "rename",
+      "inspect",
+    ]);
+    await expect(commands.find((command) => command.id === "inspect")?.run?.(event)).resolves.toBe(
+      undefined,
+    );
+  });
 });
 
 function createHistorySetter<TDocument>(

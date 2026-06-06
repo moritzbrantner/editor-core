@@ -86,7 +86,7 @@ jobs:
       install_command: "bun install --frozen-lockfile"
       build_command: "bun run example:build"
       unlighthouse_command: "bun run unlighthouse:ci"
-      benchmark_command: "bun run bench"
+      benchmark_command: "bun run bench:check"
       bundle_size_command: "bun run size:check"
       artifact_paths: |
         .unlighthouse

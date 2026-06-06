@@ -3,7 +3,13 @@ import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, describe, expect, test, vi } from "vitest";
 import type { EditorStorageAdapter } from "./browser.js";
-import { usePersistentEditorRuntime, type UsePersistentEditorRuntimeResult } from "./react.js";
+import {
+  useControllableEditorState,
+  useEditorHotkeys,
+  useEditorRuntime,
+  usePersistentEditorRuntime,
+  type UsePersistentEditorRuntimeResult,
+} from "./react.js";
 
 type Document = {
   title: string;
@@ -16,6 +22,7 @@ const initialDocument: Document = { title: "Initial" };
 describe("persistent editor runtime hook", () => {
   afterEach(() => {
     vi.useRealTimers();
+    vi.restoreAllMocks();
   });
 
   test("loads on mount when loadOnMount is true", async () => {
@@ -175,6 +182,110 @@ describe("persistent editor runtime hook", () => {
   });
 });
 
+describe("editor react hooks", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  test("useEditorRuntime commits, resets, undoes, and redoes documents", () => {
+    const fixture = renderHook(() =>
+      useEditorRuntime<Document, string>({
+        history: {
+          equals(left, right) {
+            return left.title === right.title;
+          },
+        },
+        initialDocument,
+      }),
+    );
+
+    act(() => {
+      fixture.result.commit({ title: "Changed" }, { selection: "title" });
+    });
+    expect(fixture.result.state.document).toEqual({ title: "Changed" });
+    expect(fixture.result.state.selection).toBe("title");
+    expect(fixture.result.state.status).toBe("dirty");
+
+    act(() => {
+      fixture.result.undo();
+    });
+    expect(fixture.result.state.document).toEqual(initialDocument);
+
+    act(() => {
+      fixture.result.redo();
+    });
+    expect(fixture.result.state.document).toEqual({ title: "Changed" });
+
+    act(() => {
+      fixture.result.reset({ title: "Reset" }, { markSaved: true });
+    });
+    expect(fixture.result.state.document).toEqual({ title: "Reset" });
+    expect(fixture.result.state.status).toBe("clean");
+    fixture.unmount();
+  });
+
+  test("useEditorHotkeys runs matching commands and ignores editable targets", () => {
+    const run = vi.fn();
+    const fixture = renderHook(() =>
+      useEditorHotkeys({
+        commands: [{ hotkeys: ["Mod+K"], id: "palette", label: "Palette", run }],
+      }),
+    );
+
+    const event = new KeyboardEvent("keydown", {
+      bubbles: true,
+      key: "k",
+      metaKey: true,
+    });
+    const preventDefault = vi.spyOn(event, "preventDefault");
+    document.dispatchEvent(event);
+
+    expect(run).toHaveBeenCalledOnce();
+    expect(preventDefault).toHaveBeenCalledOnce();
+
+    const input = document.createElement("input");
+    document.body.append(input);
+    input.dispatchEvent(
+      new KeyboardEvent("keydown", {
+        bubbles: true,
+        key: "k",
+        metaKey: true,
+      }),
+    );
+
+    expect(run).toHaveBeenCalledOnce();
+    input.remove();
+    fixture.unmount();
+  });
+
+  test("useControllableEditorState supports uncontrolled and controlled values", () => {
+    const uncontrolled = renderHook(() =>
+      useControllableEditorState({ defaultValue: "draft", onChange: vi.fn() }),
+    );
+
+    act(() => {
+      uncontrolled.result[1]((previous) => `${previous}-updated`);
+    });
+    expect(uncontrolled.result[0]).toBe("draft-updated");
+    uncontrolled.unmount();
+
+    const onChange = vi.fn();
+    const controlled = renderControlledEditorState("external", onChange);
+    act(() => {
+      controlled.result[1]("internal");
+    });
+
+    expect(onChange).toHaveBeenCalledWith("internal");
+    expect(controlled.result[0]).toBe("external");
+
+    act(() => {
+      controlled.setValue("next-external");
+    });
+    expect(controlled.result[0]).toBe("next-external");
+    controlled.unmount();
+  });
+});
+
 function renderPersistentRuntime(options: {
   autosave?: boolean | { delayMs?: number };
   loadOnMount?: boolean;
@@ -222,6 +333,91 @@ function renderPersistentRuntime(options: {
       act(() => {
         root.unmount();
       });
+    },
+  };
+}
+
+function renderHook<TResult>(useHook: () => TResult): {
+  get result(): TResult;
+  unmount: () => void;
+} {
+  const container = document.createElement("div");
+  document.body.append(container);
+  const root = createRoot(container);
+  let result: TResult | null = null;
+
+  function Fixture() {
+    result = useHook();
+    return null;
+  }
+
+  act(() => {
+    root.render(<Fixture />);
+  });
+
+  return {
+    get result() {
+      if (result === null) {
+        throw new Error("Hook fixture did not render.");
+      }
+      return result;
+    },
+    unmount() {
+      act(() => {
+        root.unmount();
+      });
+      container.remove();
+    },
+  };
+}
+
+function renderControlledEditorState(
+  initialValue: string,
+  onChange: (value: string) => void,
+): {
+  get result(): ReturnType<typeof useControllableEditorState<string>>;
+  setValue: (value: string) => void;
+  unmount: () => void;
+} {
+  const container = document.createElement("div");
+  document.body.append(container);
+  const root = createRoot(container);
+  let result: ReturnType<typeof useControllableEditorState<string>> | null = null;
+  let setValue: ((value: string) => void) | null = null;
+
+  function Fixture() {
+    const [value, updateValue] = React.useState(initialValue);
+    setValue = updateValue;
+    result = useControllableEditorState({
+      defaultValue: "unused",
+      onChange,
+      value,
+    });
+    return null;
+  }
+
+  act(() => {
+    root.render(<Fixture />);
+  });
+
+  return {
+    get result() {
+      if (result === null) {
+        throw new Error("Controlled state fixture did not render.");
+      }
+      return result;
+    },
+    setValue(value) {
+      if (!setValue) {
+        throw new Error("Controlled state fixture did not expose a setter.");
+      }
+      setValue(value);
+    },
+    unmount() {
+      act(() => {
+        root.unmount();
+      });
+      container.remove();
     },
   };
 }

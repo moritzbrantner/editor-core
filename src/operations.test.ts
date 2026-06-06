@@ -59,6 +59,46 @@ describe("editor operations", () => {
     expect(runtime.runtime.document.nodes.a.x).toBe(0);
   });
 
+  test("does not merge operations with different merge keys", () => {
+    let runtime = createEditorOperationRuntime<Document, string>({
+      initialDocument: { nodes: { a: { x: 0, y: 0 } } },
+    });
+
+    runtime = applyEditorOperation(runtime, moveNode(10), { merge: true });
+    runtime = applyEditorOperation(
+      runtime,
+      {
+        ...moveNode(20),
+        mergeKey: "drag:b",
+      },
+      { merge: true },
+    );
+
+    expect(runtime.operationHistory.undoStack).toHaveLength(2);
+  });
+
+  test("keeps invert metadata passive and skips history for no-op operations", () => {
+    let runtime = createEditorOperationRuntime<Document, string>({
+      initialDocument: { nodes: { a: { x: 0, y: 0 } } },
+    });
+
+    runtime = applyEditorOperation(runtime, {
+      apply: (document) => ({ nodes: { a: { x: document.nodes.a.x + 10, y: 0 } } }),
+      id: "move-with-invert",
+      invert: () => ({ nodes: { a: { x: -100, y: 0 } } }),
+    });
+    expect(runtime.runtime.document.nodes.a.x).toBe(10);
+
+    runtime = applyEditorOperation(runtime, {
+      apply: (document) => document,
+      id: "noop",
+      selectionAfter: runtime.runtime.selection as string | undefined,
+    });
+    expect(runtime.operationHistory.undoStack.map((transaction) => transaction.id)).toEqual([
+      "move-with-invert",
+    ]);
+  });
+
   test("preflight blocks invalid operations and keeps warnings non-blocking", () => {
     const seenIds: string[] = [];
     let runtime = createEditorOperationRuntime<Document>({
