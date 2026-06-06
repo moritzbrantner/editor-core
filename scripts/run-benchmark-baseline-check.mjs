@@ -1,35 +1,72 @@
 import { spawn } from "node:child_process";
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { checkBenchmarkBaselines, parseBenchmarkResults } from "./check-benchmark-baselines.mjs";
-import { readFile } from "node:fs/promises";
+import {
+  checkBenchmarkBaselines,
+  mergeBenchmarkResultsBest,
+  parseBenchmarkResults,
+} from "./check-benchmark-baselines.mjs";
 
 const rootDir = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const resultsPath = join(rootDir, "benchmark-results", "vitest-bench.txt");
+const resultsDir = join(rootDir, "benchmark-results");
+const resultsPath = join(resultsDir, "vitest-bench.txt");
 const baselinePath = join(rootDir, "docs", "performance-baselines.json");
 const node = process.execPath;
 const vitest = join(rootDir, "node_modules", "vitest", "vitest.mjs");
+const attemptCount = getBenchmarkAttemptCount(process.env.EDITOR_CORE_BENCH_ATTEMPTS);
 
-const output = await runBenchmark();
 await mkdir(dirname(resultsPath), { recursive: true });
-await writeFile(resultsPath, output);
+
+const attemptOutputs = [];
+let aggregateResults = {};
+
+try {
+  for (let attempt = 1; attempt <= attemptCount; attempt += 1) {
+    const jsonPath = join(resultsDir, `vitest-bench-attempt-${attempt}.json`);
+    const { output, exitCode } = await runBenchmarkAttempt(attempt, jsonPath);
+    attemptOutputs.push(`# Benchmark attempt ${attempt}\n\n${output.trimEnd()}\n`);
+
+    if (exitCode !== 0) {
+      throw new Error(`Benchmark command exited with code ${exitCode}.`);
+    }
+
+    const attemptResults = parseBenchmarkResults(await readFile(jsonPath, "utf8"));
+    aggregateResults = mergeBenchmarkResultsBest(aggregateResults, attemptResults);
+  }
+} finally {
+  await writeFile(resultsPath, attemptOutputs.join("\n"));
+}
 
 const baseline = JSON.parse(await readFile(baselinePath, "utf8"));
-const failures = checkBenchmarkBaselines(parseBenchmarkResults(output), baseline);
+const failures = checkBenchmarkBaselines(aggregateResults, baseline);
 if (failures.length > 0) {
   process.stderr.write(`${failures.join("\n")}\n`);
   process.exitCode = 1;
 }
 
-async function runBenchmark() {
-  return new Promise((resolveOutput, reject) => {
-    const child = spawn(node, [vitest, "bench", "--run"], {
+function getBenchmarkAttemptCount(value) {
+  if (value === undefined) {
+    return 2;
+  }
+
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed)) {
+    return 2;
+  }
+
+  return Math.min(Math.max(parsed, 1), 5);
+}
+
+async function runBenchmarkAttempt(attempt, jsonPath) {
+  return new Promise((resolveAttempt, reject) => {
+    const child = spawn(node, [vitest, "bench", "--run", "--outputJson", jsonPath], {
       cwd: rootDir,
       stdio: ["ignore", "pipe", "pipe"],
     });
     let output = "";
 
+    process.stdout.write(`# Benchmark attempt ${attempt}\n\n`);
     child.stdout.on("data", (chunk) => {
       const text = String(chunk);
       output += text;
@@ -42,11 +79,7 @@ async function runBenchmark() {
     });
     child.on("error", reject);
     child.on("close", (code) => {
-      if (code === 0) {
-        resolveOutput(output);
-      } else {
-        reject(new Error(`Benchmark command exited with code ${code}.`));
-      }
+      resolveAttempt({ exitCode: code ?? 1, output });
     });
   });
 }

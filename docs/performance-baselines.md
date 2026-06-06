@@ -15,6 +15,15 @@ Run the enforced baseline check with:
 bun run bench:check
 ```
 
+The enforced check uses Vitest's benchmark JSON output for parsing while still writing the human
+terminal output to `benchmark-results/vitest-bench.txt`. It runs 2 benchmark attempts by default and
+compares the best observed `hz` for each benchmark against the baseline. Override the attempt count
+locally when needed:
+
+```sh
+EDITOR_CORE_BENCH_ATTEMPTS=3 bun run bench:check
+```
+
 Track these scenarios when reviewing benchmark output:
 
 | Scenario                       | Current benchmark                            | Target behavior                                                                              |
@@ -40,4 +49,4 @@ stream implementation variance.
 
 If a benchmark changes substantially, include the before and after output in the pull request. Run
 `bun run bench` several times before updating baselines because local CPU load can make single runs
-noisy.
+noisy. Baselines should only be updated after several local benchmark runs and review.

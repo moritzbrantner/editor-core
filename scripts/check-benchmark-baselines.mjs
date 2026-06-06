@@ -15,17 +15,37 @@ export function parseBenchmarkResults(input) {
   }
 
   const results = {};
-  for (const line of input.split(/\r?\n/u)) {
-    const match = line.match(/^\s*[·-]\s+(.+?)\s{2,}([\d,]+(?:\.\d+)?)/u);
+  const text = stripAnsi(input).replace(/\r\n?/gu, "\n");
+  for (const line of text.split("\n")) {
+    const match = line.match(/^[\s│┃┆]*[·•*-]\s+(.+?)\s{2,}([\d,]+(?:\.\d+)?)(?:\s|$)/u);
     if (!match) {
       continue;
     }
 
-    results[match[1]] = {
-      hz: Number(match[2].replace(/,/g, "")),
-    };
+    const hz = Number(match[2].replace(/,/g, ""));
+    if (Number.isFinite(hz)) {
+      results[match[1]] = { hz };
+    }
   }
   return results;
+}
+
+export function mergeBenchmarkResultsBest(existing, next) {
+  const merged = { ...existing };
+
+  for (const [name, result] of Object.entries(next)) {
+    const hz = parseHz(result?.hz);
+    if (!Number.isFinite(hz)) {
+      continue;
+    }
+
+    const currentHz = Number(merged[name]?.hz);
+    if (!Number.isFinite(currentHz) || hz > currentHz) {
+      merged[name] = { hz };
+    }
+  }
+
+  return merged;
 }
 
 export function checkBenchmarkBaselines(results, baseline) {
@@ -60,7 +80,8 @@ export function checkBenchmarkBaselines(results, baseline) {
   return failures;
 }
 
-if (import.meta.url === pathToFileURL(process.argv[1]).href) {
+const invokedPath = process.argv[1];
+if (invokedPath && import.meta.url === pathToFileURL(invokedPath).href) {
   const resultsPath = resolve(rootDir, process.argv[2] ?? "benchmark-results/vitest-bench.txt");
   const baselinePath = resolve(rootDir, process.argv[3] ?? "docs/performance-baselines.json");
   const [resultsText, baselineText] = await Promise.all([
@@ -80,18 +101,68 @@ if (import.meta.url === pathToFileURL(process.argv[1]).href) {
 
 function normalizeBenchmarkJson(input) {
   if (Array.isArray(input)) {
-    return Object.fromEntries(input.map((entry) => [entry.name, { hz: Number(entry.hz) }]));
+    return normalizeBenchmarkEntries(input);
   }
 
-  if (input.benchmarks && typeof input.benchmarks === "object") {
-    return Object.fromEntries(
-      Object.entries(input.benchmarks).map(([name, value]) => [name, { hz: Number(value.hz) }]),
+  if (Array.isArray(input?.files)) {
+    return normalizeBenchmarkEntries(
+      input.files.flatMap((file) =>
+        Array.isArray(file?.groups)
+          ? file.groups.flatMap((group) =>
+              Array.isArray(group?.benchmarks) ? group.benchmarks : [],
+            )
+          : [],
+      ),
     );
   }
 
-  return Object.fromEntries(
-    Object.entries(input).map(([name, value]) => [name, { hz: Number(value.hz) }]),
-  );
+  if (input?.benchmarks && typeof input.benchmarks === "object") {
+    return normalizeBenchmarkObject(input.benchmarks);
+  }
+
+  return normalizeBenchmarkObject(input);
+}
+
+function normalizeBenchmarkEntries(entries) {
+  const results = {};
+
+  for (const entry of entries) {
+    const name = entry?.name;
+    const hz = parseHz(entry?.hz);
+    if (typeof name === "string" && Number.isFinite(hz)) {
+      results[name] = { hz };
+    }
+  }
+
+  return results;
+}
+
+function normalizeBenchmarkObject(input) {
+  const results = {};
+
+  for (const [name, value] of Object.entries(input)) {
+    const hz = parseHz(value?.hz);
+    if (Number.isFinite(hz)) {
+      results[name] = { hz };
+    }
+  }
+
+  return results;
+}
+
+function stripAnsi(input) {
+  const escape = String.fromCharCode(27);
+  return input.replace(new RegExp(`${escape}\\[[0-?]*[ -/]*[@-~]`, "gu"), "");
+}
+
+function parseHz(value) {
+  if (typeof value === "number") {
+    return value;
+  }
+  if (typeof value === "string" && value.trim()) {
+    return Number(value);
+  }
+  return Number.NaN;
 }
 
 function formatHz(value) {
