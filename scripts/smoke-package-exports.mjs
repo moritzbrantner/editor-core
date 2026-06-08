@@ -60,7 +60,7 @@ async function smokeHeadlessConsumer(tarball) {
       import { ensureEditorJsonFilename } from "@moritzbrantner/editor-core/browser";
       import { createEditorSnapshotHistoryCommands } from "@moritzbrantner/editor-core/commands";
       import { validateEditorGraphConnection } from "@moritzbrantner/editor-core/constraints";
-      import { createEditorEntityDocument } from "@moritzbrantner/editor-core/entities";
+      import { createEditorEntityDocument, createUniqueEditorId } from "@moritzbrantner/editor-core/entities";
       import { createEditorEntityIndexes } from "@moritzbrantner/editor-core/indexes";
       import { createEditorInteractionSession } from "@moritzbrantner/editor-core/interaction";
       import { createEditorOperationRuntime } from "@moritzbrantner/editor-core/operations";
@@ -79,6 +79,7 @@ async function smokeHeadlessConsumer(tarball) {
       }
       if (
         typeof core.createEditorCollaborationState !== "function" ||
+        typeof core.createUniqueEditorId !== "function" ||
         typeof core.diffEditorJson !== "function" ||
         typeof core.createEditorPluginRegistry !== "function" ||
         typeof core.saveEditorRuntimeConflictPersistence !== "function"
@@ -117,6 +118,7 @@ async function smokeHeadlessConsumer(tarball) {
         setHistory() {},
       });
       const entityDocument = createEditorEntityDocument([{ id: "node", type: "node" }]);
+      const uniqueEntityId = createUniqueEditorId("node", []);
       const indexes = createEditorEntityIndexes(entityDocument);
       const interaction = createEditorInteractionSession(history.present);
       const operationRuntime = createEditorOperationRuntime({ initialDocument: history.present });
@@ -149,7 +151,7 @@ async function smokeHeadlessConsumer(tarball) {
       if (tree.root.id !== "document") {
         throw new Error("Tree projection failed");
       }
-      if (!adapterCheck.ok || !indexes.entitiesById.has("node") || interaction.state.kind !== "idle" || operationRuntime.canUndo || selection.kind !== "entity" || viewport.zoom !== 2 || graphIssues.length === 0) {
+      if (!adapterCheck.ok || uniqueEntityId !== "node" || !indexes.entitiesById.has("node") || interaction.state.kind !== "idle" || operationRuntime.canUndo || selection.kind !== "entity" || viewport.zoom !== 2 || graphIssues.length === 0) {
         throw new Error("New foundation subpaths failed");
       }
       if (collaboration.clientId !== "client-a" || patched.title !== "Published" || registry.plugins.length !== 1 || !conflictSaved.saved || conflictSaved.persistence.revisionToken !== "server-2" || savedRevisionToken !== "server-1" || conflict.name !== "EditorPersistenceConflictError") {

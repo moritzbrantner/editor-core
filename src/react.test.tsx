@@ -493,6 +493,52 @@ describe("editor react hooks", () => {
     fixture.unmount();
   });
 
+  test("useEditorHotkeys scopes document shortcuts to active scoped workbenches", () => {
+    const run = vi.fn();
+    const scope = document.createElement("section");
+    const outside = document.createElement("button");
+    document.body.append(scope, outside);
+    const scopeRef = { current: scope };
+    const fixture = renderHook(() =>
+      useEditorHotkeys({
+        commands: [{ hotkeys: ["Mod+K"], id: "palette", label: "Palette", run }],
+        scopeRef,
+      }),
+    );
+
+    document.body.dispatchEvent(
+      new KeyboardEvent("keydown", {
+        bubbles: true,
+        key: "k",
+        metaKey: true,
+      }),
+    );
+    expect(run).toHaveBeenCalledOnce();
+
+    outside.focus();
+    document.dispatchEvent(
+      new KeyboardEvent("keydown", {
+        bubbles: true,
+        key: "k",
+        metaKey: true,
+      }),
+    );
+    expect(run).toHaveBeenCalledOnce();
+
+    scope.dispatchEvent(
+      new KeyboardEvent("keydown", {
+        bubbles: true,
+        key: "k",
+        metaKey: true,
+      }),
+    );
+    expect(run).toHaveBeenCalledTimes(2);
+
+    fixture.unmount();
+    scope.remove();
+    outside.remove();
+  });
+
   test("useControllableEditorState supports uncontrolled and controlled values", () => {
     const uncontrolled = renderHook(() =>
       useControllableEditorState({ defaultValue: "draft", onChange: vi.fn() }),

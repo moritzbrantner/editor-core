@@ -127,7 +127,14 @@ const operationUndoRedoRuntime = Array.from({ length: 100 }, (_, index) => index
   }),
 );
 
-let _benchmarkSink: unknown;
+let benchmarkSink: unknown;
+
+function consumeBenchmarkResult(value: unknown): void {
+  benchmarkSink = value;
+  if (benchmarkSink === Symbol.for("@moritzbrantner/editor-core/unreachable")) {
+    throw new Error("Unreachable benchmark sink value.");
+  }
+}
 
 describe("editor-core critical path benchmarks", () => {
   bench("runtime commit with validation and aspects", () => {
@@ -149,7 +156,7 @@ describe("editor-core critical path benchmarks", () => {
         ),
       });
     }
-    _benchmarkSink = runtime.revision;
+    consumeBenchmarkResult(runtime.revision);
   });
 
   bench("operation runtime merged drag sequence", () => {
@@ -175,7 +182,7 @@ describe("editor-core critical path benchmarks", () => {
         { merge: true },
       );
     }
-    _benchmarkSink = runtime.operationHistory.undoStack.length;
+    consumeBenchmarkResult(runtime.operationHistory.undoStack.length);
   });
 
   bench("operation runtime undo redo", () => {
@@ -184,15 +191,15 @@ describe("editor-core critical path benchmarks", () => {
       const undone = undoEditorOperationRuntime(operationUndoRedoRuntime);
       total += redoEditorOperationRuntime(undone).runtime.document.nodes.a.x;
     }
-    _benchmarkSink = total;
+    consumeBenchmarkResult(total);
   });
 
   bench("graph indexes", () => {
-    _benchmarkSink = createEditorGraphIndexes(graphEdges).edgesById.size;
+    consumeBenchmarkResult(createEditorGraphIndexes(graphEdges).edgesById.size);
   });
 
   bench("timeline indexes", () => {
-    _benchmarkSink = createEditorTimelineIndexes(timelineItems).trackItemsByTrackId.size;
+    consumeBenchmarkResult(createEditorTimelineIndexes(timelineItems).trackItemsByTrackId.size);
   });
 
   bench("viewport bulk coordinate transforms", () => {
@@ -202,34 +209,38 @@ describe("editor-core critical path benchmarks", () => {
       const screenPoint = editorPointToScreenPoint(editorPoint, viewport);
       total += screenPoint.x + screenPoint.y;
     }
-    _benchmarkSink = total;
+    consumeBenchmarkResult(total);
   });
 
   bench("selection normalize large entity set", () => {
-    _benchmarkSink = normalizeEditorSelection(
-      selection,
-      (id) => selectionEntityDocument.entities[id] !== undefined,
+    consumeBenchmarkResult(
+      normalizeEditorSelection(
+        selection,
+        (id) => selectionEntityDocument.entities[id] !== undefined,
+      ),
     );
   });
 
   bench("serialization read migrated document", () => {
     for (let index = 0; index < 100; index += 1) {
-      _benchmarkSink = readEditorDocument(legacySerializedDocument, serializedDocumentAdapter, {
-        migrations: {
-          1: (input) => ({
-            ...input,
-            document: {
-              blocks: (input.document as { blocks: RuntimeBenchmarkDocument["blocks"] }).blocks,
-              title: (input.document as { name: string }).name,
-            },
-            schemaVersion: 2,
-          }),
-          2: (input) => ({
-            ...input,
-            schemaVersion: 3,
-          }),
-        },
-      });
+      consumeBenchmarkResult(
+        readEditorDocument(legacySerializedDocument, serializedDocumentAdapter, {
+          migrations: {
+            1: (input) => ({
+              ...input,
+              document: {
+                blocks: (input.document as { blocks: RuntimeBenchmarkDocument["blocks"] }).blocks,
+                title: (input.document as { name: string }).name,
+              },
+              schemaVersion: 2,
+            }),
+            2: (input) => ({
+              ...input,
+              schemaVersion: 3,
+            }),
+          },
+        }),
+      );
     }
   });
 });

@@ -195,6 +195,13 @@ export async function readEditorClipboardJson<TValue = unknown>(
     return JSON.parse(text) as TValue;
   } catch (error) {
     options.onError?.(error, { operation: "clipboard-read" });
+    if (options.fallback?.text && options.fallback.text !== text) {
+      try {
+        return JSON.parse(options.fallback.text) as TValue;
+      } catch (fallbackError) {
+        options.onError?.(fallbackError, { operation: "clipboard-read" });
+      }
+    }
     return null;
   }
 }

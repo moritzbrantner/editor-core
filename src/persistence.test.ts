@@ -23,7 +23,7 @@ const clock = () => "2026-06-06T12:00:00.000Z";
 
 describe("editor persistence", () => {
   test("creates default idle persistence state", () => {
-    expect(createEditorPersistenceState({ now: clock })).toEqual({
+    expect(createEditorPersistenceState()).toEqual({
       conflict: null,
       error: null,
       loadedAt: null,

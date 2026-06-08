@@ -109,6 +109,18 @@ describe("browser helpers", () => {
     await expect(readEditorClipboardJson({ fallback })).resolves.toEqual({ value: 1 });
   });
 
+  test("reads fallback clipboard JSON when system clipboard JSON is invalid", async () => {
+    vi.stubGlobal("navigator", {
+      clipboard: {
+        readText: vi.fn(async () => "{"),
+      },
+    });
+
+    await expect(readEditorClipboardJson({ fallback: { text: '{"value":1}' } })).resolves.toEqual({
+      value: 1,
+    });
+  });
+
   test("reports clipboard read errors and parse failures to opt-in handlers", async () => {
     const onError = vi.fn();
     const fallback = { text: "{" };

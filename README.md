@@ -284,7 +284,10 @@ preflight hooks.
 Entity primitives are optional adapter targets for layer, graph, workflow, and timeline packages:
 
 ```ts
-import { createEditorEntityDocument } from "@moritzbrantner/editor-core/entities";
+import {
+  createEditorEntityDocument,
+  createUniqueEditorId,
+} from "@moritzbrantner/editor-core/entities";
 import { createEditorEntityIndexes } from "@moritzbrantner/editor-core/indexes";
 import { createEditorEntitySelection } from "@moritzbrantner/editor-core/selection";
 
@@ -294,6 +297,7 @@ const document = createEditorEntityDocument([
 ]);
 const indexes = createEditorEntityIndexes(document);
 const selection = createEditorEntitySelection(["layer-a"]);
+const nextId = createUniqueEditorId("layer-a", [...indexes.entitiesById.keys()]);
 ```
 
 ## Constraints

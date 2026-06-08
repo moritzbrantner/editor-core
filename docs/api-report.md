@@ -378,6 +378,160 @@ export {
 };
 ```
 
+## conflict-BxDTRRL9.d.ts
+
+```ts
+import { EditorRevisionToken } from "./collaboration.js";
+import { a as EditorRuntimeSelection, b as EditorRuntimeState } from "./types-BobBf3K-.js";
+
+type EditorPersistenceStatus = "idle" | "loading" | "loaded" | "saving" | "saved" | "error";
+type EditorPersistenceOperation = "load" | "save";
+type EditorPersistenceState = {
+  status: EditorPersistenceStatus;
+  operation: EditorPersistenceOperation | null;
+  error: unknown | null;
+  loadedAt: string | null;
+  savedAt: string | null;
+  savedRevision: number | null;
+  savingRevision: number | null;
+  revisionToken?: EditorRevisionToken | null;
+  conflict?: EditorPersistenceConflictError | null;
+};
+type EditorPersistenceErrorContext = {
+  operation: EditorPersistenceOperation;
+  revision?: number;
+};
+type EditorPersistenceClock = () => string;
+type EditorPersistenceEvent =
+  | {
+      type: "load-start";
+      revision: number;
+    }
+  | {
+      type: "load-success";
+      revision: number;
+      loadedAt: string;
+    }
+  | {
+      type: "load-error";
+      error: unknown;
+    }
+  | {
+      type: "save-start";
+      revision: number;
+    }
+  | {
+      type: "save-success";
+      revision: number;
+      savedAt: string;
+    }
+  | {
+      type: "save-error";
+      revision: number;
+      error: unknown;
+    }
+  | {
+      type: "save-conflict";
+      revision: number;
+      error: EditorPersistenceConflictError;
+    }
+  | {
+      type: "revision-token-updated";
+      revisionToken: EditorRevisionToken | null;
+    }
+  | {
+      type: "save-skipped";
+      revision: number;
+      reason: "clean" | "blocked" | "in-flight";
+    };
+type EditorPersistenceEventHandler = (event: EditorPersistenceEvent) => void;
+type LoadEditorRuntimePersistenceOptions<TDocument, TSelection = unknown> = {
+  fallback?: TDocument;
+  selection?: EditorRuntimeSelection<TSelection>;
+  now?: EditorPersistenceClock;
+  onError?: (error: unknown, context: EditorPersistenceErrorContext) => void;
+  onEvent?: EditorPersistenceEventHandler;
+};
+type LoadEditorRuntimePersistenceResult<TDocument, TSelection = unknown> = {
+  runtime: EditorRuntimeState<TDocument, TSelection>;
+  persistence: EditorPersistenceState;
+};
+type SaveEditorRuntimePersistenceOptions = {
+  force?: boolean;
+  now?: EditorPersistenceClock;
+  onError?: (error: unknown, context: EditorPersistenceErrorContext) => void;
+  onEvent?: EditorPersistenceEventHandler;
+};
+type SaveEditorRuntimePersistenceResult<TDocument, TSelection = unknown> = {
+  runtime: EditorRuntimeState<TDocument, TSelection>;
+  persistence: EditorPersistenceState;
+  saved: boolean;
+  revision: number;
+};
+type EditorPersistedDocument<TDocument> = {
+  document: TDocument;
+  revisionToken?: EditorRevisionToken | null;
+  metadata?: Record<string, unknown>;
+};
+declare class EditorPersistenceConflictError extends Error {
+  readonly local: EditorPersistedDocument<unknown>;
+  readonly remote?: EditorPersistedDocument<unknown>;
+  constructor(
+    message: string,
+    options: {
+      local: EditorPersistedDocument<unknown>;
+      remote?: EditorPersistedDocument<unknown>;
+    },
+  );
+}
+
+type EditorConflictStorageAdapter<TDocument> = {
+  load: () =>
+    | EditorPersistedDocument<TDocument>
+    | null
+    | Promise<EditorPersistedDocument<TDocument> | null>;
+  save: (
+    value: EditorPersistedDocument<TDocument>,
+  ) => EditorPersistedDocument<TDocument> | Promise<EditorPersistedDocument<TDocument>>;
+};
+type LoadEditorRuntimeConflictPersistenceOptions<
+  TDocument,
+  TSelection = unknown,
+> = LoadEditorRuntimePersistenceOptions<TDocument, TSelection>;
+type LoadEditorRuntimeConflictPersistenceResult<
+  TDocument,
+  TSelection = unknown,
+> = LoadEditorRuntimePersistenceResult<TDocument, TSelection>;
+type SaveEditorRuntimeConflictPersistenceOptions = SaveEditorRuntimePersistenceOptions & {
+  revisionToken?: EditorRevisionToken | null;
+};
+type SaveEditorRuntimeConflictPersistenceResult<
+  TDocument,
+  TSelection = unknown,
+> = SaveEditorRuntimePersistenceResult<TDocument, TSelection>;
+
+export {
+  type EditorConflictStorageAdapter as E,
+  type LoadEditorRuntimeConflictPersistenceOptions as L,
+  type SaveEditorRuntimeConflictPersistenceOptions as S,
+  type EditorPersistedDocument as a,
+  type EditorPersistenceClock as b,
+  EditorPersistenceConflictError as c,
+  type EditorPersistenceErrorContext as d,
+  type EditorPersistenceEvent as e,
+  type EditorPersistenceEventHandler as f,
+  type EditorPersistenceOperation as g,
+  type EditorPersistenceState as h,
+  type EditorPersistenceStatus as i,
+  type LoadEditorRuntimeConflictPersistenceResult as j,
+  type LoadEditorRuntimePersistenceOptions as k,
+  type LoadEditorRuntimePersistenceResult as l,
+  type SaveEditorRuntimeConflictPersistenceResult as m,
+  type SaveEditorRuntimePersistenceOptions as n,
+  type SaveEditorRuntimePersistenceResult as o,
+};
+```
+
 ## constraints.d.ts
 
 ```ts
@@ -467,6 +621,11 @@ type EditorEntityBoundsAdapter<TEntity extends EditorEntityBase = EditorEntityBa
   getBounds: (entity: TEntity) => EditorBounds | null | undefined;
 };
 type EditorIdFactory = (prefix?: string) => EditorEntityId;
+type CreateUniqueEditorIdOptions = {
+  fallback?: string;
+  separator?: string;
+  startIndex?: number;
+};
 type EditorLayerAdapter<TEntity extends EditorEntityBase = EditorEntityBase> = {
   getBounds?: (entity: TEntity) => EditorBounds | null | undefined;
   getParentId?: (entity: TEntity) => EditorEntityId | null | undefined;
@@ -538,9 +697,15 @@ declare function getEditorEntity<TEntity extends EditorEntityBase>(
   id: EditorEntityId,
 ): TEntity | null;
 declare function isEditorEntityId(id: unknown): id is EditorEntityId;
+declare function createUniqueEditorId(
+  baseId: string,
+  existingIds: ReadonlySet<string> | readonly string[],
+  options?: CreateUniqueEditorIdOptions,
+): EditorEntityId;
 declare function createIncrementingEditorIdFactory(options?: { prefix?: string }): EditorIdFactory;
 
 export {
+  type CreateUniqueEditorIdOptions,
   type EditorBounds,
   type EditorEntityBase,
   type EditorEntityBoundsAdapter,
@@ -560,6 +725,7 @@ export {
   type EditorWorkflowAdapter,
   createEditorEntityDocument,
   createIncrementingEditorIdFactory,
+  createUniqueEditorId,
   getEditorEntity,
   isEditorEntityId,
 };
@@ -826,6 +992,7 @@ export {
   validateEditorTimelineRange,
 } from "./constraints.js";
 export {
+  CreateUniqueEditorIdOptions,
   EditorBounds,
   EditorEntityBase,
   EditorEntityBoundsAdapter,
@@ -845,6 +1012,7 @@ export {
   EditorWorkflowAdapter,
   createEditorEntityDocument,
   createIncrementingEditorIdFactory,
+  createUniqueEditorId,
   getEditorEntity,
   isEditorEntityId,
 } from "./entities.js";
@@ -914,20 +1082,22 @@ export {
   stableEditorJsonStringify,
 } from "./json.js";
 export {
-  ApplyEditorOperationOptions,
-  EditorOperation,
-  EditorOperationLogAdapter,
-  EditorOperationLogMigration,
-  EditorOperationLogMigrations,
-  EditorOperationPreflightContext,
-  EditorOperationPreflightIssue,
-  EditorOperationRuntimeCommandId,
-  EditorOperationRuntimeCommandsOptions,
-  EditorOperationRuntimeOptions,
-  EditorOperationRuntimeState,
-  ReadEditorOperationLogOptions,
-  SerializedEditorOperation,
-  SerializedEditorOperationLog,
+  A as ApplyEditorOperationOptions,
+  E as EditorOperation,
+  a as EditorOperationLogAdapter,
+  b as EditorOperationLogMigration,
+  c as EditorOperationLogMigrations,
+  d as EditorOperationPreflightContext,
+  e as EditorOperationPreflightIssue,
+  f as EditorOperationRuntimeCommandId,
+  g as EditorOperationRuntimeCommandsOptions,
+  h as EditorOperationRuntimeOptions,
+  i as EditorOperationRuntimeState,
+  R as ReadEditorOperationLogOptions,
+  S as SerializedEditorOperation,
+  j as SerializedEditorOperationLog,
+} from "./types-BOomgiUC.js";
+export {
   applyEditorOperation,
   createEditorOperationRuntime,
   createEditorOperationRuntimeCommands,
@@ -940,25 +1110,26 @@ export {
   undoEditorOperationRuntime,
 } from "./operations.js";
 export {
-  CreateEditorPersistenceStateOptions,
-  EditorConflictStorageAdapter,
-  EditorPersistedDocument,
-  EditorPersistenceClock,
-  EditorPersistenceConflictError,
-  EditorPersistenceErrorContext,
-  EditorPersistenceEvent,
-  EditorPersistenceEventHandler,
-  EditorPersistenceOperation,
-  EditorPersistenceState,
-  EditorPersistenceStatus,
-  LoadEditorRuntimeConflictPersistenceOptions,
-  LoadEditorRuntimeConflictPersistenceResult,
-  LoadEditorRuntimePersistenceOptions,
-  LoadEditorRuntimePersistenceResult,
-  SaveEditorRuntimeConflictPersistenceOptions,
-  SaveEditorRuntimeConflictPersistenceResult,
-  SaveEditorRuntimePersistenceOptions,
-  SaveEditorRuntimePersistenceResult,
+  E as EditorConflictStorageAdapter,
+  a as EditorPersistedDocument,
+  b as EditorPersistenceClock,
+  c as EditorPersistenceConflictError,
+  d as EditorPersistenceErrorContext,
+  e as EditorPersistenceEvent,
+  f as EditorPersistenceEventHandler,
+  g as EditorPersistenceOperation,
+  h as EditorPersistenceState,
+  i as EditorPersistenceStatus,
+  L as LoadEditorRuntimeConflictPersistenceOptions,
+  j as LoadEditorRuntimeConflictPersistenceResult,
+  k as LoadEditorRuntimePersistenceOptions,
+  l as LoadEditorRuntimePersistenceResult,
+  S as SaveEditorRuntimeConflictPersistenceOptions,
+  m as SaveEditorRuntimeConflictPersistenceResult,
+  n as SaveEditorRuntimePersistenceOptions,
+  o as SaveEditorRuntimePersistenceResult,
+} from "./conflict-BxDTRRL9.js";
+export {
   clearEditorPersistenceConflict,
   createEditorPersistenceState,
   loadEditorRuntimeConflictPersistence,
@@ -987,18 +1158,20 @@ export {
   resolveEditorPluginRuntimeOptions,
 } from "./plugins.js";
 export {
-  CommitEditorRuntimeOptions,
+  C as CommitEditorRuntimeOptions,
+  E as EditorRuntimeOptions,
+  a as EditorRuntimeSelection,
+  b as EditorRuntimeState,
+  c as EditorRuntimeStatus,
+  d as EditorRuntimeUpdate,
+  e as EditorRuntimeUpdateContext,
+  f as EditorRuntimeValidationIssue,
+  g as EditorRuntimeValidator,
+  R as ResetEditorRuntimeOptions,
+} from "./types-BobBf3K-.js";
+export {
   EditorRuntimeCommandId,
   EditorRuntimeCommandsOptions,
-  EditorRuntimeOptions,
-  EditorRuntimeSelection,
-  EditorRuntimeState,
-  EditorRuntimeStatus,
-  EditorRuntimeUpdate,
-  EditorRuntimeUpdateContext,
-  EditorRuntimeValidationIssue,
-  EditorRuntimeValidator,
-  ResetEditorRuntimeOptions,
   commitEditorRuntime,
   createEditorRuntime,
   createEditorRuntimeCommands,
@@ -1163,11 +1336,11 @@ export {
 
 ```ts
 import { EditorEntityId, EditorPoint } from "./entities.js";
-import { EditorOperationRuntimeState, EditorOperation } from "./operations.js";
+import { i as EditorOperationRuntimeState, E as EditorOperation } from "./types-BOomgiUC.js";
 import "./aspects.js";
 import "./hotkeys.js";
 import "./history.js";
-import "./runtime.js";
+import "./types-BobBf3K-.js";
 import "./serialization.js";
 
 type EditorInteractionState =
@@ -1271,115 +1444,30 @@ export {
 ## operations.d.ts
 
 ```ts
+import {
+  i as EditorOperationRuntimeState,
+  E as EditorOperation,
+  A as ApplyEditorOperationOptions,
+  h as EditorOperationRuntimeOptions,
+  g as EditorOperationRuntimeCommandsOptions,
+  f as EditorOperationRuntimeCommandId,
+  a as EditorOperationLogAdapter,
+  R as ReadEditorOperationLogOptions,
+  S as SerializedEditorOperation,
+  j as SerializedEditorOperationLog,
+  c as EditorOperationLogMigrations,
+} from "./types-BOomgiUC.js";
+export {
+  b as EditorOperationLogMigration,
+  d as EditorOperationPreflightContext,
+  e as EditorOperationPreflightIssue,
+} from "./types-BOomgiUC.js";
 import { EditorChangeOrigin } from "./aspects.js";
-import { EditorHotkeyMap, EditorCommandDefinition } from "./hotkeys.js";
-import { EditorTransactionHistory } from "./history.js";
-import { EditorRuntimeState, EditorRuntimeOptions } from "./runtime.js";
-import { EditorParseIssue } from "./serialization.js";
+import { EditorCommandDefinition, EditorHotkeyMap } from "./hotkeys.js";
+import "./history.js";
+import "./types-BobBf3K-.js";
+import "./serialization.js";
 
-type EditorOperation<TDocument, TSelection = unknown> = {
-  id: string;
-  label?: string;
-  apply: (document: TDocument) => TDocument;
-  invert?: (document: TDocument) => TDocument;
-  selectionBefore?: TSelection;
-  selectionAfter?: TSelection;
-  origin?: EditorChangeOrigin;
-  mergeKey?: string;
-  metadata?: Record<string, unknown>;
-};
-type EditorOperationPreflightContext<TDocument, TSelection = unknown> = {
-  document: TDocument;
-  operation: EditorOperation<TDocument, TSelection>;
-  runtime: EditorRuntimeState<TDocument, TSelection>;
-};
-type EditorOperationPreflightIssue = {
-  path: string;
-  message: string;
-  severity?: "error" | "warning";
-};
-type EditorOperationRuntimeOptions<TDocument, TSelection = unknown> = EditorRuntimeOptions<
-  TDocument,
-  TSelection
-> & {
-  operationHistoryLimit?: number;
-  preflight?: (
-    context: EditorOperationPreflightContext<TDocument, TSelection>,
-  ) => readonly EditorOperationPreflightIssue[];
-};
-type EditorOperationRuntimeState<TDocument, TSelection = unknown> = {
-  runtime: EditorRuntimeState<TDocument, TSelection>;
-  operationHistory: EditorTransactionHistory<TDocument, TSelection>;
-  canUndo: boolean;
-  canRedo: boolean;
-  lastMergeKey: string | null;
-  issues: readonly EditorOperationPreflightIssue[];
-};
-type ApplyEditorOperationOptions = {
-  merge?: boolean;
-};
-type SerializedEditorOperation<
-  TPayload = unknown,
-  TType extends string = string,
-  TVersion extends number | string = number,
-> = {
-  id: string;
-  type: TType;
-  schemaVersion: TVersion;
-  payload: TPayload;
-  label?: string;
-  origin?: EditorChangeOrigin;
-  mergeKey?: string;
-  createdAt?: string;
-  metadata?: Record<string, unknown>;
-};
-type SerializedEditorOperationLog<
-  TPayload = unknown,
-  TFormat extends string = string,
-  TVersion extends number | string = number,
-> = {
-  format: TFormat;
-  schemaVersion: TVersion;
-  operations: readonly SerializedEditorOperation<TPayload>[];
-  exportedAt?: string;
-  metadata?: Record<string, unknown>;
-};
-type EditorOperationLogAdapter<TOperation> = {
-  format: string;
-  schemaVersion: number | string;
-  read: (input: unknown, path?: string) => TOperation;
-  normalize?: (operation: TOperation) => TOperation;
-  validate?: (operation: TOperation) => readonly EditorParseIssue[];
-};
-type EditorOperationLogMigration<TOperation> = (
-  input: SerializedEditorOperationLog<unknown>,
-  adapter: EditorOperationLogAdapter<TOperation>,
-) => SerializedEditorOperationLog<unknown> | unknown;
-type EditorOperationLogMigrations<TOperation> = Record<
-  string | number,
-  EditorOperationLogMigration<TOperation>
->;
-type ReadEditorOperationLogOptions<TOperation> = {
-  migrations?: EditorOperationLogMigrations<TOperation>;
-  path?: string;
-};
-type EditorOperationRuntimeCommandId = "undo" | "redo";
-declare const defaultEditorOperationRuntimeCommandHotkeys: EditorHotkeyMap<EditorOperationRuntimeCommandId>;
-declare const defaultEditorOperationRuntimeCommandLabels: Record<
-  EditorOperationRuntimeCommandId,
-  string
->;
-type EditorOperationRuntimeCommandsOptions<TDocument, TSelection = unknown> = {
-  editor: EditorOperationRuntimeState<TDocument, TSelection>;
-  setEditor: (
-    updater: (
-      editor: EditorOperationRuntimeState<TDocument, TSelection>,
-    ) => EditorOperationRuntimeState<TDocument, TSelection>,
-  ) => void;
-  hotkeys?: Partial<EditorHotkeyMap<EditorOperationRuntimeCommandId>>;
-  labels?: Partial<Record<EditorOperationRuntimeCommandId, string>>;
-  disabled?: Partial<Record<EditorOperationRuntimeCommandId, boolean>>;
-};
 declare function createEditorOperationRuntime<TDocument, TSelection = unknown>(
   options: EditorOperationRuntimeOptions<TDocument, TSelection>,
 ): EditorOperationRuntimeState<TDocument, TSelection>;
@@ -1400,9 +1488,16 @@ declare function redoEditorOperationRuntime<TDocument, TSelection = unknown>(
     origin?: EditorChangeOrigin;
   },
 ): EditorOperationRuntimeState<TDocument, TSelection>;
+
+declare const defaultEditorOperationRuntimeCommandHotkeys: EditorHotkeyMap<EditorOperationRuntimeCommandId>;
+declare const defaultEditorOperationRuntimeCommandLabels: Record<
+  EditorOperationRuntimeCommandId,
+  string
+>;
 declare function createEditorOperationRuntimeCommands<TDocument, TSelection = unknown>(
   options: EditorOperationRuntimeCommandsOptions<TDocument, TSelection>,
 ): readonly EditorCommandDefinition<EditorOperationRuntimeCommandId>[];
+
 declare function serializeEditorOperationLog<
   TPayload,
   TFormat extends string,
@@ -1421,6 +1516,7 @@ declare function readEditorOperationLog<TOperation>(
   adapter: EditorOperationLogAdapter<TOperation>,
   options?: ReadEditorOperationLogOptions<TOperation>,
 ): readonly TOperation[];
+
 declare function migrateEditorOperationLog<TOperation>(
   input: unknown,
   adapter: EditorOperationLogAdapter<TOperation>,
@@ -1429,20 +1525,17 @@ declare function migrateEditorOperationLog<TOperation>(
 ): unknown;
 
 export {
-  type ApplyEditorOperationOptions,
-  type EditorOperation,
-  type EditorOperationLogAdapter,
-  type EditorOperationLogMigration,
-  type EditorOperationLogMigrations,
-  type EditorOperationPreflightContext,
-  type EditorOperationPreflightIssue,
-  type EditorOperationRuntimeCommandId,
-  type EditorOperationRuntimeCommandsOptions,
-  type EditorOperationRuntimeOptions,
-  type EditorOperationRuntimeState,
-  type ReadEditorOperationLogOptions,
-  type SerializedEditorOperation,
-  type SerializedEditorOperationLog,
+  ApplyEditorOperationOptions,
+  EditorOperation,
+  EditorOperationLogAdapter,
+  EditorOperationLogMigrations,
+  EditorOperationRuntimeCommandId,
+  EditorOperationRuntimeCommandsOptions,
+  EditorOperationRuntimeOptions,
+  EditorOperationRuntimeState,
+  ReadEditorOperationLogOptions,
+  SerializedEditorOperation,
+  SerializedEditorOperationLog,
   applyEditorOperation,
   createEditorOperationRuntime,
   createEditorOperationRuntimeCommands,
@@ -1514,190 +1607,73 @@ export {
 ## persistence.d.ts
 
 ```ts
+import {
+  h as EditorPersistenceState,
+  E as EditorConflictStorageAdapter,
+  L as LoadEditorRuntimeConflictPersistenceOptions,
+  j as LoadEditorRuntimeConflictPersistenceResult,
+  k as LoadEditorRuntimePersistenceOptions,
+  l as LoadEditorRuntimePersistenceResult,
+  S as SaveEditorRuntimeConflictPersistenceOptions,
+  m as SaveEditorRuntimeConflictPersistenceResult,
+  n as SaveEditorRuntimePersistenceOptions,
+  o as SaveEditorRuntimePersistenceResult,
+} from "./conflict-BxDTRRL9.js";
+export {
+  a as EditorPersistedDocument,
+  b as EditorPersistenceClock,
+  c as EditorPersistenceConflictError,
+  d as EditorPersistenceErrorContext,
+  e as EditorPersistenceEvent,
+  f as EditorPersistenceEventHandler,
+  g as EditorPersistenceOperation,
+  i as EditorPersistenceStatus,
+} from "./conflict-BxDTRRL9.js";
 import { EditorStorageAdapter } from "./browser.js";
-import { EditorRevisionToken } from "./collaboration.js";
-import { EditorRuntimeSelection, EditorRuntimeState } from "./runtime.js";
+import { b as EditorRuntimeState } from "./types-BobBf3K-.js";
+import "./collaboration.js";
 import "./aspects.js";
-import "./hotkeys.js";
 import "./history.js";
 import "./serialization.js";
 
-type EditorPersistenceStatus = "idle" | "loading" | "loaded" | "saving" | "saved" | "error";
-type EditorPersistenceOperation = "load" | "save";
-type EditorPersistenceState = {
-  status: EditorPersistenceStatus;
-  operation: EditorPersistenceOperation | null;
-  error: unknown | null;
-  loadedAt: string | null;
-  savedAt: string | null;
-  savedRevision: number | null;
-  savingRevision: number | null;
-  revisionToken?: EditorRevisionToken | null;
-  conflict?: EditorPersistenceConflictError | null;
-};
-type EditorPersistenceErrorContext = {
-  operation: EditorPersistenceOperation;
-  revision?: number;
-};
-type EditorPersistenceClock = () => string;
-type EditorPersistenceEvent<_TDocument = unknown> =
-  | {
-      type: "load-start";
-      revision: number;
-    }
-  | {
-      type: "load-success";
-      revision: number;
-      loadedAt: string;
-    }
-  | {
-      type: "load-error";
-      error: unknown;
-    }
-  | {
-      type: "save-start";
-      revision: number;
-    }
-  | {
-      type: "save-success";
-      revision: number;
-      savedAt: string;
-    }
-  | {
-      type: "save-error";
-      revision: number;
-      error: unknown;
-    }
-  | {
-      type: "save-conflict";
-      revision: number;
-      error: EditorPersistenceConflictError;
-    }
-  | {
-      type: "revision-token-updated";
-      revisionToken: EditorRevisionToken | null;
-    }
-  | {
-      type: "save-skipped";
-      revision: number;
-      reason: "clean" | "blocked" | "in-flight";
-    };
-type EditorPersistenceEventHandler<TDocument = unknown> = (
-  event: EditorPersistenceEvent<TDocument>,
-) => void;
-type CreateEditorPersistenceStateOptions = {
-  now?: EditorPersistenceClock;
-};
-type LoadEditorRuntimePersistenceOptions<TDocument, TSelection = unknown> = {
-  fallback?: TDocument;
-  selection?: EditorRuntimeSelection<TSelection>;
-  now?: EditorPersistenceClock;
-  onError?: (error: unknown, context: EditorPersistenceErrorContext) => void;
-  onEvent?: EditorPersistenceEventHandler<TDocument>;
-};
-type LoadEditorRuntimePersistenceResult<TDocument, TSelection = unknown> = {
-  runtime: EditorRuntimeState<TDocument, TSelection>;
-  persistence: EditorPersistenceState;
-};
-type SaveEditorRuntimePersistenceOptions = {
-  force?: boolean;
-  now?: EditorPersistenceClock;
-  onError?: (error: unknown, context: EditorPersistenceErrorContext) => void;
-  onEvent?: EditorPersistenceEventHandler;
-};
-type SaveEditorRuntimePersistenceResult<TDocument, TSelection = unknown> = {
-  runtime: EditorRuntimeState<TDocument, TSelection>;
-  persistence: EditorPersistenceState;
-  saved: boolean;
-  revision: number;
-};
-type EditorPersistedDocument<TDocument> = {
-  document: TDocument;
-  revisionToken?: EditorRevisionToken | null;
-  metadata?: Record<string, unknown>;
-};
-type EditorConflictStorageAdapter<TDocument> = {
-  load: () =>
-    | EditorPersistedDocument<TDocument>
-    | null
-    | Promise<EditorPersistedDocument<TDocument> | null>;
-  save: (
-    value: EditorPersistedDocument<TDocument>,
-  ) => EditorPersistedDocument<TDocument> | Promise<EditorPersistedDocument<TDocument>>;
-};
-declare class EditorPersistenceConflictError extends Error {
-  readonly local: EditorPersistedDocument<unknown>;
-  readonly remote?: EditorPersistedDocument<unknown>;
-  constructor(
-    message: string,
-    options: {
-      local: EditorPersistedDocument<unknown>;
-      remote?: EditorPersistedDocument<unknown>;
-    },
-  );
-}
-type LoadEditorRuntimeConflictPersistenceOptions<
-  TDocument,
-  TSelection = unknown,
-> = LoadEditorRuntimePersistenceOptions<TDocument, TSelection>;
-type LoadEditorRuntimeConflictPersistenceResult<
-  TDocument,
-  TSelection = unknown,
-> = LoadEditorRuntimePersistenceResult<TDocument, TSelection>;
-type SaveEditorRuntimeConflictPersistenceOptions = SaveEditorRuntimePersistenceOptions & {
-  revisionToken?: EditorRevisionToken | null;
-};
-type SaveEditorRuntimeConflictPersistenceResult<
-  TDocument,
-  TSelection = unknown,
-> = SaveEditorRuntimePersistenceResult<TDocument, TSelection>;
-declare function createEditorPersistenceState(
-  options?: CreateEditorPersistenceStateOptions,
+declare function createEditorPersistenceState(): EditorPersistenceState;
+declare function clearEditorPersistenceConflict(
+  persistence: EditorPersistenceState,
 ): EditorPersistenceState;
+
 declare function loadEditorRuntimePersistence<TDocument, TSelection = unknown>(
   runtime: EditorRuntimeState<TDocument, TSelection>,
   storage: EditorStorageAdapter<TDocument>,
   options?: LoadEditorRuntimePersistenceOptions<TDocument, TSelection>,
 ): Promise<LoadEditorRuntimePersistenceResult<TDocument, TSelection>>;
-declare function saveEditorRuntimePersistence<TDocument, TSelection = unknown>(
-  runtime: EditorRuntimeState<TDocument, TSelection>,
-  storage: EditorStorageAdapter<TDocument>,
-  options?: SaveEditorRuntimePersistenceOptions,
-): Promise<SaveEditorRuntimePersistenceResult<TDocument, TSelection>>;
 declare function loadEditorRuntimeConflictPersistence<TDocument, TSelection = unknown>(
   runtime: EditorRuntimeState<TDocument, TSelection>,
   storage: EditorConflictStorageAdapter<TDocument>,
   options?: LoadEditorRuntimeConflictPersistenceOptions<TDocument, TSelection>,
 ): Promise<LoadEditorRuntimeConflictPersistenceResult<TDocument, TSelection>>;
+
+declare function saveEditorRuntimePersistence<TDocument, TSelection = unknown>(
+  runtime: EditorRuntimeState<TDocument, TSelection>,
+  storage: EditorStorageAdapter<TDocument>,
+  options?: SaveEditorRuntimePersistenceOptions,
+): Promise<SaveEditorRuntimePersistenceResult<TDocument, TSelection>>;
 declare function saveEditorRuntimeConflictPersistence<TDocument, TSelection = unknown>(
   runtime: EditorRuntimeState<TDocument, TSelection>,
   storage: EditorConflictStorageAdapter<TDocument>,
   options?: SaveEditorRuntimeConflictPersistenceOptions,
 ): Promise<SaveEditorRuntimeConflictPersistenceResult<TDocument, TSelection>>;
-declare function clearEditorPersistenceConflict(
-  persistence: EditorPersistenceState,
-): EditorPersistenceState;
 
 export {
-  type CreateEditorPersistenceStateOptions,
-  type EditorConflictStorageAdapter,
-  type EditorPersistedDocument,
-  type EditorPersistenceClock,
-  EditorPersistenceConflictError,
-  type EditorPersistenceErrorContext,
-  type EditorPersistenceEvent,
-  type EditorPersistenceEventHandler,
-  type EditorPersistenceOperation,
-  type EditorPersistenceState,
-  type EditorPersistenceStatus,
-  type LoadEditorRuntimeConflictPersistenceOptions,
-  type LoadEditorRuntimeConflictPersistenceResult,
-  type LoadEditorRuntimePersistenceOptions,
-  type LoadEditorRuntimePersistenceResult,
-  type SaveEditorRuntimeConflictPersistenceOptions,
-  type SaveEditorRuntimeConflictPersistenceResult,
-  type SaveEditorRuntimePersistenceOptions,
-  type SaveEditorRuntimePersistenceResult,
+  EditorConflictStorageAdapter,
+  EditorPersistenceState,
+  LoadEditorRuntimeConflictPersistenceOptions,
+  LoadEditorRuntimeConflictPersistenceResult,
+  LoadEditorRuntimePersistenceOptions,
+  LoadEditorRuntimePersistenceResult,
+  SaveEditorRuntimeConflictPersistenceOptions,
+  SaveEditorRuntimeConflictPersistenceResult,
+  SaveEditorRuntimePersistenceOptions,
+  SaveEditorRuntimePersistenceResult,
   clearEditorPersistenceConflict,
   createEditorPersistenceState,
   loadEditorRuntimeConflictPersistence,
@@ -1717,8 +1693,11 @@ import {
   EditorCommandContext,
   EditorResolvedCommandDefinition,
 } from "./commands.js";
-import { EditorOperationPreflightContext, EditorOperationPreflightIssue } from "./operations.js";
-import { EditorRuntimeValidator, EditorRuntimeOptions } from "./runtime.js";
+import {
+  d as EditorOperationPreflightContext,
+  e as EditorOperationPreflightIssue,
+} from "./types-BOomgiUC.js";
+import { g as EditorRuntimeValidator, E as EditorRuntimeOptions } from "./types-BobBf3K-.js";
 import "./history.js";
 import "./hotkeys.js";
 import "./serialization.js";
@@ -1780,27 +1759,27 @@ export {
 
 ```ts
 import * as React from "react";
+import {
+  E as EditorRuntimeOptions,
+  b as EditorRuntimeState,
+  d as EditorRuntimeUpdate,
+  C as CommitEditorRuntimeOptions,
+  R as ResetEditorRuntimeOptions,
+  a as EditorRuntimeSelection,
+} from "./types-BobBf3K-.js";
 import { EditorStorageAdapter } from "./browser.js";
+import {
+  d as EditorPersistenceErrorContext,
+  f as EditorPersistenceEventHandler,
+  E as EditorConflictStorageAdapter,
+  h as EditorPersistenceState,
+} from "./conflict-BxDTRRL9.js";
 import { EditorCommandDefinition } from "./hotkeys.js";
-import {
-  EditorPersistenceErrorContext,
-  EditorPersistenceEventHandler,
-  EditorConflictStorageAdapter,
-  EditorPersistenceState,
-} from "./persistence.js";
-import {
-  EditorRuntimeOptions,
-  EditorRuntimeState,
-  EditorRuntimeUpdate,
-  CommitEditorRuntimeOptions,
-  ResetEditorRuntimeOptions,
-  EditorRuntimeSelection,
-} from "./runtime.js";
 import { EditorTreeState, EditorTreeNodeId } from "./tree.js";
-import "./collaboration.js";
 import "./aspects.js";
 import "./history.js";
 import "./serialization.js";
+import "./collaboration.js";
 
 type ControllableEditorStateOptions<T> = {
   value?: T;
@@ -1835,6 +1814,17 @@ type UseEditorRuntimeResult<TDocument, TSelection = unknown> = {
 declare function useEditorRuntime<TDocument, TSelection = unknown>(
   options: UseEditorRuntimeOptions<TDocument, TSelection>,
 ): UseEditorRuntimeResult<TDocument, TSelection>;
+
+type EditorAutosaveRetryOptions = {
+  attempts?: number;
+  delayMs?: number;
+};
+type EditorAutosaveOptions = {
+  delayMs?: number;
+  retry?: EditorAutosaveRetryOptions;
+  saveLatest?: boolean;
+};
+
 type UsePersistentEditorRuntimeOptions<TDocument, TSelection = unknown> = UseEditorRuntimeOptions<
   TDocument,
   TSelection
@@ -1844,7 +1834,7 @@ type UsePersistentEditorRuntimeOptions<TDocument, TSelection = unknown> = UseEdi
   loadOnMount?: boolean;
   canSave?: (runtime: EditorRuntimeState<TDocument, TSelection>) => boolean;
   onPersistenceError?: (error: unknown, context: EditorPersistenceErrorContext) => void;
-  onPersistenceEvent?: EditorPersistenceEventHandler<TDocument>;
+  onPersistenceEvent?: EditorPersistenceEventHandler;
 };
 type UsePersistentEditorRuntimeResult<TDocument, TSelection = unknown> = UseEditorRuntimeResult<
   TDocument,
@@ -1868,21 +1858,13 @@ type UseConflictAwareEditorRuntimeResult<TDocument, TSelection = unknown> = UseE
   load: () => Promise<void>;
   save: (options?: { force?: boolean }) => Promise<boolean>;
 };
-type EditorAutosaveRetryOptions = {
-  attempts?: number;
-  delayMs?: number;
-};
-type EditorAutosaveOptions = {
-  delayMs?: number;
-  retry?: EditorAutosaveRetryOptions;
-  saveLatest?: boolean;
-};
 declare function usePersistentEditorRuntime<TDocument, TSelection = unknown>(
   options: UsePersistentEditorRuntimeOptions<TDocument, TSelection>,
 ): UsePersistentEditorRuntimeResult<TDocument, TSelection>;
 declare function useConflictAwareEditorRuntime<TDocument, TSelection = unknown>(
   options: UseConflictAwareEditorRuntimeOptions<TDocument, TSelection>,
 ): UseConflictAwareEditorRuntimeResult<TDocument, TSelection>;
+
 type UseEditorHotkeysOptions<TId extends string> = {
   commands: readonly EditorCommandDefinition<TId>[];
   disabled?: boolean;
@@ -1897,6 +1879,7 @@ declare function useEditorHotkeys<TId extends string>({
   allowEditableTargets,
   scopeRef,
 }: UseEditorHotkeysOptions<TId>): void;
+
 type UseEditorTreeStateResult = {
   state: EditorTreeState;
   setState: React.Dispatch<React.SetStateAction<EditorTreeState>>;
@@ -1933,73 +1916,25 @@ export {
 ## runtime.d.ts
 
 ```ts
-import { EditorChangeOrigin, EditorAspectSnapshot, EditorAspectDefinition } from "./aspects.js";
+import {
+  b as EditorRuntimeState,
+  d as EditorRuntimeUpdate,
+  C as CommitEditorRuntimeOptions,
+  E as EditorRuntimeOptions,
+  R as ResetEditorRuntimeOptions,
+  a as EditorRuntimeSelection,
+} from "./types-BobBf3K-.js";
+export {
+  c as EditorRuntimeStatus,
+  e as EditorRuntimeUpdateContext,
+  f as EditorRuntimeValidationIssue,
+  g as EditorRuntimeValidator,
+} from "./types-BobBf3K-.js";
+import { EditorChangeOrigin } from "./aspects.js";
 import { EditorHotkeyMap, EditorCommandDefinition } from "./hotkeys.js";
-import { EditorSnapshotHistory, EditorSnapshotHistoryOptions } from "./history.js";
-import { EditorParseIssue } from "./serialization.js";
+import "./history.js";
+import "./serialization.js";
 
-type EditorRuntimeStatus = "clean" | "dirty";
-type EditorRuntimeSelection<TSelection = unknown> = TSelection | null;
-type EditorRuntimeUpdateContext<TDocument, TSelection = unknown> = {
-  document: TDocument;
-  selection: EditorRuntimeSelection<TSelection>;
-  revision: number;
-};
-type EditorRuntimeUpdate<TDocument, TSelection = unknown> =
-  | TDocument
-  | ((context: EditorRuntimeUpdateContext<TDocument, TSelection>) => TDocument);
-type EditorRuntimeValidationIssue = EditorParseIssue;
-type EditorRuntimeValidator<TDocument> = (
-  document: TDocument,
-) => readonly EditorRuntimeValidationIssue[];
-type EditorRuntimeOptions<TDocument, TSelection = unknown> = {
-  initialDocument: TDocument;
-  initialSelection?: EditorRuntimeSelection<TSelection>;
-  history?: EditorSnapshotHistoryOptions<TDocument>;
-  validate?: EditorRuntimeValidator<TDocument>;
-  aspects?: readonly EditorAspectDefinition<TDocument, unknown>[];
-  origin?: EditorChangeOrigin;
-};
-type EditorRuntimeState<TDocument, TSelection = unknown> = {
-  document: TDocument;
-  selection: EditorRuntimeSelection<TSelection>;
-  history: EditorSnapshotHistory<TDocument>;
-  revision: number;
-  savedRevision: number;
-  status: EditorRuntimeStatus;
-  canUndo: boolean;
-  canRedo: boolean;
-  issues: readonly EditorRuntimeValidationIssue[];
-  aspectSnapshot: EditorAspectSnapshot<TDocument>;
-  origin?: EditorChangeOrigin;
-};
-type CommitEditorRuntimeOptions<TSelection = unknown> = {
-  selection?: EditorRuntimeSelection<TSelection>;
-  origin?: EditorChangeOrigin;
-  markSaved?: boolean;
-};
-type ResetEditorRuntimeOptions<TSelection = unknown> = {
-  selection?: EditorRuntimeSelection<TSelection>;
-  origin?: EditorChangeOrigin;
-  markSaved?: boolean;
-};
-type EditorRuntimeCommandId = "undo" | "redo" | "reset" | "save";
-declare const defaultEditorRuntimeCommandHotkeys: EditorHotkeyMap<EditorRuntimeCommandId>;
-declare const defaultEditorRuntimeCommandLabels: Record<EditorRuntimeCommandId, string>;
-type EditorRuntimeCommandsOptions<TDocument, TSelection = unknown> = {
-  runtime: EditorRuntimeState<TDocument, TSelection>;
-  setRuntime: (
-    updater: (
-      runtime: EditorRuntimeState<TDocument, TSelection>,
-    ) => EditorRuntimeState<TDocument, TSelection>,
-  ) => void;
-  getResetDocument: () => TDocument;
-  onSave?: (runtime: EditorRuntimeState<TDocument, TSelection>) => void | Promise<void>;
-  hotkeys?: Partial<EditorHotkeyMap<EditorRuntimeCommandId>>;
-  labels?: Partial<Record<EditorRuntimeCommandId, string>>;
-  include?: readonly EditorRuntimeCommandId[];
-  disabled?: Partial<Record<EditorRuntimeCommandId, boolean>>;
-};
 declare function createEditorRuntime<TDocument, TSelection = unknown>(
   options: EditorRuntimeOptions<TDocument, TSelection>,
 ): EditorRuntimeState<TDocument, TSelection>;
@@ -2035,23 +1970,37 @@ declare function setEditorRuntimeSelection<TDocument, TSelection = unknown>(
 declare function validateEditorRuntime<TDocument, TSelection = unknown>(
   state: EditorRuntimeState<TDocument, TSelection>,
 ): EditorRuntimeState<TDocument, TSelection>;
+
+type EditorRuntimeCommandId = "undo" | "redo" | "reset" | "save";
+declare const defaultEditorRuntimeCommandHotkeys: EditorHotkeyMap<EditorRuntimeCommandId>;
+declare const defaultEditorRuntimeCommandLabels: Record<EditorRuntimeCommandId, string>;
+type EditorRuntimeCommandsOptions<TDocument, TSelection = unknown> = {
+  runtime: EditorRuntimeState<TDocument, TSelection>;
+  setRuntime: (
+    updater: (
+      runtime: EditorRuntimeState<TDocument, TSelection>,
+    ) => EditorRuntimeState<TDocument, TSelection>,
+  ) => void;
+  getResetDocument: () => TDocument;
+  onSave?: (runtime: EditorRuntimeState<TDocument, TSelection>) => void | Promise<void>;
+  hotkeys?: Partial<EditorHotkeyMap<EditorRuntimeCommandId>>;
+  labels?: Partial<Record<EditorRuntimeCommandId, string>>;
+  include?: readonly EditorRuntimeCommandId[];
+  disabled?: Partial<Record<EditorRuntimeCommandId, boolean>>;
+};
 declare function createEditorRuntimeCommands<TDocument, TSelection = unknown>(
   options: EditorRuntimeCommandsOptions<TDocument, TSelection>,
 ): readonly EditorCommandDefinition<EditorRuntimeCommandId>[];
 
 export {
-  type CommitEditorRuntimeOptions,
+  CommitEditorRuntimeOptions,
   type EditorRuntimeCommandId,
   type EditorRuntimeCommandsOptions,
-  type EditorRuntimeOptions,
-  type EditorRuntimeSelection,
-  type EditorRuntimeState,
-  type EditorRuntimeStatus,
-  type EditorRuntimeUpdate,
-  type EditorRuntimeUpdateContext,
-  type EditorRuntimeValidationIssue,
-  type EditorRuntimeValidator,
-  type ResetEditorRuntimeOptions,
+  EditorRuntimeOptions,
+  EditorRuntimeSelection,
+  EditorRuntimeState,
+  EditorRuntimeUpdate,
+  ResetEditorRuntimeOptions,
   commitEditorRuntime,
   createEditorRuntime,
   createEditorRuntimeCommands,
@@ -2293,7 +2242,10 @@ export {
 ## testing.d.ts
 
 ```ts
-import { EditorOperationLogMigrations, EditorOperationLogAdapter } from "./operations.js";
+import {
+  c as EditorOperationLogMigrations,
+  a as EditorOperationLogAdapter,
+} from "./types-BOomgiUC.js";
 import {
   EditorDocumentMigrations,
   EditorParseIssue,
@@ -2302,7 +2254,7 @@ import {
 import "./aspects.js";
 import "./hotkeys.js";
 import "./history.js";
-import "./runtime.js";
+import "./types-BobBf3K-.js";
 
 type EditorAdapterCheckSeverity = "error" | "warning";
 type EditorAdapterCheckIssue = {
@@ -2486,6 +2438,199 @@ export {
   selectEditorTreeNode,
   toggleEditorTreeNode,
   windowEditorTreeItems,
+};
+```
+
+## types-BobBf3K-.d.ts
+
+```ts
+import { EditorChangeOrigin, EditorAspectSnapshot, EditorAspectDefinition } from "./aspects.js";
+import { EditorSnapshotHistory, EditorSnapshotHistoryOptions } from "./history.js";
+import { EditorParseIssue } from "./serialization.js";
+
+type EditorRuntimeStatus = "clean" | "dirty";
+type EditorRuntimeSelection<TSelection = unknown> = TSelection | null;
+type EditorRuntimeUpdateContext<TDocument, TSelection = unknown> = {
+  document: TDocument;
+  selection: EditorRuntimeSelection<TSelection>;
+  revision: number;
+};
+type EditorRuntimeUpdate<TDocument, TSelection = unknown> =
+  | TDocument
+  | ((context: EditorRuntimeUpdateContext<TDocument, TSelection>) => TDocument);
+type EditorRuntimeValidationIssue = EditorParseIssue;
+type EditorRuntimeValidator<TDocument> = (
+  document: TDocument,
+) => readonly EditorRuntimeValidationIssue[];
+type EditorRuntimeOptions<TDocument, TSelection = unknown> = {
+  initialDocument: TDocument;
+  initialSelection?: EditorRuntimeSelection<TSelection>;
+  history?: EditorSnapshotHistoryOptions<TDocument>;
+  validate?: EditorRuntimeValidator<TDocument>;
+  aspects?: readonly EditorAspectDefinition<TDocument, unknown>[];
+  origin?: EditorChangeOrigin;
+};
+type EditorRuntimeState<TDocument, TSelection = unknown> = {
+  document: TDocument;
+  selection: EditorRuntimeSelection<TSelection>;
+  history: EditorSnapshotHistory<TDocument>;
+  revision: number;
+  savedRevision: number;
+  status: EditorRuntimeStatus;
+  canUndo: boolean;
+  canRedo: boolean;
+  issues: readonly EditorRuntimeValidationIssue[];
+  aspectSnapshot: EditorAspectSnapshot<TDocument>;
+  origin?: EditorChangeOrigin;
+};
+type CommitEditorRuntimeOptions<TSelection = unknown> = {
+  selection?: EditorRuntimeSelection<TSelection>;
+  origin?: EditorChangeOrigin;
+  markSaved?: boolean;
+};
+type ResetEditorRuntimeOptions<TSelection = unknown> = {
+  selection?: EditorRuntimeSelection<TSelection>;
+  origin?: EditorChangeOrigin;
+  markSaved?: boolean;
+};
+
+export type {
+  CommitEditorRuntimeOptions as C,
+  EditorRuntimeOptions as E,
+  ResetEditorRuntimeOptions as R,
+  EditorRuntimeSelection as a,
+  EditorRuntimeState as b,
+  EditorRuntimeStatus as c,
+  EditorRuntimeUpdate as d,
+  EditorRuntimeUpdateContext as e,
+  EditorRuntimeValidationIssue as f,
+  EditorRuntimeValidator as g,
+};
+```
+
+## types-BOomgiUC.d.ts
+
+```ts
+import { EditorChangeOrigin } from "./aspects.js";
+import { EditorHotkeyMap } from "./hotkeys.js";
+import { EditorTransactionHistory } from "./history.js";
+import { b as EditorRuntimeState, E as EditorRuntimeOptions } from "./types-BobBf3K-.js";
+import { EditorParseIssue } from "./serialization.js";
+
+type EditorOperation<TDocument, TSelection = unknown> = {
+  id: string;
+  label?: string;
+  apply: (document: TDocument) => TDocument;
+  invert?: (document: TDocument) => TDocument;
+  selectionBefore?: TSelection;
+  selectionAfter?: TSelection;
+  origin?: EditorChangeOrigin;
+  mergeKey?: string;
+  metadata?: Record<string, unknown>;
+};
+type EditorOperationPreflightContext<TDocument, TSelection = unknown> = {
+  document: TDocument;
+  operation: EditorOperation<TDocument, TSelection>;
+  runtime: EditorRuntimeState<TDocument, TSelection>;
+};
+type EditorOperationPreflightIssue = {
+  path: string;
+  message: string;
+  severity?: "error" | "warning";
+};
+type EditorOperationRuntimeOptions<TDocument, TSelection = unknown> = EditorRuntimeOptions<
+  TDocument,
+  TSelection
+> & {
+  operationHistoryLimit?: number;
+  preflight?: (
+    context: EditorOperationPreflightContext<TDocument, TSelection>,
+  ) => readonly EditorOperationPreflightIssue[];
+};
+type EditorOperationRuntimeState<TDocument, TSelection = unknown> = {
+  runtime: EditorRuntimeState<TDocument, TSelection>;
+  operationHistory: EditorTransactionHistory<TDocument, TSelection>;
+  canUndo: boolean;
+  canRedo: boolean;
+  lastMergeKey: string | null;
+  issues: readonly EditorOperationPreflightIssue[];
+};
+type ApplyEditorOperationOptions = {
+  merge?: boolean;
+};
+type SerializedEditorOperation<
+  TPayload = unknown,
+  TType extends string = string,
+  TVersion extends number | string = number,
+> = {
+  id: string;
+  type: TType;
+  schemaVersion: TVersion;
+  payload: TPayload;
+  label?: string;
+  origin?: EditorChangeOrigin;
+  mergeKey?: string;
+  createdAt?: string;
+  metadata?: Record<string, unknown>;
+};
+type SerializedEditorOperationLog<
+  TPayload = unknown,
+  TFormat extends string = string,
+  TVersion extends number | string = number,
+> = {
+  format: TFormat;
+  schemaVersion: TVersion;
+  operations: readonly SerializedEditorOperation<TPayload>[];
+  exportedAt?: string;
+  metadata?: Record<string, unknown>;
+};
+type EditorOperationLogAdapter<TOperation> = {
+  format: string;
+  schemaVersion: number | string;
+  read: (input: unknown, path?: string) => TOperation;
+  normalize?: (operation: TOperation) => TOperation;
+  validate?: (operation: TOperation) => readonly EditorParseIssue[];
+};
+type EditorOperationLogMigration<TOperation> = (
+  input: SerializedEditorOperationLog<unknown>,
+  adapter: EditorOperationLogAdapter<TOperation>,
+) => SerializedEditorOperationLog<unknown> | unknown;
+type EditorOperationLogMigrations<TOperation> = Record<
+  string | number,
+  EditorOperationLogMigration<TOperation>
+>;
+type ReadEditorOperationLogOptions<TOperation> = {
+  migrations?: EditorOperationLogMigrations<TOperation>;
+  path?: string;
+};
+type EditorOperationRuntimeCommandId = "undo" | "redo";
+type EditorOperationRuntimeCommandsOptions<TDocument, TSelection = unknown> = {
+  editor: EditorOperationRuntimeState<TDocument, TSelection>;
+  setEditor: (
+    updater: (
+      editor: EditorOperationRuntimeState<TDocument, TSelection>,
+    ) => EditorOperationRuntimeState<TDocument, TSelection>,
+  ) => void;
+  hotkeys?: Partial<EditorHotkeyMap<EditorOperationRuntimeCommandId>>;
+  labels?: Partial<Record<EditorOperationRuntimeCommandId, string>>;
+  disabled?: Partial<Record<EditorOperationRuntimeCommandId, boolean>>;
+};
+
+export type {
+  ApplyEditorOperationOptions as A,
+  EditorOperation as E,
+  ReadEditorOperationLogOptions as R,
+  SerializedEditorOperation as S,
+  EditorOperationLogAdapter as a,
+  EditorOperationLogMigration as b,
+  EditorOperationLogMigrations as c,
+  EditorOperationPreflightContext as d,
+  EditorOperationPreflightIssue as e,
+  EditorOperationRuntimeCommandId as f,
+  EditorOperationRuntimeCommandsOptions as g,
+  EditorOperationRuntimeOptions as h,
+  EditorOperationRuntimeState as i,
+  SerializedEditorOperationLog as j,
 };
 ```
 

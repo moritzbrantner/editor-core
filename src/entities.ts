@@ -31,6 +31,12 @@ export type EditorEntityBoundsAdapter<TEntity extends EditorEntityBase = EditorE
 
 export type EditorIdFactory = (prefix?: string) => EditorEntityId;
 
+export type CreateUniqueEditorIdOptions = {
+  fallback?: string;
+  separator?: string;
+  startIndex?: number;
+};
+
 export type EditorLayerAdapter<TEntity extends EditorEntityBase = EditorEntityBase> = {
   getBounds?: (entity: TEntity) => EditorBounds | null | undefined;
   getParentId?: (entity: TEntity) => EditorEntityId | null | undefined;
@@ -131,6 +137,29 @@ export function getEditorEntity<TEntity extends EditorEntityBase>(
 
 export function isEditorEntityId(id: unknown): id is EditorEntityId {
   return typeof id === "string" && id.length > 0;
+}
+
+export function createUniqueEditorId(
+  baseId: string,
+  existingIds: ReadonlySet<string> | readonly string[],
+  options: CreateUniqueEditorIdOptions = {},
+): EditorEntityId {
+  const base = baseId.trim() || (options.fallback ?? "item");
+  const hasId = (id: string) =>
+    Array.isArray(existingIds)
+      ? (existingIds as readonly string[]).includes(id)
+      : (existingIds as ReadonlySet<string>).has(id);
+
+  if (!hasId(base)) {
+    return base;
+  }
+
+  const separator = options.separator ?? "-";
+  let index = options.startIndex ?? 2;
+  while (hasId(`${base}${separator}${index}`)) {
+    index += 1;
+  }
+  return `${base}${separator}${index}`;
 }
 
 export function createIncrementingEditorIdFactory(

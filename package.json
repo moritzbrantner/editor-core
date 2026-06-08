@@ -130,6 +130,8 @@
   "scripts": {
     "format": "oxfmt",
     "format:check": "oxfmt --check",
+    "architecture:report": "node scripts/check-architecture.mjs --report",
+    "architecture:check": "node scripts/check-architecture.mjs --check",
     "lint": "oxlint src stories benchmarks tests scripts .storybook examples/react/src examples/react/vite.config.ts playwright.config.ts unlighthouse.config.ts vitest.storybook.config.ts vitest.config.ts --format=github",
     "check-types": "tsc --noEmit",
     "test": "bun run test:unit",
@@ -158,7 +160,7 @@
     "smoke:package": "node scripts/smoke-package-exports.mjs",
     "pack:check": "bun pm pack --dry-run",
     "prepublishOnly": "bun run verify:release",
-    "verify:fast": "bun run format:check && bun run lint && bun run check-types && bun run test:unit",
+    "verify:fast": "bun run format:check && bun run architecture:check && bun run lint && bun run check-types && bun run test:unit",
     "verify:release": "bun run verify:fast && bun run example:check-types && bun run test:integration && bun run test:e2e && bun run storybook:build && bun run bench:check && bun run unlighthouse && bun run pack:check",
     "verify:ci": "bun run verify:release",
     "verify": "bun run verify:release"
