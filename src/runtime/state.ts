@@ -1,32 +1,29 @@
-import {
-  resolveEditorAspects,
-  type EditorAspectDefinition,
-  type EditorAspectSnapshot,
-  type EditorChangeOrigin,
-} from "../aspects.js";
+import type { EditorChangeOrigin } from "../aspects.js";
 import {
   commitEditorSnapshotHistory,
   createEditorSnapshotHistory,
   redoEditorSnapshotHistory,
   resetEditorSnapshotHistory,
   undoEditorSnapshotHistory,
-  type EditorSnapshotHistory,
 } from "../history.js";
+import {
+  getRuntimeStateOptions,
+  rebuildEditorRuntimeState,
+  resolveRuntimeAspects,
+  runtimeDocumentsEqual,
+  toRuntimeStateOptions,
+  withRuntimeFlags,
+} from "./state-internals.js";
 import type {
   CommitEditorRuntimeOptions,
   EditorRuntimeOptions,
   EditorRuntimeSelection,
   EditorRuntimeState,
-  EditorRuntimeStateOptions,
-  EditorRuntimeStatus,
   EditorRuntimeUpdate,
   EditorRuntimeUpdateContext,
   ResetEditorRuntimeOptions,
 } from "./types.js";
 import { validateRuntimeDocument } from "./validation.js";
-
-const editorRuntimeOptionsByState = new WeakMap<object, EditorRuntimeStateOptions<unknown>>();
-const noEditorRuntimeAspects: readonly EditorAspectDefinition<unknown, unknown>[] = [];
 
 export function createEditorRuntime<TDocument, TSelection = unknown>(
   options: EditorRuntimeOptions<TDocument, TSelection>,
@@ -216,95 +213,4 @@ function resolveRuntimeUpdate<TDocument, TSelection>(
   }
 
   return update;
-}
-
-function rebuildEditorRuntimeState<TDocument, TSelection>(
-  state: EditorRuntimeState<TDocument, TSelection>,
-  next: {
-    history: EditorSnapshotHistory<TDocument>;
-    origin?: EditorChangeOrigin;
-    revision: number;
-    savedRevision: number;
-    selection: EditorRuntimeSelection<TSelection>;
-  },
-): EditorRuntimeState<TDocument, TSelection> {
-  const runtimeOptions = getRuntimeStateOptions(state);
-  return withRuntimeFlags(
-    {
-      aspectSnapshot: resolveRuntimeAspects(
-        next.history.present,
-        runtimeOptions,
-        next.revision,
-        next.origin,
-        state.aspectSnapshot,
-      ),
-      history: next.history,
-      document: next.history.present,
-      issues: validateRuntimeDocument(next.history.present, runtimeOptions),
-      origin: next.origin,
-      revision: next.revision,
-      savedRevision: next.savedRevision,
-      selection: next.selection,
-    },
-    runtimeOptions,
-  );
-}
-
-function toRuntimeStateOptions<TDocument, TSelection>(
-  options: EditorRuntimeOptions<TDocument, TSelection>,
-): EditorRuntimeStateOptions<TDocument, TSelection> {
-  return {
-    aspects: options.aspects,
-    history: options.history,
-    origin: options.origin,
-    validate: options.validate,
-  };
-}
-
-function resolveRuntimeAspects<TDocument>(
-  document: TDocument,
-  options: Pick<EditorRuntimeOptions<TDocument>, "aspects">,
-  revision: number,
-  origin?: EditorChangeOrigin,
-  previous?: EditorAspectSnapshot<TDocument>,
-): EditorAspectSnapshot<TDocument> {
-  return resolveEditorAspects(document, options.aspects ?? noEditorRuntimeAspects, {
-    origin,
-    previous,
-    revision,
-  });
-}
-
-function runtimeDocumentsEqual<TDocument>(
-  left: TDocument,
-  right: TDocument,
-  options: Pick<EditorRuntimeOptions<TDocument>, "history">,
-): boolean {
-  return (options.history?.equals ?? Object.is)(left, right);
-}
-
-function withRuntimeFlags<TDocument, TSelection>(
-  state: Omit<EditorRuntimeState<TDocument, TSelection>, "canRedo" | "canUndo" | "status">,
-  options: EditorRuntimeStateOptions<TDocument, TSelection>,
-): EditorRuntimeState<TDocument, TSelection> {
-  const status: EditorRuntimeStatus = state.revision === state.savedRevision ? "clean" : "dirty";
-  const runtime = {
-    ...state,
-    canRedo: state.history.canRedo,
-    canUndo: state.history.canUndo,
-    status,
-  };
-  editorRuntimeOptionsByState.set(runtime, options as EditorRuntimeStateOptions<unknown>);
-  return runtime;
-}
-
-function getRuntimeStateOptions<TDocument, TSelection>(
-  state: EditorRuntimeState<TDocument, TSelection>,
-): EditorRuntimeStateOptions<TDocument, TSelection> {
-  const options = editorRuntimeOptionsByState.get(state);
-  if (!options) {
-    throw new Error("Editor runtime state must be created by createEditorRuntime.");
-  }
-
-  return options as EditorRuntimeStateOptions<TDocument, TSelection>;
 }

@@ -57,7 +57,7 @@ jobs:
               --jq '.[] | [.databaseId, .status, (.conclusion // "")] | @tsv' || true)"
 
             if [ -z "${line}" ]; then
-              echo "Waiting for Validate workflow to start for ${GITHUB_SHA}..."
+              echo "Waiting for Validate workflow to start for ${GITHUB_SHA}... (${attempt}/60)"
               sleep 30
               continue
             fi

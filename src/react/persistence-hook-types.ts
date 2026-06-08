@@ -6,12 +6,7 @@ import type {
   EditorPersistenceState,
 } from "../persistence.js";
 import type { EditorRuntimeState } from "../runtime.js";
-import { usePersistentEditorRuntimeCore } from "./persistence-runtime-core.js";
-import {
-  conflictAwarePersistenceStrategy,
-  editorStoragePersistenceStrategy,
-  type EditorAutosaveOptions,
-} from "./persistence-strategy.js";
+import type { EditorAutosaveOptions } from "./persistence-strategy.js";
 import type { UseEditorRuntimeOptions, UseEditorRuntimeResult } from "./runtime-hooks.js";
 
 export type UsePersistentEditorRuntimeOptions<
@@ -51,21 +46,12 @@ export type UseConflictAwareEditorRuntimeResult<
   save: (options?: { force?: boolean }) => Promise<boolean>;
 };
 
-export function usePersistentEditorRuntime<TDocument, TSelection = unknown>(
-  options: UsePersistentEditorRuntimeOptions<TDocument, TSelection>,
-): UsePersistentEditorRuntimeResult<TDocument, TSelection> {
-  return usePersistentEditorRuntimeCore<TDocument, TSelection, EditorStorageAdapter<TDocument>>(
-    options,
-    editorStoragePersistenceStrategy,
-  );
-}
-
-export function useConflictAwareEditorRuntime<TDocument, TSelection = unknown>(
-  options: UseConflictAwareEditorRuntimeOptions<TDocument, TSelection>,
-): UseConflictAwareEditorRuntimeResult<TDocument, TSelection> {
-  return usePersistentEditorRuntimeCore<
-    TDocument,
-    TSelection,
-    EditorConflictStorageAdapter<TDocument>
-  >(options, conflictAwarePersistenceStrategy);
-}
+export type UsePersistentEditorRuntimeCoreOptions<TDocument, TSelection, TStorage> =
+  UseEditorRuntimeOptions<TDocument, TSelection> & {
+    storage: TStorage;
+    autosave?: boolean | EditorAutosaveOptions;
+    loadOnMount?: boolean;
+    canSave?: (runtime: EditorRuntimeState<TDocument, TSelection>) => boolean;
+    onPersistenceError?: (error: unknown, context: EditorPersistenceErrorContext) => void;
+    onPersistenceEvent?: EditorPersistenceEventHandler;
+  };
