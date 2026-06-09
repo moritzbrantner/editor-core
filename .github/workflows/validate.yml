@@ -42,7 +42,7 @@ jobs:
       package_check_command: "bun run pack:check"
       artifact_paths: ""
 
-  node18-package-smoke:
+  node24-package-smoke:
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -51,10 +51,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Node 18
+      - name: Setup Node 24
         uses: actions/setup-node@v4
         with:
-          node-version: "18"
+          node-version: "24"
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
@@ -67,7 +67,7 @@ jobs:
       - name: Build package
         run: bun run build
 
-      - name: Smoke package exports on Node 18
+      - name: Smoke package exports on Node 24
         run: node scripts/smoke-package-exports.mjs
         env:
           EDITOR_CORE_COMPAT_NODE_BIN: node
