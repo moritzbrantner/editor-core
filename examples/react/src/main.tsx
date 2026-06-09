@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider, useQuery } from "@tanstack/react-quer
 import { createRoot } from "react-dom/client";
 import {
   createLocalStorageEditorStorage,
+  createEditorDocumentIoCommands,
   createEditorRuntimeCommands,
   createStableEditorJsonEquals,
   decodeEditorSharePayload,
@@ -16,6 +17,7 @@ import {
   serializeEditorDocument,
   type EditorCommandDefinition,
   type EditorDocumentAdapter,
+  type EditorDocumentIoCommandId,
   type EditorDocumentMigrations,
   type EditorHotkeyEvent,
   type EditorRuntimeCommandId,
@@ -43,7 +45,7 @@ type ExampleDocument = {
   updatedAt: string;
 };
 
-type CommandId = EditorRuntimeCommandId | "download" | "import" | "share" | "template";
+type CommandId = EditorRuntimeCommandId | EditorDocumentIoCommandId | "share" | "template";
 
 const templateDocument: ExampleDocument = {
   accent: "cobalt",
@@ -275,36 +277,39 @@ function App() {
     [editor, setState, template],
   );
 
+  const documentIoCommands = React.useMemo(
+    () =>
+      createEditorDocumentIoCommands({
+        export: {
+          run: downloadDocument,
+        },
+        import: {
+          run: () => importFileInputRef.current?.click(),
+        },
+        labels: {
+          export: "Download JSON",
+        },
+        runtime: editor,
+        save: {
+          disabled: editor.status === "clean" || persistence.status === "saving",
+          run: async () => {
+            const saved = await saveRuntime({ force: true });
+            setNotice(saved ? "Saved locally" : "Local save failed");
+          },
+        },
+      }),
+    [downloadDocument, editor, persistence.status, saveRuntime],
+  );
+
   const commands = React.useMemo<readonly EditorCommandDefinition<CommandId>[]>(
     () => [
       ...runtimeCommands,
-      {
-        disabled: editor.status === "clean" || persistence.status === "saving",
-        hotkeys: ["Mod+Alt+S"],
-        id: "save",
-        label: "Save",
-        run: async () => {
-          const saved = await saveRuntime({ force: true });
-          setNotice(saved ? "Saved locally" : "Local save failed");
-        },
-      },
+      ...documentIoCommands,
       {
         hotkeys: ["Mod+Enter"],
         id: "template",
         label: "Template",
         run: loadTemplate,
-      },
-      {
-        hotkeys: ["Mod+O"],
-        id: "import",
-        label: "Import JSON",
-        run: () => importFileInputRef.current?.click(),
-      },
-      {
-        hotkeys: ["Mod+Shift+S"],
-        id: "download",
-        label: "Download JSON",
-        run: downloadDocument,
       },
       {
         hotkeys: ["Mod+S"],
@@ -313,15 +318,7 @@ function App() {
         run: shareDocument,
       },
     ],
-    [
-      downloadDocument,
-      editor.status,
-      loadTemplate,
-      persistence.status,
-      runtimeCommands,
-      saveRuntime,
-      shareDocument,
-    ],
+    [documentIoCommands, loadTemplate, runtimeCommands, shareDocument],
   );
 
   useEditorHotkeys({

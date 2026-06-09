@@ -136,6 +136,40 @@ const commands = resolveEditorCommands(
 const diagnostics = getEditorCommandDiagnostics(commands);
 ```
 
+Document IO commands provide headless presets for save, import, and export while the host editor
+keeps ownership of persistence, file pickers, and download targets:
+
+```ts
+import {
+  createEditorDocumentIoCommands,
+  createEditorRuntimeCommands,
+  downloadEditorJson,
+  saveEditorRuntimePersistence,
+  serializeEditorDocument,
+} from "@moritzbrantner/editor-core";
+
+const commands = [
+  ...createEditorRuntimeCommands({
+    getResetDocument: () => initialDocument,
+    include: ["undo", "redo", "reset"],
+    runtime,
+    setRuntime,
+  }),
+  ...createEditorDocumentIoCommands({
+    export: {
+      run: () => downloadEditorJson(serializeEditorDocument(runtime.document, adapter)),
+    },
+    import: {
+      run: () => fileInput.click(),
+    },
+    runtime,
+    save: {
+      run: () => saveEditorRuntimePersistence(runtime, storage),
+    },
+  }),
+];
+```
+
 ## Runtime
 
 Use the runtime when an editor needs document state, undo/redo, selection, validation, derived

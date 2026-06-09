@@ -1064,11 +1064,16 @@ export {
   R as ResetEditorRuntimeOptions,
 } from "./types-BobBf3K-.js";
 export {
+  EditorDocumentIoCommandId,
+  EditorDocumentIoCommandsOptions,
   EditorRuntimeCommandId,
   EditorRuntimeCommandsOptions,
   commitEditorRuntime,
+  createEditorDocumentIoCommands,
   createEditorRuntime,
   createEditorRuntimeCommands,
+  defaultEditorDocumentIoCommandHotkeys,
+  defaultEditorDocumentIoCommandLabels,
   defaultEditorRuntimeCommandHotkeys,
   defaultEditorRuntimeCommandLabels,
   markEditorRuntimeSaved,
@@ -1868,8 +1873,11 @@ declare function validateEditorRuntime<TDocument, TSelection = unknown>(
 ): EditorRuntimeState<TDocument, TSelection>;
 
 type EditorRuntimeCommandId = "undo" | "redo" | "reset" | "save";
+type EditorDocumentIoCommandId = "save" | "import" | "export";
 declare const defaultEditorRuntimeCommandHotkeys: EditorHotkeyMap<EditorRuntimeCommandId>;
 declare const defaultEditorRuntimeCommandLabels: Record<EditorRuntimeCommandId, string>;
+declare const defaultEditorDocumentIoCommandHotkeys: EditorHotkeyMap<EditorDocumentIoCommandId>;
+declare const defaultEditorDocumentIoCommandLabels: Record<EditorDocumentIoCommandId, string>;
 type EditorRuntimeCommandsOptions<TDocument, TSelection = unknown> = {
   runtime: EditorRuntimeState<TDocument, TSelection>;
   setRuntime: (
@@ -1884,12 +1892,35 @@ type EditorRuntimeCommandsOptions<TDocument, TSelection = unknown> = {
   include?: readonly EditorRuntimeCommandId[];
   disabled?: Partial<Record<EditorRuntimeCommandId, boolean>>;
 };
+type EditorDocumentIoCommandsOptions<TDocument, TSelection = unknown> = {
+  runtime: EditorRuntimeState<TDocument, TSelection>;
+  save?: {
+    run: (runtime: EditorRuntimeState<TDocument, TSelection>) => void | Promise<void>;
+    disabled?: boolean;
+  };
+  import?: {
+    run: () => void | Promise<void>;
+    disabled?: boolean;
+  };
+  export?: {
+    run: (runtime: EditorRuntimeState<TDocument, TSelection>) => void | Promise<void>;
+    disabled?: boolean;
+  };
+  hotkeys?: Partial<EditorHotkeyMap<EditorDocumentIoCommandId>>;
+  labels?: Partial<Record<EditorDocumentIoCommandId, string>>;
+  include?: readonly EditorDocumentIoCommandId[];
+};
 declare function createEditorRuntimeCommands<TDocument, TSelection = unknown>(
   options: EditorRuntimeCommandsOptions<TDocument, TSelection>,
 ): readonly EditorCommandDefinition<EditorRuntimeCommandId>[];
+declare function createEditorDocumentIoCommands<TDocument, TSelection = unknown>(
+  options: EditorDocumentIoCommandsOptions<TDocument, TSelection>,
+): readonly EditorCommandDefinition<EditorDocumentIoCommandId>[];
 
 export {
   CommitEditorRuntimeOptions,
+  type EditorDocumentIoCommandId,
+  type EditorDocumentIoCommandsOptions,
   type EditorRuntimeCommandId,
   type EditorRuntimeCommandsOptions,
   EditorRuntimeOptions,
@@ -1898,8 +1929,11 @@ export {
   EditorRuntimeUpdate,
   ResetEditorRuntimeOptions,
   commitEditorRuntime,
+  createEditorDocumentIoCommands,
   createEditorRuntime,
   createEditorRuntimeCommands,
+  defaultEditorDocumentIoCommandHotkeys,
+  defaultEditorDocumentIoCommandLabels,
   defaultEditorRuntimeCommandHotkeys,
   defaultEditorRuntimeCommandLabels,
   markEditorRuntimeSaved,

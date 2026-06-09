@@ -21,11 +21,24 @@ test("edits the React example document and updates editor state", async ({ page 
   await page.getByRole("button", { name: /^Save/u }).click();
   await expect(page.getByRole("status")).toContainText("Saved locally");
 
+  const downloadPromise = page.waitForEvent("download");
+  await page.getByRole("button", { name: /Download JSON/u }).click();
+  const download = await downloadPromise;
+  expect(download.suggestedFilename()).toBe("Release Checklist.json");
+  await expect(page.getByRole("status")).toContainText("JSON downloaded");
+
   await page.getByRole("button", { name: /Undo/u }).click();
   await expect(page.getByRole("button", { name: /Moss/u })).toHaveAttribute(
     "aria-pressed",
     "false",
   );
+
+  await page.getByLabel("Import document JSON file").setInputFiles({
+    buffer: Buffer.from("{"),
+    mimeType: "application/json",
+    name: "broken.json",
+  });
+  await expect(page.getByRole("status")).toContainText("JSON import failed");
 
   await page.getByLabel("Import document JSON file").setInputFiles({
     buffer: Buffer.from(

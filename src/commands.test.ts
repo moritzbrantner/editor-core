@@ -15,6 +15,14 @@ import {
   type EditorSnapshotHistory,
 } from "./history.js";
 import type { EditorHotkeyEvent } from "./hotkeys.js";
+import {
+  commitEditorRuntime,
+  createEditorDocumentIoCommands,
+  createEditorRuntime,
+  defaultEditorDocumentIoCommandHotkeys,
+  defaultEditorDocumentIoCommandLabels,
+  type EditorDocumentIoCommandId,
+} from "./runtime.js";
 
 describe("snapshot history commands", () => {
   test("creates default undo, redo, and reset commands in order with labels and hotkeys", () => {
@@ -202,6 +210,123 @@ describe("snapshot history commands", () => {
   });
 });
 
+describe("document IO commands", () => {
+  test("creates default save, import, and export commands in order with labels and hotkeys", () => {
+    const commands = createEditorDocumentIoCommands({
+      runtime: createEditorRuntime({ initialDocument: { title: "Draft" } }),
+    });
+
+    expect(commands.map((command) => command.id)).toEqual(["save", "import", "export"]);
+    expect(commands.map((command) => command.label)).toEqual([
+      defaultEditorDocumentIoCommandLabels.save,
+      defaultEditorDocumentIoCommandLabels.import,
+      defaultEditorDocumentIoCommandLabels.export,
+    ]);
+    expect(commands.map((command) => command.hotkeys)).toEqual([
+      defaultEditorDocumentIoCommandHotkeys.save,
+      defaultEditorDocumentIoCommandHotkeys.import,
+      defaultEditorDocumentIoCommandHotkeys.export,
+    ]);
+  });
+
+  test("disables save while clean and enables save when dirty", () => {
+    const cleanRuntime = createEditorRuntime({ initialDocument: { title: "Draft" } });
+    const dirtyRuntime = commitEditorRuntime(cleanRuntime, { title: "Changed" });
+
+    expect(
+      getCommand(createEditorDocumentIoCommands({ runtime: cleanRuntime }), "save").disabled,
+    ).toBe(true);
+    expect(
+      getCommand(createEditorDocumentIoCommands({ runtime: dirtyRuntime }), "save").disabled,
+    ).toBe(false);
+  });
+
+  test("allows disabled overrides for save, import, and export", () => {
+    const runtime = createEditorRuntime({ initialDocument: { title: "Draft" } });
+    const commands = createEditorDocumentIoCommands({
+      export: { disabled: true, run: () => {} },
+      import: { disabled: true, run: () => {} },
+      runtime,
+      save: { disabled: false, run: () => {} },
+    });
+
+    expect(getCommand(commands, "save").disabled).toBe(false);
+    expect(getCommand(commands, "import").disabled).toBe(true);
+    expect(getCommand(commands, "export").disabled).toBe(true);
+  });
+
+  test("honors include ordering and label and hotkey overrides", () => {
+    const commands = createEditorDocumentIoCommands({
+      hotkeys: {
+        export: ["Mod+E"],
+      },
+      include: ["export", "save"],
+      labels: {
+        export: "Download JSON",
+      },
+      runtime: createEditorRuntime({ initialDocument: { title: "Draft" } }),
+    });
+
+    expect(commands.map((command) => command.id)).toEqual(["export", "save"]);
+    expect(commands[0]).toMatchObject({
+      hotkeys: ["Mod+E"],
+      label: "Download JSON",
+    });
+  });
+
+  test("runs save, import, and export handlers with the expected runtime context", async () => {
+    const runtime = commitEditorRuntime(
+      createEditorRuntime({ initialDocument: { title: "Draft" } }),
+      { title: "Changed" },
+    );
+    const save = vi.fn(async (currentRuntime: typeof runtime) => {
+      expect(currentRuntime).toBe(runtime);
+    });
+    const importJson = vi.fn(async () => {});
+    const exportJson = vi.fn(async (currentRuntime: typeof runtime) => {
+      expect(currentRuntime.document).toEqual({ title: "Changed" });
+    });
+    const commands = createEditorDocumentIoCommands({
+      export: { run: exportJson },
+      import: { run: importJson },
+      runtime,
+      save: { run: save },
+    });
+
+    await getCommand(commands, "save").run?.(event);
+    await getCommand(commands, "import").run?.(event);
+    await getCommand(commands, "export").run?.(event);
+
+    expect(save).toHaveBeenCalledOnce();
+    expect(importJson).toHaveBeenCalledOnce();
+    expect(exportJson).toHaveBeenCalledOnce();
+  });
+
+  test("does not run disabled handlers", async () => {
+    const runtime = commitEditorRuntime(
+      createEditorRuntime({ initialDocument: { title: "Draft" } }),
+      { title: "Changed" },
+    );
+    const save = vi.fn();
+    const importJson = vi.fn();
+    const exportJson = vi.fn();
+    const commands = createEditorDocumentIoCommands({
+      export: { disabled: true, run: exportJson },
+      import: { disabled: true, run: importJson },
+      runtime,
+      save: { disabled: true, run: save },
+    });
+
+    await getCommand(commands, "save").run?.(event);
+    await getCommand(commands, "import").run?.(event);
+    await getCommand(commands, "export").run?.(event);
+
+    expect(save).not.toHaveBeenCalled();
+    expect(importJson).not.toHaveBeenCalled();
+    expect(exportJson).not.toHaveBeenCalled();
+  });
+});
+
 describe("contextual editor commands", () => {
   test("resolves availability, checked state, groups, menus, and read-only state", async () => {
     const seen: string[] = [];
@@ -348,12 +473,15 @@ function createHistorySetter<TDocument>(
 }
 
 function getCommand(
-  commands: readonly { id: EditorSnapshotHistoryCommandId }[],
-  id: EditorSnapshotHistoryCommandId,
+  commands: readonly { id: EditorSnapshotHistoryCommandId | EditorDocumentIoCommandId }[],
+  id: EditorSnapshotHistoryCommandId | EditorDocumentIoCommandId,
 ) {
   const command = commands.find((candidate) => candidate.id === id);
   expect(command).toBeDefined();
   return command as NonNullable<typeof command> & {
+    disabled?: boolean;
+    hotkeys?: readonly string[];
+    label?: string;
     run?: (event: EditorHotkeyEvent) => void | Promise<void>;
   };
 }
