@@ -1,6 +1,14 @@
 import { describe, expect, test, vi } from "vitest";
 import type { EditorStorageAdapter } from "./browser.js";
 import { commitEditorRuntime, createEditorRuntime, type EditorRuntimeState } from "./runtime.js";
+import { emitRevisionTokenUpdated } from "./persistence/events.js";
+import {
+  createLoadedPersistenceState,
+  createLoadErrorPersistenceState,
+  createSavedPersistenceState,
+  createSaveErrorPersistenceState,
+  createSkippedSavePersistenceState,
+} from "./persistence/state.js";
 import {
   EditorPersistenceConflictError,
   clearEditorPersistenceConflict,
@@ -33,6 +41,93 @@ describe("editor persistence", () => {
       savedRevision: null,
       savingRevision: null,
       status: "idle",
+    });
+  });
+
+  test("creates explicit persistence state snapshots", () => {
+    const error = new Error("load failed");
+    const conflict = new EditorPersistenceConflictError("stale revision", {
+      local: { document: { body: "Local", title: "Local" }, revisionToken: "server-1" },
+    });
+
+    expect(
+      createLoadedPersistenceState({
+        revision: 3,
+        revisionToken: "server-2",
+        timestamp: "2026-06-06T12:00:00.000Z",
+      }),
+    ).toMatchObject({
+      loadedAt: "2026-06-06T12:00:00.000Z",
+      operation: "load",
+      revisionToken: "server-2",
+      savedAt: "2026-06-06T12:00:00.000Z",
+      savedRevision: 3,
+      status: "loaded",
+    });
+    expect(
+      createLoadErrorPersistenceState({
+        error,
+        revision: 4,
+        revisionToken: "server-3",
+      }),
+    ).toMatchObject({
+      error,
+      operation: "load",
+      revisionToken: "server-3",
+      savedRevision: 4,
+      status: "error",
+    });
+    expect(
+      createSkippedSavePersistenceState({
+        revisionToken: "server-4",
+        savedRevision: 5,
+      }),
+    ).toMatchObject({
+      operation: null,
+      revisionToken: "server-4",
+      savedRevision: 5,
+      status: "idle",
+    });
+    expect(
+      createSavedPersistenceState({
+        revision: 6,
+        revisionToken: "server-5",
+        timestamp: "2026-06-06T12:01:00.000Z",
+      }),
+    ).toMatchObject({
+      operation: "save",
+      revisionToken: "server-5",
+      savedAt: "2026-06-06T12:01:00.000Z",
+      savedRevision: 6,
+      status: "saved",
+    });
+    expect(
+      createSaveErrorPersistenceState({
+        conflict,
+        error: conflict,
+        revisionToken: "server-6",
+        savedRevision: 7,
+      }),
+    ).toMatchObject({
+      conflict,
+      error: conflict,
+      operation: "save",
+      revisionToken: "server-6",
+      savedRevision: 7,
+      status: "error",
+    });
+  });
+
+  test("emits revision token updates only when enabled", () => {
+    const onEvent = vi.fn();
+
+    emitRevisionTokenUpdated({ onEvent }, "server-1", { emitRevisionToken: true });
+    emitRevisionTokenUpdated({ onEvent }, "server-2", { emitRevisionToken: false });
+
+    expect(onEvent).toHaveBeenCalledOnce();
+    expect(onEvent).toHaveBeenCalledWith({
+      revisionToken: "server-1",
+      type: "revision-token-updated",
     });
   });
 

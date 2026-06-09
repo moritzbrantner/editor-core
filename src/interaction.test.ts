@@ -6,6 +6,7 @@ import {
   commitEditorInteractionOperation,
   createEditorInteractionSession,
   isEditorInteractionActive,
+  updateEditorInteractionPreview,
 } from "./interaction.js";
 import { createEditorOperationRuntime, undoEditorOperationRuntime } from "./operations.js";
 
@@ -25,6 +26,23 @@ describe("editor interactions", () => {
       state: { kind: "idle" },
     });
     expect(cancelEditorInteraction({ ...dragging, previewDocument: { x: 10 } })).toEqual(session);
+  });
+
+  test("updates previews without mutating the committed document or interaction state", () => {
+    const session = beginEditorInteraction(createEditorInteractionSession({ x: 0 }), {
+      ids: ["a"],
+      kind: "dragging" as const,
+      origin: { x: 0, y: 0 },
+    });
+
+    const preview = updateEditorInteractionPreview(session, { x: 10 });
+
+    expect(preview).toEqual({
+      committedDocument: { x: 0 },
+      previewDocument: { x: 10 },
+      state: session.state,
+    });
+    expect(session.previewDocument).toEqual({ x: 0 });
   });
 
   test("commits interaction operations as mergeable transactions", () => {

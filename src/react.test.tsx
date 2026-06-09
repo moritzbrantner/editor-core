@@ -5,6 +5,7 @@ import { afterEach, describe, expect, test, vi } from "vitest";
 import type { EditorStorageAdapter } from "./browser.js";
 import {
   EditorPersistenceConflictError,
+  createEditorPersistenceState,
   type EditorConflictStorageAdapter,
   type EditorPersistedDocument,
 } from "./persistence.js";
@@ -13,10 +14,17 @@ import {
   useConflictAwareEditorRuntime,
   useEditorHotkeys,
   useEditorRuntime,
+  useEditorTreeState,
   usePersistentEditorRuntime,
   type UseConflictAwareEditorRuntimeResult,
   type UsePersistentEditorRuntimeResult,
 } from "./react.js";
+import { usePersistentEditorRuntimeCore } from "./react/persistence-runtime-core.js";
+import {
+  conflictAwarePersistenceStrategy,
+  editorStoragePersistenceStrategy,
+  normalizeEditorAutosaveOptions,
+} from "./react/persistence-strategy.js";
 
 type Document = {
   title: string;
@@ -537,6 +545,109 @@ describe("editor react hooks", () => {
     fixture.unmount();
     scope.remove();
     outside.remove();
+  });
+
+  test("useEditorTreeState selects and expands tree nodes", () => {
+    const fixture = renderHook(() => useEditorTreeState({ expandedIds: ["root"] }));
+
+    expect(fixture.result.state).toEqual({
+      expandedIds: ["root"],
+      selectedId: null,
+    });
+
+    act(() => {
+      fixture.result.select("child");
+      fixture.result.expand("child");
+    });
+    expect(fixture.result.state.selectedId).toBe("child");
+    expect(fixture.result.state.expandedIds).toEqual(["child", "root"]);
+
+    act(() => {
+      fixture.result.toggle("root");
+      fixture.result.collapse("child");
+    });
+    expect(fixture.result.state.expandedIds).toEqual([]);
+
+    fixture.unmount();
+  });
+
+  test("normalizes autosave options with defaults, disabled mode, and retry clamping", () => {
+    expect(normalizeEditorAutosaveOptions(undefined)).toEqual({
+      delayMs: 750,
+      enabled: true,
+      retryAttempts: 0,
+      retryDelayMs: 1500,
+      saveLatest: true,
+    });
+    expect(normalizeEditorAutosaveOptions(false)).toEqual({
+      delayMs: 750,
+      enabled: false,
+      retryAttempts: 0,
+      retryDelayMs: 1500,
+      saveLatest: true,
+    });
+    expect(
+      normalizeEditorAutosaveOptions({
+        delayMs: 10,
+        retry: { attempts: -1.8, delayMs: 25 },
+        saveLatest: false,
+      }),
+    ).toEqual({
+      delayMs: 10,
+      enabled: true,
+      retryAttempts: 0,
+      retryDelayMs: 25,
+      saveLatest: false,
+    });
+    expect(normalizeEditorAutosaveOptions({ retry: { attempts: 2.8 } }).retryAttempts).toBe(2);
+
+    const persistence = { ...createEditorPersistenceState(), revisionToken: "server-1" };
+    expect(editorStoragePersistenceStrategy.getSaveOptions()).toEqual({});
+    expect(conflictAwarePersistenceStrategy.getSaveOptions(persistence)).toEqual({
+      revisionToken: "server-1",
+    });
+    expect(editorStoragePersistenceStrategy.prepareLoad(persistence)).toMatchObject({
+      operation: "load",
+      status: "loading",
+    });
+    expect(
+      conflictAwarePersistenceStrategy.prepareSave({ ...persistence, conflict: null }),
+    ).toMatchObject({
+      conflict: null,
+      error: null,
+    });
+  });
+
+  test("usePersistentEditorRuntimeCore saves through an injected persistence strategy", async () => {
+    const storage = createMemoryStorage<Document>(null);
+    const fixture = renderHook(() =>
+      usePersistentEditorRuntimeCore<Document, string, MemoryStorage<Document>>(
+        {
+          autosave: false,
+          history: {
+            equals(left, right) {
+              return left.title === right.title;
+            },
+          },
+          initialDocument,
+          loadOnMount: false,
+          storage,
+        },
+        editorStoragePersistenceStrategy,
+      ),
+    );
+
+    act(() => {
+      fixture.result.commit({ title: "Core" });
+    });
+    await act(async () => {
+      await fixture.result.save();
+    });
+
+    expect(storage.save).toHaveBeenCalledWith({ title: "Core" });
+    expect(fixture.result.persistence.status).toBe("saved");
+    expect(fixture.result.state.status).toBe("clean");
+    fixture.unmount();
   });
 
   test("useControllableEditorState supports uncontrolled and controlled values", () => {

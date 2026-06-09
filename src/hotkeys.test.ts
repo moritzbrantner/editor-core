@@ -8,6 +8,7 @@ import {
   isEditorHotkeyValid,
   matchesEditorHotkey,
   parseEditorHotkey,
+  resolveEditorHotkeys,
 } from "./hotkeys.js";
 
 describe("hotkeys", () => {
@@ -74,6 +75,26 @@ describe("hotkeys", () => {
         [{ id: "delete", label: "Delete" }],
       ),
     ).toEqual(["details"]);
+  });
+
+  test("resolves default hotkeys with explicit command overrides", () => {
+    expect(
+      resolveEditorHotkeys<"redo" | "save" | "undo">(
+        {
+          redo: ["Mod+Shift+Z"],
+          save: ["Mod+S"],
+          undo: ["Mod+Z"],
+        },
+        {
+          redo: ["Mod+Y"],
+          save: [],
+        },
+      ),
+    ).toEqual({
+      redo: ["Mod+Y"],
+      save: [],
+      undo: ["Mod+Z"],
+    });
   });
 
   test("handles explicit platform modifiers and rejects malformed multi-key shortcuts", () => {

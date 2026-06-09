@@ -12,6 +12,17 @@ import {
   validateEditorRuntime,
   type EditorRuntimeState,
 } from "./runtime.js";
+import {
+  editorRuntimeOptionsByState,
+  getRuntimeStateOptions,
+  noEditorRuntimeAspects,
+  rebuildEditorRuntimeState,
+  resolveRuntimeAspects,
+  runtimeDocumentsEqual,
+  toRuntimeStateOptions,
+  withRuntimeFlags,
+} from "./runtime/state-internals.js";
+import { validateRuntimeDocument } from "./runtime/validation.js";
 
 type Document = {
   body: string;
@@ -254,6 +265,81 @@ describe("editor runtime", () => {
     runtime = commitEditorRuntime(runtime, 3);
 
     expect(runtime.history.past).toEqual([2]);
+  });
+
+  test("uses runtime internals to retain options, flags, validation, and aspects", () => {
+    const runtime = createTestRuntime();
+    const options = getRuntimeStateOptions(runtime);
+
+    expect(options.history).toBe(historyOptions);
+    expect(options.validate).toBe(validate);
+    expect(
+      toRuntimeStateOptions({
+        history: historyOptions,
+        initialDocument: { body: "Hello", title: "Draft" },
+        validate,
+      }),
+    ).toEqual({
+      aspects: undefined,
+      history: historyOptions,
+      origin: undefined,
+      validate,
+    });
+    expect(validateRuntimeDocument({ body: "Body", title: "" }, { validate })).toEqual([
+      { path: "title", message: "Title is required." },
+    ]);
+    expect(validateRuntimeDocument({ body: "Body", title: "" }, {})).toEqual([]);
+    expect(
+      runtimeDocumentsEqual(runtime.document, { body: "Hello", title: "Draft" }, options),
+    ).toBe(true);
+    expect(
+      runtimeDocumentsEqual(runtime.document, { body: "Hello", title: "Changed" }, options),
+    ).toBe(false);
+
+    const aspectSnapshot = resolveRuntimeAspects(
+      { body: "one two three", title: "Draft" },
+      { aspects: [wordCountAspect] },
+      5,
+    );
+    expect(aspectSnapshot.revision).toBe(5);
+    expect(aspectSnapshot.aspects["word-count"]?.value).toBe(3);
+    expect(resolveRuntimeAspects(runtime.document, {}, 1).aspects).toEqual({});
+    expect(noEditorRuntimeAspects).toEqual([]);
+
+    const { canRedo: _canRedo, canUndo: _canUndo, status: _status, ...baseRuntime } = runtime;
+    const flagged = withRuntimeFlags(
+      {
+        ...baseRuntime,
+        revision: 1,
+        savedRevision: 0,
+      },
+      options,
+    );
+    expect(flagged.status).toBe("dirty");
+    expect(editorRuntimeOptionsByState.has(flagged)).toBe(true);
+
+    const committed = commitEditorRuntime(runtime, { body: "Next", title: "" });
+    const rebuilt = rebuildEditorRuntimeState(committed, {
+      history: committed.history,
+      origin: { source: "test" },
+      revision: 10,
+      savedRevision: 9,
+      selection: "title",
+    });
+    expect(rebuilt.document).toEqual({ body: "Next", title: "" });
+    expect(rebuilt.issues).toEqual([{ path: "title", message: "Title is required." }]);
+    expect(rebuilt.origin).toEqual({ source: "test" });
+    expect(rebuilt.revision).toBe(10);
+    expect(rebuilt.selection).toBe("title");
+    expect(rebuilt.status).toBe("dirty");
+  });
+
+  test("rejects runtime option lookup for non-runtime objects", () => {
+    const runtime = createTestRuntime();
+
+    expect(() => getRuntimeStateOptions({ ...runtime })).toThrow(
+      "Editor runtime state must be created by createEditorRuntime.",
+    );
   });
 });
 

@@ -1,6 +1,6 @@
 {
   "name": "@moritzbrantner/editor-core",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "private": false,
   "description": "Headless shared infrastructure for Moritz Brantner editor packages.",
   "keywords": [
@@ -139,6 +139,7 @@
     "lint": "oxlint src stories benchmarks tests scripts .storybook examples/react/src examples/react/vite.config.ts playwright.config.ts unlighthouse.config.ts vitest.storybook.config.ts vitest.config.ts --format=github",
     "check-types": "tsc --noEmit",
     "test": "bun run test:unit",
+    "test:coverage": "$(dirname $(command -v npm))/node node_modules/vitest/vitest.mjs run --coverage",
     "test:unit": "$(dirname $(command -v npm))/node node_modules/vitest/vitest.mjs run && $(dirname $(command -v npm))/node --test scripts/*.test.mjs",
     "test:react": "$(dirname $(command -v npm))/node node_modules/vitest/vitest.mjs run src/react.test.tsx",
     "test:integration": "bun run build && bun run smoke:package && node scripts/check-api-snapshot.mjs",
@@ -181,6 +182,7 @@
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.2",
     "@vitest/browser-playwright": "^4.1.8",
+    "@vitest/coverage-v8": "^4.1.8",
     "jsdom": "^29.1.1",
     "oxfmt": "^0.52.0",
     "oxlint": "^1.67.0",

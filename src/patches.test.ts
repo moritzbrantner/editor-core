@@ -5,6 +5,7 @@ import {
   invertEditorPatch,
   isEditorPatchEmpty,
 } from "./patches.js";
+import { isPlainEditorRecord } from "./patches/records.js";
 
 describe("editor patches", () => {
   test("diffs primitive replacements", () => {
@@ -115,5 +116,12 @@ describe("editor patches", () => {
 
     expect(patch).toEqual([]);
     expect(isEditorPatchEmpty(patch)).toBe(true);
+  });
+
+  test("identifies plain editor records for patch internals", () => {
+    expect(isPlainEditorRecord({ title: "Draft" })).toBe(true);
+    expect(isPlainEditorRecord([])).toBe(false);
+    expect(isPlainEditorRecord(null)).toBe(false);
+    expect(isPlainEditorRecord("Draft")).toBe(false);
   });
 });

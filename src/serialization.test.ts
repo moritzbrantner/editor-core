@@ -2,6 +2,7 @@ import { describe, expect, test } from "vitest";
 import {
   EditorJsonParseError,
   EditorMigrationError,
+  migrateEditorDocument,
   parseEditorDocumentJson,
   readEditorDocument,
   serializeEditorDocument,
@@ -83,6 +84,28 @@ describe("serialization", () => {
         },
       ),
     ).toEqual({ nodes: ["migrated"] });
+  });
+
+  test("migrates serialized envelopes directly", () => {
+    const migrated = migrateEditorDocument(
+      { format: adapter.format, schemaVersion: 1, document: { values: ["direct"] } },
+      adapter,
+      {
+        1: (input) => ({
+          ...input,
+          schemaVersion: 2,
+          document: { nodes: (input.document as { values: string[] }).values },
+        }),
+      },
+    );
+
+    expect(migrated).toEqual({
+      document: { nodes: ["direct"] },
+      format: adapter.format,
+      schemaVersion: 2,
+    });
+    expect(migrateEditorDocument({ nodes: ["raw"] }, adapter)).toEqual({ nodes: ["raw"] });
+    expect(migrateEditorDocument(null, adapter)).toBeNull();
   });
 
   test("applies migration chains", () => {

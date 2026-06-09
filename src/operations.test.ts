@@ -8,6 +8,7 @@ import {
   serializeEditorOperationLog,
   undoEditorOperationRuntime,
 } from "./operations.js";
+import { migrateEditorOperationLog } from "./operations/migrations.js";
 import { EditorJsonParseError, EditorMigrationError } from "./serialization.js";
 
 type Document = {
@@ -272,6 +273,38 @@ describe("editor operations", () => {
         adapter,
       ),
     ).toThrow(EditorJsonParseError);
+  });
+
+  test("migrates operation logs directly and rejects migration cycles", () => {
+    const adapter = createOperationLogAdapter();
+    const input = {
+      format: "@example/ops",
+      operations: [{ value: 3 }],
+      schemaVersion: 1,
+    };
+
+    expect(
+      migrateEditorOperationLog(input, adapter, {
+        1: (log) => ({
+          ...log,
+          operations: log.operations.map((operation) => ({
+            amount: (operation as unknown as { value: number }).value,
+            type: "move",
+          })),
+          schemaVersion: 3,
+        }),
+      }),
+    ).toEqual({
+      format: "@example/ops",
+      operations: [{ amount: 3, type: "move" }],
+      schemaVersion: 3,
+    });
+    expect(migrateEditorOperationLog({ operations: [] }, adapter)).toEqual({ operations: [] });
+    expect(() =>
+      migrateEditorOperationLog(input, adapter, {
+        1: (log) => log,
+      }),
+    ).toThrow(EditorMigrationError);
   });
 });
 
