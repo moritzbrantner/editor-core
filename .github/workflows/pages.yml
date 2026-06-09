@@ -14,6 +14,7 @@ jobs:
   deploy:
     uses: moritzbrantner/reusable-workflows/.github/workflows/deploy-pages.yml@workflow-standard-v1.2
     permissions:
+      actions: read
       contents: read
       id-token: write
       packages: read
