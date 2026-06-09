@@ -136,6 +136,7 @@
     "check-types": "tsc --noEmit",
     "test": "bun run test:unit",
     "test:unit": "$(dirname $(command -v npm))/node node_modules/vitest/vitest.mjs run && $(dirname $(command -v npm))/node --test scripts/*.test.mjs",
+    "test:react": "$(dirname $(command -v npm))/node node_modules/vitest/vitest.mjs run src/react.test.tsx",
     "test:integration": "bun run build && bun run smoke:package && node scripts/check-api-snapshot.mjs",
     "test:e2e": "bun run example:build && bun run test:e2e:run",
     "test:e2e:run": "playwright test",
