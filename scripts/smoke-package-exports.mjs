@@ -69,6 +69,7 @@ async function smokeHeadlessConsumer(tarball) {
       import { createEditorCollaborationState } from "@moritzbrantner/editor-core/collaboration";
       import { applyEditorPatch, diffEditorJson } from "@moritzbrantner/editor-core/patches";
       import { createEditorPluginRegistry } from "@moritzbrantner/editor-core/plugins";
+      import { applyEditorRemoteOperations } from "@moritzbrantner/editor-core/sync";
       import {
         EditorPersistenceConflictError,
         saveEditorRuntimeConflictPersistence,
@@ -85,6 +86,9 @@ async function smokeHeadlessConsumer(tarball) {
         typeof core.saveEditorRuntimeConflictPersistence !== "function"
       ) {
         throw new Error("New headless helpers are missing from the root entrypoint");
+      }
+      if ("applyEditorRemoteOperations" in core) {
+        throw new Error("Sync helpers leaked from the root entrypoint");
       }
 
       const history = createEditorSnapshotHistory({ title: "Draft" });
@@ -129,6 +133,15 @@ async function smokeHeadlessConsumer(tarball) {
       const patch = diffEditorJson({ title: "Draft" }, { title: "Published" });
       const patched = applyEditorPatch({ title: "Draft" }, patch);
       const registry = createEditorPluginRegistry([{ id: "smoke-plugin" }]);
+      const remoteApplied = applyEditorRemoteOperations(
+        history.present,
+        collaboration,
+        [{ clientId: "client-b", id: "remote-op", operation: { title: "Remote" } }],
+        {
+          decode: (envelope) => envelope.operation,
+          apply: (_state, operation) => operation,
+        },
+      );
       const dirtyRuntime = core.commitEditorRuntime(
         core.createEditorRuntime({ initialDocument: { title: "Draft" } }),
         { title: "Saved" },
@@ -154,7 +167,7 @@ async function smokeHeadlessConsumer(tarball) {
       if (!adapterCheck.ok || uniqueEntityId !== "node" || !indexes.entitiesById.has("node") || interaction.state.kind !== "idle" || operationRuntime.canUndo || selection.kind !== "entity" || viewport.zoom !== 2 || graphIssues.length === 0) {
         throw new Error("New foundation subpaths failed");
       }
-      if (collaboration.clientId !== "client-a" || patched.title !== "Published" || registry.plugins.length !== 1 || !conflictSaved.saved || conflictSaved.persistence.revisionToken !== "server-2" || savedRevisionToken !== "server-1" || conflict.name !== "EditorPersistenceConflictError") {
+      if (collaboration.clientId !== "client-a" || patched.title !== "Published" || registry.plugins.length !== 1 || remoteApplied.state.title !== "Remote" || !conflictSaved.saved || conflictSaved.persistence.revisionToken !== "server-2" || savedRevisionToken !== "server-1" || conflict.name !== "EditorPersistenceConflictError") {
         throw new Error("New release subpaths failed");
       }
     `,
@@ -194,6 +207,7 @@ async function smokeHeadlessConsumer(tarball) {
       import type { EditorPatch } from "@moritzbrantner/editor-core/patches";
       import type { EditorPlugin } from "@moritzbrantner/editor-core/plugins";
       import type { EditorConflictStorageAdapter } from "@moritzbrantner/editor-core/persistence";
+      import type { EditorRemoteApplyAdapter } from "@moritzbrantner/editor-core/sync";
       import type { EditorDocumentAdapterCheckCase } from "@moritzbrantner/editor-core/testing";
       import type { EditorTreeAdapter } from "@moritzbrantner/editor-core/tree";
 
@@ -235,6 +249,10 @@ async function smokeHeadlessConsumer(tarball) {
         load: () => ({ document: { title: "Draft" }, revisionToken: "server-1" }),
         save: (value) => value,
       };
+      const remoteAdapter: EditorRemoteApplyAdapter<Document, { title: string }, { title: string }> = {
+        decode: (envelope) => envelope.operation,
+        apply: (_state, operation) => operation,
+      };
 
       void history;
       void adapter;
@@ -246,6 +264,7 @@ async function smokeHeadlessConsumer(tarball) {
       void patch;
       void plugin;
       void conflictStorage;
+      void remoteAdapter;
     `,
   );
   await writeJson(join(consumerDir, "tsconfig.json"), {

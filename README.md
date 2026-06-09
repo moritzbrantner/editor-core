@@ -2,9 +2,9 @@
 
 Headless shared infrastructure for Moritz Brantner editor packages.
 
-The root entrypoint is framework-free. React helpers live at
-`@moritzbrantner/editor-core/react` so consumers can use the core package without installing
-React.
+The root entrypoint is framework-free and works for single-user editors. React helpers live at
+`@moritzbrantner/editor-core/react`, and remote synchronization helpers live at
+`@moritzbrantner/editor-core/sync`, so consumers only opt into those surfaces when they need them.
 
 ```ts
 import { createEditorSnapshotHistory, serializeEditorDocument } from "@moritzbrantner/editor-core";
@@ -34,7 +34,7 @@ bun add react @moritzbrantner/editor-core
 
 | Import path                                 | Purpose                                                          |
 | ------------------------------------------- | ---------------------------------------------------------------- |
-| `@moritzbrantner/editor-core`               | Headless exports except React hooks.                             |
+| `@moritzbrantner/editor-core`               | Headless single-user editor exports except React and sync.       |
 | `@moritzbrantner/editor-core/history`       | Snapshot and transaction undo/redo helpers.                      |
 | `@moritzbrantner/editor-core/commands`      | Command definitions for snapshot history actions.                |
 | `@moritzbrantner/editor-core/collaboration` | Presence, remote operation dedupe, and revision-token types.     |
@@ -49,6 +49,7 @@ bun add react @moritzbrantner/editor-core
 | `@moritzbrantner/editor-core/runtime`       | Document runtime state, validation, aspects, and dirty tracking. |
 | `@moritzbrantner/editor-core/selection`     | Structured entity, range, port, and time selections.             |
 | `@moritzbrantner/editor-core/hotkeys`       | Shortcut parsing, matching, formatting, and conflict detection.  |
+| `@moritzbrantner/editor-core/sync`          | Remote operation apply and explicit conflict resolution helpers. |
 | `@moritzbrantner/editor-core/tree`          | Adapter-driven tree projection and tree UI state.                |
 | `@moritzbrantner/editor-core/viewport`      | Canvas and timeline viewport math.                               |
 | `@moritzbrantner/editor-core/serialization` | Versioned JSON document envelopes and migrations.                |
@@ -140,6 +141,10 @@ const diagnostics = getEditorCommandDiagnostics(commands);
 Use the runtime when an editor needs document state, undo/redo, selection, validation, derived
 aspects, revision metadata, and dirty tracking in one headless primitive. The runtime composes
 history, aspects, and validators, but it does not define a document model.
+
+Single-user editors can stop at runtime, operations, persistence, browser storage, and React hooks.
+They do not need to import collaboration or sync helpers unless another client, actor, or remote
+operation transport exists.
 
 ```ts
 import {
@@ -244,6 +249,34 @@ const remoteOperations = [
 const result = dedupeEditorRemoteOperations(collaboration, remoteOperations);
 collaboration = result.state;
 ```
+
+## Sync
+
+Use sync helpers when a transport has delivered remote operation envelopes and the editor wants to
+apply them through its own operation adapter:
+
+```ts
+import {
+  applyEditorRemoteOperations,
+  createEditorOperationRemoteApplyAdapter,
+} from "@moritzbrantner/editor-core/sync";
+
+const adapter = createEditorOperationRemoteApplyAdapter({
+  decode(envelope) {
+    return {
+      id: envelope.id,
+      apply: (document) => ({ ...document, title: envelope.operation.title }),
+    };
+  },
+});
+
+const result = applyEditorRemoteOperations(editor, collaboration, remoteOperations, adapter);
+editor = result.state;
+collaboration = result.collaboration;
+```
+
+Failed remote operations are not marked seen, so transports can retry them. Remote operations update
+the document but do not enter the local user's undo stack.
 
 ## Patches
 
@@ -510,6 +543,23 @@ const saved = await saveEditorRuntimeConflictPersistence(runtime, storage, {
 
 React consumers can use `useConflictAwareEditorRuntime` for the same load, save, autosave, retry,
 and latest-save behavior with revision-token tracking.
+
+Resolve persistence conflicts explicitly through state-only sync helpers:
+
+```ts
+import {
+  acceptLocalEditorPersistenceConflict,
+  acceptMergedEditorPersistenceConflict,
+  acceptRemoteEditorPersistenceConflict,
+} from "@moritzbrantner/editor-core/sync";
+
+const keepLocal = acceptLocalEditorPersistenceConflict(runtime, persistence);
+const useRemote = acceptRemoteEditorPersistenceConflict(runtime, persistence);
+const useMerged = acceptMergedEditorPersistenceConflict(runtime, persistence, mergedDocument);
+```
+
+Accepting local or merged documents leaves the runtime dirty so callers can save the chosen
+document. Accepting remote resets the runtime to the remote document and marks it clean.
 
 ## Share
 

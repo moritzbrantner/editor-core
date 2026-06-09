@@ -243,6 +243,34 @@ collaboration = deduped.state;
 Apply `deduped.operations` through the downstream editor's own operation adapter. Local-client
 operations are ignored by default.
 
+## Remote Apply
+
+Use `/sync` when a downstream transport receives operation envelopes that should update a headless
+operation runtime:
+
+```ts
+import {
+  applyEditorRemoteOperations,
+  createEditorOperationRemoteApplyAdapter,
+} from "@moritzbrantner/editor-core/sync";
+
+const remoteApply = createEditorOperationRemoteApplyAdapter({
+  decode(envelope) {
+    return {
+      id: envelope.id,
+      apply: (document) => applyRemotePayload(document, envelope.operation),
+    };
+  },
+});
+
+const result = applyEditorRemoteOperations(editor, collaboration, incomingOperations, remoteApply);
+editor = result.state;
+collaboration = result.collaboration;
+```
+
+Failed operations are retryable because they are not marked seen. Remote operations are excluded
+from the local undo stack by default, so local undo remains scoped to the local user's edits.
+
 ## Patches
 
 Use patch helpers for JSON-compatible editor documents when a downstream package needs change
@@ -317,6 +345,23 @@ const saved = await saveEditorRuntimeConflictPersistence(loaded.runtime, storage
 
 Storage adapters should throw `EditorPersistenceConflictError` when a save is stale. The runtime
 stays dirty, persistence exposes the conflict, and a `save-conflict` event is emitted.
+
+Resolve conflicts with `/sync` helpers when the user or product policy chooses a document:
+
+```ts
+import {
+  acceptLocalEditorPersistenceConflict,
+  acceptMergedEditorPersistenceConflict,
+  acceptRemoteEditorPersistenceConflict,
+} from "@moritzbrantner/editor-core/sync";
+
+const local = acceptLocalEditorPersistenceConflict(runtime, persistence);
+const remote = acceptRemoteEditorPersistenceConflict(runtime, persistence);
+const merged = acceptMergedEditorPersistenceConflict(runtime, persistence, mergedDocument);
+```
+
+These helpers are state-only. Save after accept-local or accept-merged when the chosen document
+should be persisted.
 
 ## Command Diagnostics
 

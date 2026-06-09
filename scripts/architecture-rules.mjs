@@ -3,7 +3,7 @@ export const architectureRules = {
     hardLimit: 500,
     softLimit: 300,
   },
-  splitDomains: ["runtime", "operations", "persistence", "react"],
+  splitDomains: ["runtime", "operations", "persistence", "react", "sync"],
   valueDependencies: {
     aspects: [],
     browser: [],
@@ -49,6 +49,7 @@ export const architectureRules = {
     selection: [],
     serialization: ["json"],
     share: [],
+    sync: ["collaboration", "operations", "persistence", "runtime"],
     testing: ["json", "operations", "serialization"],
     tree: [],
     viewport: [],

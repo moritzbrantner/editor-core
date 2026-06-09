@@ -6,7 +6,8 @@ This package follows semver. While the package is in `0.x`, breaking changes may
 
 ## Unreleased
 
-_No unreleased changes._
+- Added `@moritzbrantner/editor-core/sync` with headless remote operation apply helpers and
+  explicit persistence conflict resolution helpers.
 
 ## 0.2.0
 

@@ -19,6 +19,7 @@ Current split domains:
 - `operations`
 - `persistence`
 - `react`
+- `sync`
 
 ## Domain Boundaries
 
