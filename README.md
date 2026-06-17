@@ -736,6 +736,15 @@ bun run test:storybook
 bun run api:check
 bun run unlighthouse
 bun run bench
+bun run test:stable
+```
+
+`bun run test:stable` builds the local package and compares deterministic correctness and
+performance scenarios against the latest published `@moritzbrantner/editor-core` package through the
+Moonlight HTTP stable-comparison harness. Pin a different published target when needed:
+
+```sh
+EDITOR_CORE_STABLE_PACKAGE=@moritzbrantner/editor-core@0.3.0 bun run test:stable
 ```
 
 ## Releases

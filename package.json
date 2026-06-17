@@ -160,6 +160,7 @@
     "unlighthouse:scan": "unlighthouse-ci --site http://127.0.0.1:4173 --config-file unlighthouse.config.ts",
     "bench": "$(dirname $(command -v npm))/node node_modules/vitest/vitest.mjs bench --run",
     "bench:check": "node scripts/run-benchmark-baseline-check.mjs",
+    "test:stable": "bun run build && $(dirname $(command -v npm))/node scripts/run-stable-comparison.mjs",
     "api:check": "bun run build && node scripts/check-api-snapshot.mjs",
     "api:update": "bun run build && node scripts/check-api-snapshot.mjs --write",
     "size:check": "bun run build && bun run pack:check",

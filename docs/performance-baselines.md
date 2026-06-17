@@ -24,6 +24,33 @@ locally when needed:
 EDITOR_CORE_BENCH_ATTEMPTS=3 bun run bench:check
 ```
 
+## Published Stable Comparison
+
+Use the Moonlight HTTP stable-comparison harness to compare the local build against the latest
+published package:
+
+```sh
+bun run test:stable
+```
+
+The harness builds `dist`, installs `@moritzbrantner/editor-core@latest` into
+`benchmark-results/stable-comparison/published-package`, starts a local HTTP comparison endpoint,
+and checks deterministic correctness plus scenario-level throughput. It writes the full report to
+`benchmark-results/stable-comparison/report.json`.
+
+Pin a different published target when reviewing a release branch:
+
+```sh
+EDITOR_CORE_STABLE_PACKAGE=@moritzbrantner/editor-core@0.3.0 bun run test:stable
+```
+
+By default, local throughput may be up to 50% slower than the published package before the command
+fails. Override that budget or the per-scenario measurement duration locally:
+
+```sh
+EDITOR_CORE_STABLE_MAX_REGRESSION_RATIO=0.35 EDITOR_CORE_STABLE_MIN_DURATION_MS=250 bun run test:stable
+```
+
 Track these scenarios when reviewing benchmark output:
 
 | Scenario                       | Current benchmark                            | Target behavior                                                                              |
