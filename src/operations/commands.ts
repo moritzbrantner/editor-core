@@ -1,3 +1,4 @@
+import { createEditorCommands } from "../commands.js";
 import type { EditorCommandDefinition, EditorHotkeyMap } from "../hotkeys.js";
 import { redoEditorOperationRuntime, undoEditorOperationRuntime } from "./runtime.js";
 import type {
@@ -22,31 +23,32 @@ export const defaultEditorOperationRuntimeCommandLabels: Record<
 export function createEditorOperationRuntimeCommands<TDocument, TSelection = unknown>(
   options: EditorOperationRuntimeCommandsOptions<TDocument, TSelection>,
 ): readonly EditorCommandDefinition<EditorOperationRuntimeCommandId>[] {
-  return (["undo", "redo"] as const).map((id) => {
-    const disabled = isEditorOperationRuntimeCommandDisabled(id, options);
-    return {
-      disabled,
-      hotkeys: options.hotkeys?.[id] ?? defaultEditorOperationRuntimeCommandHotkeys[id],
-      id,
-      label: options.labels?.[id] ?? defaultEditorOperationRuntimeCommandLabels[id],
-      run: () => {
-        if (disabled) {
-          return;
-        }
-
-        options.setEditor(id === "undo" ? undoEditorOperationRuntime : redoEditorOperationRuntime);
+  return createEditorCommands(
+    [
+      {
+        disabled: (context) => !context.editor.canUndo,
+        hotkeys: defaultEditorOperationRuntimeCommandHotkeys.undo,
+        id: "undo",
+        label: defaultEditorOperationRuntimeCommandLabels.undo,
+        run: (context) => {
+          context.setEditor(undoEditorOperationRuntime);
+        },
       },
-    };
-  });
-}
-
-function isEditorOperationRuntimeCommandDisabled<TDocument, TSelection>(
-  id: EditorOperationRuntimeCommandId,
-  options: EditorOperationRuntimeCommandsOptions<TDocument, TSelection>,
-): boolean {
-  if (options.disabled?.[id]) {
-    return true;
-  }
-
-  return id === "undo" ? !options.editor.canUndo : !options.editor.canRedo;
+      {
+        disabled: (context) => !context.editor.canRedo,
+        hotkeys: defaultEditorOperationRuntimeCommandHotkeys.redo,
+        id: "redo",
+        label: defaultEditorOperationRuntimeCommandLabels.redo,
+        run: (context) => {
+          context.setEditor(redoEditorOperationRuntime);
+        },
+      },
+    ],
+    options,
+    {
+      disabled: options.disabled,
+      hotkeys: options.hotkeys,
+      labels: options.labels,
+    },
+  );
 }

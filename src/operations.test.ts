@@ -1,6 +1,8 @@
 import { describe, expect, test } from "vitest";
 import {
+  applyEditorInteractionOperation,
   applyEditorOperation,
+  applyEditorRemoteOperation,
   createEditorOperationRuntime,
   createEditorOperationRuntimeCommands,
   readEditorOperationLog,
@@ -49,15 +51,69 @@ describe("editor operations", () => {
       initialDocument: { nodes: { a: { x: 0, y: 0 } } },
     });
 
-    runtime = applyEditorOperation(runtime, moveNode(10), { merge: true });
-    runtime = applyEditorOperation(runtime, moveNode(25), { merge: true });
-    runtime = applyEditorOperation(runtime, moveNode(40), { merge: true });
+    runtime = applyEditorInteractionOperation(runtime, moveNode(10));
+    runtime = applyEditorInteractionOperation(runtime, moveNode(25));
+    runtime = applyEditorInteractionOperation(runtime, moveNode(40));
 
     expect(runtime.operationHistory.undoStack).toHaveLength(1);
     expect(runtime.runtime.document.nodes.a.x).toBe(40);
 
     runtime = undoEditorOperationRuntime(runtime);
     expect(runtime.runtime.document.nodes.a.x).toBe(0);
+  });
+
+  test("applies remote operations without adding local undo history", () => {
+    let runtime = createEditorOperationRuntime<Document, string>({
+      initialDocument: { nodes: { a: { x: 0, y: 0 } } },
+    });
+
+    runtime = applyEditorRemoteOperation(runtime, moveNode(10));
+
+    expect(runtime.runtime.document.nodes.a.x).toBe(10);
+    expect(runtime.operationHistory.undoStack).toEqual([]);
+    expect(runtime.canUndo).toBe(false);
+  });
+
+  test("remote operations preserve undo and redo flags and clear merge state", () => {
+    let runtime = createEditorOperationRuntime<Document, string>({
+      initialDocument: { nodes: { a: { x: 0, y: 0 } } },
+    });
+    runtime = applyEditorInteractionOperation(runtime, moveNode(10));
+    runtime = undoEditorOperationRuntime(runtime);
+    const operationHistory = runtime.operationHistory;
+
+    runtime = applyEditorRemoteOperation(runtime, moveNode(25));
+
+    expect(runtime.runtime.document.nodes.a.x).toBe(25);
+    expect(runtime.operationHistory).toBe(operationHistory);
+    expect(runtime.canUndo).toBe(false);
+    expect(runtime.canRedo).toBe(true);
+    expect(runtime.lastMergeKey).toBeNull();
+  });
+
+  test("remote operations keep warnings non-blocking and expose preflight errors", () => {
+    let runtime = createEditorOperationRuntime<Document>({
+      initialDocument: { nodes: { a: { x: 0, y: 0 } } },
+      preflight({ operation }) {
+        if (operation.id === "blocked") {
+          return [{ path: "nodes.a", message: "Blocked" }];
+        }
+        return [{ path: "nodes.a", message: "Allowed warning", severity: "warning" }];
+      },
+    });
+
+    runtime = applyEditorRemoteOperation(runtime, moveNode(10));
+    expect(runtime.runtime.document.nodes.a.x).toBe(10);
+    expect(runtime.issues).toEqual([
+      { path: "nodes.a", message: "Allowed warning", severity: "warning" },
+    ]);
+
+    runtime = applyEditorRemoteOperation(runtime, {
+      ...moveNode(25),
+      id: "blocked",
+    });
+    expect(runtime.runtime.document.nodes.a.x).toBe(10);
+    expect(runtime.issues).toEqual([{ path: "nodes.a", message: "Blocked" }]);
   });
 
   test("does not merge operations with different merge keys", () => {

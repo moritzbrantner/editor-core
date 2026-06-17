@@ -1,6 +1,6 @@
 import type { EditorEntityId, EditorPoint } from "./entities.js";
 import {
-  applyEditorOperation,
+  applyEditorInteractionOperation,
   type EditorOperation,
   type EditorOperationRuntimeState,
 } from "./operations.js";
@@ -73,7 +73,7 @@ export function commitEditorInteractionOperation<TDocument, TSelection = unknown
   runtime: EditorOperationRuntimeState<TDocument, TSelection>,
   operation: EditorOperation<TDocument, TSelection>,
 ): EditorOperationRuntimeState<TDocument, TSelection> {
-  return applyEditorOperation(runtime, operation, { merge: true });
+  return applyEditorInteractionOperation(runtime, operation);
 }
 
 export function isEditorInteractionActive(state: EditorInteractionState): boolean {

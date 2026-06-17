@@ -1,5 +1,6 @@
 import { describe, expect, test, vi } from "vitest";
 import {
+  createEditorCommands,
   createEditorSnapshotHistoryCommands,
   defaultEditorSnapshotHistoryCommandHotkeys,
   defaultEditorSnapshotHistoryCommandLabels,
@@ -23,6 +24,59 @@ import {
   defaultEditorDocumentIoCommandLabels,
   type EditorDocumentIoCommandId,
 } from "./runtime.js";
+
+describe("generic editor command factory", () => {
+  test("creates commands with include order, labels, hotkeys, disabled overrides, and run guards", async () => {
+    const seen: string[] = [];
+    const runBlocked = vi.fn();
+    const runSave = vi.fn((_context: { canSave: boolean }, event: EditorHotkeyEvent) => {
+      seen.push(event.key);
+    });
+    const commands = createEditorCommands<"save" | "blocked" | "reset", { canSave: boolean }>(
+      [
+        {
+          disabled: (context) => !context.canSave,
+          hotkeys: ["Mod+S"],
+          id: "save",
+          label: "Save",
+          run: runSave,
+        },
+        {
+          disabled: () => true,
+          hotkeys: ["Mod+B"],
+          id: "blocked",
+          label: "Blocked",
+          run: runBlocked,
+        },
+        {
+          id: "reset",
+          label: "Reset",
+        },
+      ] as const,
+      { canSave: false },
+      {
+        disabled: { save: false },
+        hotkeys: { save: ["Alt+S"] },
+        include: ["blocked", "save"],
+        labels: { save: "Persist" },
+      },
+    );
+
+    expect(commands.map((command) => command.id)).toEqual(["blocked", "save"]);
+    expect(commands[1]).toMatchObject({
+      disabled: false,
+      hotkeys: ["Alt+S"],
+      label: "Persist",
+    });
+
+    await commands[0]?.run?.(event);
+    await commands[1]?.run?.({ ...event, key: "s" });
+
+    expect(runBlocked).not.toHaveBeenCalled();
+    expect(runSave).toHaveBeenCalledOnce();
+    expect(seen).toEqual(["s"]);
+  });
+});
 
 describe("snapshot history commands", () => {
   test("creates default undo, redo, and reset commands in order with labels and hotkeys", () => {

@@ -51,6 +51,12 @@ export type ApplyEditorOperationOptions = {
   merge?: boolean;
 };
 
+export type EditorOperationApplyMode = "local" | "interaction" | "remote";
+
+export type ApplyEditorOperationModeOptions = {
+  origin?: EditorChangeOrigin;
+};
+
 export type SerializedEditorOperation<
   TPayload = unknown,
   TType extends string = string,

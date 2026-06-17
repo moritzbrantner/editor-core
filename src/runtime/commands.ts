@@ -1,3 +1,4 @@
+import { createEditorCommands } from "../commands.js";
 import type { EditorCommandDefinition, EditorHotkeyMap } from "../hotkeys.js";
 import {
   markEditorRuntimeSaved,
@@ -87,122 +88,97 @@ const defaultEditorDocumentIoCommandOrder: readonly EditorDocumentIoCommandId[] 
 export function createEditorRuntimeCommands<TDocument, TSelection = unknown>(
   options: EditorRuntimeCommandsOptions<TDocument, TSelection>,
 ): readonly EditorCommandDefinition<EditorRuntimeCommandId>[] {
-  const include = options.include ?? defaultEditorRuntimeCommandOrder;
-
-  return include.map((id) => {
-    const disabled = isEditorRuntimeCommandDisabled(id, options);
-
-    return {
-      disabled,
-      hotkeys: options.hotkeys?.[id] ?? defaultEditorRuntimeCommandHotkeys[id],
-      id,
-      label: options.labels?.[id] ?? defaultEditorRuntimeCommandLabels[id],
-      run: async () => {
-        if (disabled) {
-          return;
-        }
-
-        if (id === "undo") {
-          options.setRuntime(undoEditorRuntime);
-          return;
-        }
-
-        if (id === "redo") {
-          options.setRuntime(redoEditorRuntime);
-          return;
-        }
-
-        if (id === "reset") {
-          options.setRuntime((runtime) =>
-            resetEditorRuntime(runtime, options.getResetDocument(), { markSaved: true }),
-          );
-          return;
-        }
-
-        if (options.onSave) {
-          await options.onSave(options.runtime);
-        }
-        options.setRuntime(markEditorRuntimeSaved);
+  return createEditorCommands(
+    [
+      {
+        disabled: (context) => !context.runtime.canUndo,
+        hotkeys: defaultEditorRuntimeCommandHotkeys.undo,
+        id: "undo",
+        label: defaultEditorRuntimeCommandLabels.undo,
+        run: (context) => {
+          context.setRuntime(undoEditorRuntime);
+        },
       },
-    };
-  });
+      {
+        disabled: (context) => !context.runtime.canRedo,
+        hotkeys: defaultEditorRuntimeCommandHotkeys.redo,
+        id: "redo",
+        label: defaultEditorRuntimeCommandLabels.redo,
+        run: (context) => {
+          context.setRuntime(redoEditorRuntime);
+        },
+      },
+      {
+        hotkeys: defaultEditorRuntimeCommandHotkeys.reset,
+        id: "reset",
+        label: defaultEditorRuntimeCommandLabels.reset,
+        run: (context) => {
+          context.setRuntime((runtime) =>
+            resetEditorRuntime(runtime, context.getResetDocument(), { markSaved: true }),
+          );
+        },
+      },
+      {
+        disabled: (context) => context.runtime.status === "clean",
+        hotkeys: defaultEditorRuntimeCommandHotkeys.save,
+        id: "save",
+        label: defaultEditorRuntimeCommandLabels.save,
+        run: async (context) => {
+          if (context.onSave) {
+            await context.onSave(context.runtime);
+          }
+          context.setRuntime(markEditorRuntimeSaved);
+        },
+      },
+    ],
+    options,
+    {
+      disabled: options.disabled,
+      hotkeys: options.hotkeys,
+      include: options.include ?? defaultEditorRuntimeCommandOrder,
+      labels: options.labels,
+    },
+  );
 }
 
 export function createEditorDocumentIoCommands<TDocument, TSelection = unknown>(
   options: EditorDocumentIoCommandsOptions<TDocument, TSelection>,
 ): readonly EditorCommandDefinition<EditorDocumentIoCommandId>[] {
-  const include = options.include ?? defaultEditorDocumentIoCommandOrder;
-
-  return include.map((id) => {
-    const disabled = isEditorDocumentIoCommandDisabled(id, options);
-
-    return {
-      disabled,
-      hotkeys: options.hotkeys?.[id] ?? defaultEditorDocumentIoCommandHotkeys[id],
-      id,
-      label: options.labels?.[id] ?? defaultEditorDocumentIoCommandLabels[id],
-      run: async () => {
-        if (disabled) {
-          return;
-        }
-
-        if (id === "import") {
-          await options.import?.run();
-          return;
-        }
-
-        if (id === "export") {
-          await options.export?.run(options.runtime);
-          return;
-        }
-
-        await options.save?.run(options.runtime);
+  return createEditorCommands(
+    [
+      {
+        disabled: (context) => context.save?.disabled ?? context.runtime.status === "clean",
+        hotkeys: defaultEditorDocumentIoCommandHotkeys.save,
+        id: "save",
+        label: defaultEditorDocumentIoCommandLabels.save,
+        run: async (context) => {
+          await context.save?.run(context.runtime);
+        },
       },
-    };
-  });
-}
-
-function isEditorRuntimeCommandDisabled<TDocument, TSelection>(
-  id: EditorRuntimeCommandId,
-  options: EditorRuntimeCommandsOptions<TDocument, TSelection>,
-): boolean {
-  if (hasEditorRuntimeDisabledOverride(id, options.disabled)) {
-    return options.disabled[id] === true;
-  }
-
-  if (id === "undo") {
-    return !options.runtime.canUndo;
-  }
-
-  if (id === "redo") {
-    return !options.runtime.canRedo;
-  }
-
-  if (id === "save") {
-    return options.runtime.status === "clean";
-  }
-
-  return false;
-}
-
-function hasEditorRuntimeDisabledOverride(
-  id: EditorRuntimeCommandId,
-  disabled: Partial<Record<EditorRuntimeCommandId, boolean>> | undefined,
-): disabled is Partial<Record<EditorRuntimeCommandId, boolean>> {
-  return disabled ? Object.hasOwn(disabled, id) : false;
-}
-
-function isEditorDocumentIoCommandDisabled<TDocument, TSelection>(
-  id: EditorDocumentIoCommandId,
-  options: EditorDocumentIoCommandsOptions<TDocument, TSelection>,
-): boolean {
-  if (id === "save") {
-    return options.save?.disabled ?? options.runtime.status === "clean";
-  }
-
-  if (id === "import") {
-    return options.import?.disabled === true;
-  }
-
-  return options.export?.disabled === true;
+      {
+        disabled: (context) => context.import?.disabled === true,
+        hotkeys: defaultEditorDocumentIoCommandHotkeys.import,
+        id: "import",
+        label: defaultEditorDocumentIoCommandLabels.import,
+        run: async (context) => {
+          await context.import?.run();
+        },
+      },
+      {
+        disabled: (context) => context.export?.disabled === true,
+        hotkeys: defaultEditorDocumentIoCommandHotkeys.export,
+        id: "export",
+        label: defaultEditorDocumentIoCommandLabels.export,
+        run: async (context) => {
+          await context.export?.run(context.runtime);
+        },
+      },
+    ],
+    options,
+    {
+      hotkeys: options.hotkeys,
+      include: options.include ?? defaultEditorDocumentIoCommandOrder,
+      labels: options.labels,
+    },
+  );
 }

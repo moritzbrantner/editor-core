@@ -4,11 +4,7 @@ import {
   type EditorCollaborationState,
   type EditorRemoteOperation,
 } from "../collaboration.js";
-import {
-  applyEditorOperation,
-  type EditorOperation,
-  type EditorOperationRuntimeState,
-} from "../operations.js";
+import { applyEditorRemoteOperation, type EditorOperation } from "../operations.js";
 import type {
   ApplyEditorRemoteOperationsOptions,
   ApplyEditorRemoteOperationsResult,
@@ -86,13 +82,13 @@ export function createEditorOperationRemoteApplyAdapter<
   return {
     apply(state, operation, envelope) {
       const operationWithOrigin = withRemoteOperationOrigin(operation, envelope, options);
-      const nextState = applyEditorOperation(state, operationWithOrigin, { merge: false });
+      const nextState = applyEditorRemoteOperation(state, operationWithOrigin);
 
       if (nextState.issues.some((issue) => issue.severity !== "warning")) {
         throw new EditorRemoteOperationPreflightError(nextState.issues);
       }
 
-      return restoreRemoteOperationRuntimeState(state, nextState);
+      return nextState;
     },
     decode: options.decode,
     getIssues(state, _operation, envelope) {
@@ -133,18 +129,6 @@ function withRemoteOperationOrigin<TDocument, TSelection, TRemoteOperation>(
         source: "remote-operation",
       },
   };
-}
-
-function restoreRemoteOperationRuntimeState<TDocument, TSelection>(
-  previous: EditorOperationRuntimeState<TDocument, TSelection>,
-  next: EditorOperationRuntimeState<TDocument, TSelection>,
-): EditorOperationRuntimeState<TDocument, TSelection> {
-  return Object.assign(next, {
-    canRedo: previous.canRedo,
-    canUndo: previous.canUndo,
-    lastMergeKey: null,
-    operationHistory: previous.operationHistory,
-  });
 }
 
 function normalizeRemoteApplyError(

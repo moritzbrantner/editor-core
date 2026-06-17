@@ -12,6 +12,8 @@ import {
   type EditorHotkeyEvent,
   type EditorHotkeyMap,
 } from "./hotkeys.js";
+import { createEditorCommands } from "./commands/factory.js";
+export * from "./commands/factory.js";
 
 export type EditorSnapshotHistoryCommandId = "undo" | "redo" | "reset";
 
@@ -100,35 +102,48 @@ const defaultEditorSnapshotHistoryCommandOrder: readonly EditorSnapshotHistoryCo
 export function createEditorSnapshotHistoryCommands<TDocument>(
   options: EditorSnapshotHistoryCommandsOptions<TDocument>,
 ): readonly EditorCommandDefinition<EditorSnapshotHistoryCommandId>[] {
-  const include = options.include ?? defaultEditorSnapshotHistoryCommandOrder;
-
-  return include.map((id) => {
-    const disabled = isEditorSnapshotHistoryCommandDisabled(id, options);
-
-    return {
-      disabled,
-      hotkeys: options.hotkeys?.[id] ?? defaultEditorSnapshotHistoryCommandHotkeys[id],
-      id,
-      label: options.labels?.[id] ?? defaultEditorSnapshotHistoryCommandLabels[id],
-      run: (event) => {
-        if (disabled) {
-          return;
-        }
-
-        if (id === "undo") {
-          options.setHistory(undoEditorSnapshotHistory);
-        } else if (id === "redo") {
-          options.setHistory(redoEditorSnapshotHistory);
-        } else {
-          options.setHistory(() =>
-            resetEditorSnapshotHistory(options.getResetDocument(), options.historyOptions),
-          );
-        }
-
-        return options.onRun?.({ event, id });
+  return createEditorCommands(
+    [
+      {
+        disabled: (context) => !context.history.canUndo,
+        hotkeys: defaultEditorSnapshotHistoryCommandHotkeys.undo,
+        id: "undo",
+        label: defaultEditorSnapshotHistoryCommandLabels.undo,
+        run: async (context, event) => {
+          context.setHistory(undoEditorSnapshotHistory);
+          await context.onRun?.({ event, id: "undo" });
+        },
       },
-    };
-  });
+      {
+        disabled: (context) => !context.history.canRedo,
+        hotkeys: defaultEditorSnapshotHistoryCommandHotkeys.redo,
+        id: "redo",
+        label: defaultEditorSnapshotHistoryCommandLabels.redo,
+        run: async (context, event) => {
+          context.setHistory(redoEditorSnapshotHistory);
+          await context.onRun?.({ event, id: "redo" });
+        },
+      },
+      {
+        hotkeys: defaultEditorSnapshotHistoryCommandHotkeys.reset,
+        id: "reset",
+        label: defaultEditorSnapshotHistoryCommandLabels.reset,
+        run: async (context, event) => {
+          context.setHistory(() =>
+            resetEditorSnapshotHistory(context.getResetDocument(), context.historyOptions),
+          );
+          await context.onRun?.({ event, id: "reset" });
+        },
+      },
+    ],
+    options,
+    {
+      disabled: options.disabled,
+      hotkeys: options.hotkeys,
+      include: options.include ?? defaultEditorSnapshotHistoryCommandOrder,
+      labels: options.labels,
+    },
+  );
 }
 
 export function resolveEditorCommands<
@@ -240,23 +255,4 @@ export function getEditorCommandDiagnostics<TId extends string>(
   });
 
   return diagnostics;
-}
-
-function isEditorSnapshotHistoryCommandDisabled<TDocument>(
-  id: EditorSnapshotHistoryCommandId,
-  options: EditorSnapshotHistoryCommandsOptions<TDocument>,
-): boolean {
-  if (options.disabled?.[id]) {
-    return true;
-  }
-
-  if (id === "undo") {
-    return !options.history.canUndo;
-  }
-
-  if (id === "redo") {
-    return !options.history.canRedo;
-  }
-
-  return false;
 }

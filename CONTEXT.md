@@ -10,6 +10,14 @@ The current editor document with its selection, revision, save status, validatio
 capability. A runtime is the state a user is actively editing.
 _Avoid_: Store, model, editor instance
 
+**Operation Runtime**:
+A runtime that applies semantic editor operations and tracks undoable operation transactions.
+_Avoid_: Operation store, editor operation service
+
+**Remote Apply**:
+Applying operations received from another client without adding them to the local undo history.
+_Avoid_: Remote patch, server replay
+
 **Persistence State**:
 The load/save status that describes how a runtime relates to stored data. It records operation,
 error, timestamps, saved revision, in-flight revision, and optional conflict information.

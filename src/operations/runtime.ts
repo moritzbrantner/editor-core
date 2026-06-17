@@ -14,6 +14,7 @@ import {
 } from "../runtime.js";
 import type {
   ApplyEditorOperationOptions,
+  ApplyEditorOperationModeOptions,
   EditorOperation,
   EditorOperationPreflightIssue,
   EditorOperationRuntimeOptions,
@@ -112,6 +113,37 @@ export function applyEditorOperation<TDocument, TSelection = unknown>(
   );
 }
 
+export function applyEditorInteractionOperation<TDocument, TSelection = unknown>(
+  state: EditorOperationRuntimeState<TDocument, TSelection>,
+  operation: EditorOperation<TDocument, TSelection>,
+  options: ApplyEditorOperationModeOptions = {},
+): EditorOperationRuntimeState<TDocument, TSelection> {
+  return applyEditorOperation(state, withOperationModeOrigin(operation, options), { merge: true });
+}
+
+export function applyEditorRemoteOperation<TDocument, TSelection = unknown>(
+  state: EditorOperationRuntimeState<TDocument, TSelection>,
+  operation: EditorOperation<TDocument, TSelection>,
+  options: ApplyEditorOperationModeOptions = {},
+): EditorOperationRuntimeState<TDocument, TSelection> {
+  const nextState = applyEditorOperation(state, withOperationModeOrigin(operation, options), {
+    merge: false,
+  });
+
+  if (nextState.issues.some((issue) => issue.severity !== "warning")) {
+    return nextState;
+  }
+
+  return withOperationRuntimeFlags(
+    {
+      ...nextState,
+      lastMergeKey: null,
+      operationHistory: state.operationHistory,
+    },
+    getOperationRuntimeOptions(state),
+  );
+}
+
 export function undoEditorOperationRuntime<TDocument, TSelection = unknown>(
   state: EditorOperationRuntimeState<TDocument, TSelection>,
   options: { origin?: EditorChangeOrigin } = {},
@@ -164,6 +196,20 @@ export function redoEditorOperationRuntime<TDocument, TSelection = unknown>(
     },
     runtimeOptions,
   );
+}
+
+function withOperationModeOrigin<TDocument, TSelection>(
+  operation: EditorOperation<TDocument, TSelection>,
+  options: ApplyEditorOperationModeOptions,
+): EditorOperation<TDocument, TSelection> {
+  if (options.origin === undefined) {
+    return operation;
+  }
+
+  return {
+    ...operation,
+    origin: options.origin,
+  };
 }
 
 function pushOrMergeOperationTransaction<TDocument, TSelection>(

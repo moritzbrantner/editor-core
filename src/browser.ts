@@ -1,4 +1,5 @@
 export type DownloadEditorJsonOptions = {
+  adapter?: EditorDownloadAdapter;
   filename?: string;
   pretty?: boolean | number;
 };
@@ -22,6 +23,15 @@ export type EditorStorageAdapter<TValue> = {
   save: (value: TValue) => void | Promise<void>;
 };
 
+export type EditorDownloadAdapter = {
+  downloadJson(value: unknown, options?: DownloadEditorJsonOptions): void;
+};
+
+export type EditorClipboardAdapter = {
+  readText(): Promise<string | null>;
+  writeText(text: string): Promise<boolean>;
+};
+
 export type LocalStorageEditorStorageOptions<TValue> = {
   key: string;
   storage?: Storage;
@@ -35,6 +45,7 @@ export type EditorClipboardFallback = {
 };
 
 export type EditorClipboardJsonOptions = {
+  adapter?: EditorClipboardAdapter;
   fallback?: EditorClipboardFallback;
   onError?: EditorBrowserErrorHandler;
 };
@@ -54,24 +65,37 @@ export function ensureEditorJsonFilename(filename: string): string {
 }
 
 export function downloadEditorJson(value: unknown, options: DownloadEditorJsonOptions = {}): void {
-  if (typeof document === "undefined" || typeof URL === "undefined") {
-    return;
-  }
+  const { adapter = createBrowserDownloadAdapter(), ...downloadOptions } = options;
+  adapter.downloadJson(value, downloadOptions);
+}
 
-  const filename = ensureEditorJsonFilename(options.filename ?? "editor-document.json");
-  const spacing =
-    options.pretty === false ? undefined : typeof options.pretty === "number" ? options.pretty : 2;
-  const blob = new Blob([`${JSON.stringify(value, null, spacing)}\n`], {
-    type: "application/json",
-  });
-  const url = URL.createObjectURL(blob);
-  const anchor = document.createElement("a");
-  anchor.href = url;
-  anchor.download = filename;
-  document.body.append(anchor);
-  anchor.click();
-  anchor.remove();
-  URL.revokeObjectURL(url);
+export function createBrowserDownloadAdapter(): EditorDownloadAdapter {
+  return {
+    downloadJson(value, options = {}) {
+      if (typeof document === "undefined" || typeof URL === "undefined") {
+        return;
+      }
+
+      const filename = ensureEditorJsonFilename(options.filename ?? "editor-document.json");
+      const spacing =
+        options.pretty === false
+          ? undefined
+          : typeof options.pretty === "number"
+            ? options.pretty
+            : 2;
+      const blob = new Blob([`${JSON.stringify(value, null, spacing)}\n`], {
+        type: "application/json",
+      });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = filename;
+      document.body.append(anchor);
+      anchor.click();
+      anchor.remove();
+      URL.revokeObjectURL(url);
+    },
+  };
 }
 
 export async function readEditorJsonFile<TValue = unknown>(
@@ -159,13 +183,10 @@ export async function writeEditorClipboardJson(
   options: EditorClipboardJsonOptions = {},
 ): Promise<boolean> {
   const text = JSON.stringify(payload);
+  const adapter = options.adapter ?? createBrowserClipboardAdapter();
 
   try {
-    if (!navigator.clipboard?.writeText) {
-      throw new Error("Clipboard is unavailable");
-    }
-    await navigator.clipboard.writeText(text);
-    return true;
+    return await adapter.writeText(text);
   } catch {
     if (options.fallback) {
       options.fallback.text = text;
@@ -178,9 +199,10 @@ export async function readEditorClipboardJson<TValue = unknown>(
   options: EditorClipboardJsonOptions = {},
 ): Promise<TValue | null> {
   let text: string | null | undefined;
+  const adapter = options.adapter ?? createBrowserClipboardAdapter();
 
   try {
-    text = await navigator.clipboard?.readText();
+    text = await adapter.readText();
   } catch (error) {
     options.onError?.(error, { operation: "clipboard-read" });
     text = options.fallback?.text;
@@ -204,6 +226,41 @@ export async function readEditorClipboardJson<TValue = unknown>(
     }
     return null;
   }
+}
+
+export function createBrowserClipboardAdapter(
+  fallback?: EditorClipboardFallback,
+): EditorClipboardAdapter {
+  return {
+    async readText() {
+      try {
+        if (!navigator.clipboard?.readText) {
+          throw new Error("Clipboard is unavailable");
+        }
+        return await navigator.clipboard.readText();
+      } catch (error) {
+        if (fallback) {
+          return fallback.text ?? null;
+        }
+        throw error;
+      }
+    },
+    async writeText(text) {
+      try {
+        if (!navigator.clipboard?.writeText) {
+          throw new Error("Clipboard is unavailable");
+        }
+        await navigator.clipboard.writeText(text);
+        return true;
+      } catch (error) {
+        if (fallback) {
+          fallback.text = text;
+          return false;
+        }
+        throw error;
+      }
+    },
+  };
 }
 
 function resolveStorage(storage: Storage | undefined): Storage | null {

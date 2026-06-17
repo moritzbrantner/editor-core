@@ -1,5 +1,7 @@
 import { afterEach, describe, expect, test, vi } from "vitest";
 import {
+  createBrowserClipboardAdapter,
+  createBrowserDownloadAdapter,
   createLocalStorageEditorStorage,
   downloadEditorJson,
   ensureEditorJsonFilename,
@@ -30,6 +32,30 @@ describe("browser helpers", () => {
     expect(createObjectUrl).toHaveBeenCalledOnce();
     expect(click).toHaveBeenCalledOnce();
     expect(revokeObjectUrl).toHaveBeenCalledWith("blob:test");
+  });
+
+  test("downloads JSON through an injected adapter", () => {
+    const downloads: unknown[] = [];
+
+    downloadEditorJson(
+      { ok: true },
+      {
+        adapter: {
+          downloadJson(value, options) {
+            downloads.push({ options, value });
+          },
+        },
+        filename: "download",
+        pretty: false,
+      },
+    );
+
+    expect(downloads).toEqual([
+      {
+        options: { filename: "download", pretty: false },
+        value: { ok: true },
+      },
+    ]);
   });
 
   test("reads JSON files and recovers corrupt localStorage with fallback", async () => {
@@ -107,6 +133,31 @@ describe("browser helpers", () => {
     await expect(writeEditorClipboardJson({ value: 1 }, { fallback })).resolves.toBe(false);
     expect(fallback).toEqual({ text: '{"value":1}' });
     await expect(readEditorClipboardJson({ fallback })).resolves.toEqual({ value: 1 });
+  });
+
+  test("writes and reads clipboard JSON through an injected adapter", async () => {
+    let text: string | null = null;
+    const adapter = {
+      async readText() {
+        return text;
+      },
+      async writeText(nextText: string) {
+        text = nextText;
+        return true;
+      },
+    };
+
+    await expect(writeEditorClipboardJson({ value: 1 }, { adapter })).resolves.toBe(true);
+    await expect(readEditorClipboardJson({ adapter })).resolves.toEqual({ value: 1 });
+  });
+
+  test("creates browser adapters", async () => {
+    const fallback = {};
+    vi.stubGlobal("navigator", {});
+
+    expect(createBrowserDownloadAdapter()).toHaveProperty("downloadJson");
+    await expect(createBrowserClipboardAdapter(fallback).writeText("text")).resolves.toBe(false);
+    await expect(createBrowserClipboardAdapter(fallback).readText()).resolves.toBe("text");
   });
 
   test("reads fallback clipboard JSON when system clipboard JSON is invalid", async () => {

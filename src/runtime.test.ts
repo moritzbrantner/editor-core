@@ -12,17 +12,6 @@ import {
   validateEditorRuntime,
   type EditorRuntimeState,
 } from "./runtime.js";
-import {
-  editorRuntimeOptionsByState,
-  getRuntimeStateOptions,
-  noEditorRuntimeAspects,
-  rebuildEditorRuntimeState,
-  resolveRuntimeAspects,
-  runtimeDocumentsEqual,
-  toRuntimeStateOptions,
-  withRuntimeFlags,
-} from "./runtime/state-internals.js";
-import { validateRuntimeDocument } from "./runtime/validation.js";
 
 type Document = {
   body: string;
@@ -223,13 +212,13 @@ describe("editor runtime", () => {
     ]);
   });
 
-  test("retains origins and passes them to aspects", () => {
-    const seenOrigins: unknown[] = [];
-    const aspect = createEditorAspect<Document, string | undefined>({
+  test("passes revision and origin to aspects across runtime transitions", () => {
+    const seen: { revision: number; source: string | undefined }[] = [];
+    const aspect = createEditorAspect<Document, string>({
       id: "origin-source",
-      derive({ origin }) {
-        seenOrigins.push(origin);
-        return origin?.source;
+      derive({ origin, revision }) {
+        seen.push({ revision, source: origin?.source });
+        return `${revision}:${origin?.source ?? "unknown"}`;
       },
     });
     const origin = { source: "initial" };
@@ -239,9 +228,6 @@ describe("editor runtime", () => {
       origin,
     });
 
-    expect(runtime.origin).toBe(origin);
-    expect(runtime.aspectSnapshot.aspects["origin-source"]?.value).toBe("initial");
-
     runtime = commitEditorRuntime(
       runtime,
       { body: "Hello", title: "Next" },
@@ -249,10 +235,32 @@ describe("editor runtime", () => {
         origin: { source: "commit" },
       },
     );
+    runtime = commitEditorRuntime(
+      runtime,
+      { body: "Changed", title: "Next" },
+      {
+        origin: { source: "second-commit" },
+      },
+    );
+    runtime = undoEditorRuntime(runtime, { origin: { source: "undo" } });
+    runtime = redoEditorRuntime(runtime, { origin: { source: "redo" } });
+    runtime = resetEditorRuntime(
+      runtime,
+      { body: "Reset", title: "Reset" },
+      {
+        origin: { source: "reset" },
+      },
+    );
 
-    expect(runtime.origin).toEqual({ source: "commit" });
-    expect(runtime.aspectSnapshot.aspects["origin-source"]?.value).toBe("commit");
-    expect(seenOrigins).toHaveLength(2);
+    expect(runtime.aspectSnapshot.aspects["origin-source"]?.value).toBe("5:reset");
+    expect(seen).toEqual([
+      { revision: 0, source: "initial" },
+      { revision: 1, source: "commit" },
+      { revision: 2, source: "second-commit" },
+      { revision: 3, source: "undo" },
+      { revision: 4, source: "redo" },
+      { revision: 5, source: "reset" },
+    ]);
   });
 
   test("honors bounded history limits", () => {
@@ -267,77 +275,41 @@ describe("editor runtime", () => {
     expect(runtime.history.past).toEqual([2]);
   });
 
-  test("uses runtime internals to retain options, flags, validation, and aspects", () => {
-    const runtime = createTestRuntime();
-    const options = getRuntimeStateOptions(runtime);
+  test("retains history equality and normalization options across transitions", () => {
+    let runtime = createTestRuntime();
 
-    expect(options.history).toBe(historyOptions);
-    expect(options.validate).toBe(validate);
-    expect(
-      toRuntimeStateOptions({
-        history: historyOptions,
-        initialDocument: { body: "Hello", title: "Draft" },
-        validate,
-      }),
-    ).toEqual({
-      aspects: undefined,
-      history: historyOptions,
-      origin: undefined,
-      validate,
-    });
-    expect(validateRuntimeDocument({ body: "Body", title: "" }, { validate })).toEqual([
-      { path: "title", message: "Title is required." },
-    ]);
-    expect(validateRuntimeDocument({ body: "Body", title: "" }, {})).toEqual([]);
-    expect(
-      runtimeDocumentsEqual(runtime.document, { body: "Hello", title: "Draft" }, options),
-    ).toBe(true);
-    expect(
-      runtimeDocumentsEqual(runtime.document, { body: "Hello", title: "Changed" }, options),
-    ).toBe(false);
+    runtime = commitEditorRuntime(runtime, { body: " Hello ", title: " Draft " });
+    expect(runtime.revision).toBe(0);
+    expect(runtime.document).toEqual({ body: "Hello", title: "Draft" });
 
-    const aspectSnapshot = resolveRuntimeAspects(
-      { body: "one two three", title: "Draft" },
-      { aspects: [wordCountAspect] },
-      5,
-    );
-    expect(aspectSnapshot.revision).toBe(5);
-    expect(aspectSnapshot.aspects["word-count"]?.value).toBe(3);
-    expect(resolveRuntimeAspects(runtime.document, {}, 1).aspects).toEqual({});
-    expect(noEditorRuntimeAspects).toEqual([]);
+    runtime = commitEditorRuntime(runtime, { body: " Changed ", title: " Next " });
+    expect(runtime.document).toEqual({ body: "Changed", title: "Next" });
 
-    const { canRedo: _canRedo, canUndo: _canUndo, status: _status, ...baseRuntime } = runtime;
-    const flagged = withRuntimeFlags(
-      {
-        ...baseRuntime,
-        revision: 1,
-        savedRevision: 0,
-      },
-      options,
-    );
-    expect(flagged.status).toBe("dirty");
-    expect(editorRuntimeOptionsByState.has(flagged)).toBe(true);
+    runtime = resetEditorRuntime(runtime, { body: " Reset ", title: " Reset " });
+    expect(runtime.document).toEqual({ body: "Reset", title: "Reset" });
 
-    const committed = commitEditorRuntime(runtime, { body: "Next", title: "" });
-    const rebuilt = rebuildEditorRuntimeState(committed, {
-      history: committed.history,
-      origin: { source: "test" },
-      revision: 10,
-      savedRevision: 9,
-      selection: "title",
-    });
-    expect(rebuilt.document).toEqual({ body: "Next", title: "" });
-    expect(rebuilt.issues).toEqual([{ path: "title", message: "Title is required." }]);
-    expect(rebuilt.origin).toEqual({ source: "test" });
-    expect(rebuilt.revision).toBe(10);
-    expect(rebuilt.selection).toBe("title");
-    expect(rebuilt.status).toBe("dirty");
+    runtime = commitEditorRuntime(runtime, { body: " Again ", title: " Again " });
+    runtime = undoEditorRuntime(runtime);
+    expect(runtime.document).toEqual({ body: "Reset", title: "Reset" });
+
+    runtime = redoEditorRuntime(runtime);
+    expect(runtime.document).toEqual({ body: "Again", title: "Again" });
   });
 
-  test("rejects runtime option lookup for non-runtime objects", () => {
+  test("validation issues update after commit and reset", () => {
+    let runtime = createTestRuntime();
+
+    runtime = commitEditorRuntime(runtime, { body: "Body", title: "" });
+    expect(runtime.issues).toEqual([{ path: "title", message: "Title is required." }]);
+
+    runtime = resetEditorRuntime(runtime, { body: "Body", title: "Restored" });
+    expect(runtime.issues).toEqual([]);
+  });
+
+  test("public runtime operations reject objects without runtime metadata", () => {
     const runtime = createTestRuntime();
 
-    expect(() => getRuntimeStateOptions({ ...runtime })).toThrow(
+    expect(() => commitEditorRuntime({ ...runtime }, { body: "Body", title: "Next" })).toThrow(
       "Editor runtime state must be created by createEditorRuntime.",
     );
   });
