@@ -1,5 +1,6 @@
 import type { EditorStorageAdapter } from "../browser.js";
 import type {
+  EditorAutosaveOptions,
   EditorConflictStorageAdapter,
   EditorPersistenceErrorContext,
   EditorPersistenceEventHandler,
@@ -7,11 +8,6 @@ import type {
 } from "../persistence.js";
 import type { EditorRuntimeState } from "../runtime.js";
 import { usePersistentEditorRuntimeCore } from "./persistence-runtime-core.js";
-import {
-  conflictAwarePersistenceStrategy,
-  editorStoragePersistenceStrategy,
-  type EditorAutosaveOptions,
-} from "./persistence-strategy.js";
 import type { UseEditorRuntimeOptions, UseEditorRuntimeResult } from "./runtime-hooks.js";
 
 export type UsePersistentEditorRuntimeOptions<
@@ -56,7 +52,7 @@ export function usePersistentEditorRuntime<TDocument, TSelection = unknown>(
 ): UsePersistentEditorRuntimeResult<TDocument, TSelection> {
   return usePersistentEditorRuntimeCore<TDocument, TSelection, EditorStorageAdapter<TDocument>>(
     options,
-    editorStoragePersistenceStrategy,
+    "storage",
   );
 }
 
@@ -67,5 +63,5 @@ export function useConflictAwareEditorRuntime<TDocument, TSelection = unknown>(
     TDocument,
     TSelection,
     EditorConflictStorageAdapter<TDocument>
-  >(options, conflictAwarePersistenceStrategy);
+  >(options, "conflict");
 }

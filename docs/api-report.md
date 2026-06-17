@@ -378,52 +378,6 @@ export {
 };
 ```
 
-## conflict-BJh4NjsX.d.ts
-
-```ts
-import { EditorRevisionToken } from "./collaboration.js";
-import {
-  E as EditorPersistedDocument,
-  L as LoadEditorRuntimePersistenceOptions,
-  i as LoadEditorRuntimePersistenceResult,
-  S as SaveEditorRuntimePersistenceOptions,
-  j as SaveEditorRuntimePersistenceResult,
-} from "./types-BZ2JcJCu.js";
-
-type EditorConflictStorageAdapter<TDocument> = {
-  load: () =>
-    | EditorPersistedDocument<TDocument>
-    | null
-    | Promise<EditorPersistedDocument<TDocument> | null>;
-  save: (
-    value: EditorPersistedDocument<TDocument>,
-  ) => EditorPersistedDocument<TDocument> | Promise<EditorPersistedDocument<TDocument>>;
-};
-type LoadEditorRuntimeConflictPersistenceOptions<
-  TDocument,
-  TSelection = unknown,
-> = LoadEditorRuntimePersistenceOptions<TDocument, TSelection>;
-type LoadEditorRuntimeConflictPersistenceResult<
-  TDocument,
-  TSelection = unknown,
-> = LoadEditorRuntimePersistenceResult<TDocument, TSelection>;
-type SaveEditorRuntimeConflictPersistenceOptions = SaveEditorRuntimePersistenceOptions & {
-  revisionToken?: EditorRevisionToken | null;
-};
-type SaveEditorRuntimeConflictPersistenceResult<
-  TDocument,
-  TSelection = unknown,
-> = SaveEditorRuntimePersistenceResult<TDocument, TSelection>;
-
-export type {
-  EditorConflictStorageAdapter as E,
-  LoadEditorRuntimeConflictPersistenceOptions as L,
-  SaveEditorRuntimeConflictPersistenceOptions as S,
-  LoadEditorRuntimeConflictPersistenceResult as a,
-  SaveEditorRuntimeConflictPersistenceResult as b,
-};
-```
-
 ## constraints.d.ts
 
 ```ts
@@ -482,6 +436,132 @@ export {
   validateEditorEntityIssues,
   validateEditorGraphConnection,
   validateEditorTimelineRange,
+};
+```
+
+## controller-types-Cbb3X33W.d.ts
+
+```ts
+import { EditorStorageAdapter } from "./browser.js";
+import { b as EditorRuntimeState } from "./types-BobBf3K-.js";
+import { EditorRevisionToken } from "./collaboration.js";
+import {
+  E as EditorPersistedDocument,
+  L as LoadEditorRuntimePersistenceOptions,
+  i as LoadEditorRuntimePersistenceResult,
+  S as SaveEditorRuntimePersistenceOptions,
+  j as SaveEditorRuntimePersistenceResult,
+  g as EditorPersistenceState,
+  c as EditorPersistenceErrorContext,
+  e as EditorPersistenceEventHandler,
+} from "./types-BZ2JcJCu.js";
+
+type EditorConflictStorageAdapter<TDocument> = {
+  load: () =>
+    | EditorPersistedDocument<TDocument>
+    | null
+    | Promise<EditorPersistedDocument<TDocument> | null>;
+  save: (
+    value: EditorPersistedDocument<TDocument>,
+  ) => EditorPersistedDocument<TDocument> | Promise<EditorPersistedDocument<TDocument>>;
+};
+type LoadEditorRuntimeConflictPersistenceOptions<
+  TDocument,
+  TSelection = unknown,
+> = LoadEditorRuntimePersistenceOptions<TDocument, TSelection>;
+type LoadEditorRuntimeConflictPersistenceResult<
+  TDocument,
+  TSelection = unknown,
+> = LoadEditorRuntimePersistenceResult<TDocument, TSelection>;
+type SaveEditorRuntimeConflictPersistenceOptions = SaveEditorRuntimePersistenceOptions & {
+  revisionToken?: EditorRevisionToken | null;
+};
+type SaveEditorRuntimeConflictPersistenceResult<
+  TDocument,
+  TSelection = unknown,
+> = SaveEditorRuntimePersistenceResult<TDocument, TSelection>;
+
+type EditorAutosaveRetryOptions = {
+  attempts?: number;
+  delayMs?: number;
+};
+type EditorAutosaveOptions = {
+  delayMs?: number;
+  retry?: EditorAutosaveRetryOptions;
+  saveLatest?: boolean;
+};
+type NormalizedEditorAutosaveOptions = {
+  delayMs: number;
+  enabled: boolean;
+  retryAttempts: number;
+  retryDelayMs: number;
+  saveLatest: boolean;
+};
+type EditorPersistenceTimer = unknown;
+type EditorPersistenceScheduler = {
+  setTimeout: (callback: () => void, delayMs: number) => EditorPersistenceTimer;
+  clearTimeout: (timer: EditorPersistenceTimer) => void;
+};
+type EditorRuntimeStateUpdater<TDocument, TSelection = unknown> =
+  | EditorRuntimeState<TDocument, TSelection>
+  | ((
+      runtime: EditorRuntimeState<TDocument, TSelection>,
+    ) => EditorRuntimeState<TDocument, TSelection>);
+type EditorPersistenceStateUpdater =
+  | EditorPersistenceState
+  | ((persistence: EditorPersistenceState) => EditorPersistenceState);
+type EditorRuntimePersistenceControllerOptions<TDocument, TSelection = unknown> = {
+  getRuntime: () => EditorRuntimeState<TDocument, TSelection>;
+  setRuntime: (updater: EditorRuntimeStateUpdater<TDocument, TSelection>) => void;
+  getPersistence: () => EditorPersistenceState;
+  setPersistence: (updater: EditorPersistenceStateUpdater) => void;
+  storage: EditorStorageAdapter<TDocument>;
+  autosave?: boolean | EditorAutosaveOptions;
+  canSave?: (runtime: EditorRuntimeState<TDocument, TSelection>) => boolean;
+  now?: () => string;
+  onError?: (error: unknown, context: EditorPersistenceErrorContext) => void;
+  onEvent?: EditorPersistenceEventHandler;
+  scheduler?: EditorPersistenceScheduler;
+};
+type EditorRuntimeConflictPersistenceControllerOptions<TDocument, TSelection = unknown> = Omit<
+  EditorRuntimePersistenceControllerOptions<TDocument, TSelection>,
+  "storage"
+> & {
+  storage: EditorConflictStorageAdapter<TDocument>;
+};
+type EditorRuntimePersistenceController<TDocument, TSelection = unknown> = {
+  load: () => Promise<void>;
+  save: (options?: { force?: boolean }) => Promise<boolean>;
+  notifyRuntimeChanged: () => void;
+  updateOptions: (
+    options: Partial<
+      | EditorRuntimePersistenceControllerOptions<TDocument, TSelection>
+      | EditorRuntimeConflictPersistenceControllerOptions<TDocument, TSelection>
+    >,
+  ) => void;
+  dispose: () => void;
+};
+declare function normalizeEditorAutosaveOptions(
+  autosave: boolean | EditorAutosaveOptions | undefined,
+): NormalizedEditorAutosaveOptions;
+
+export {
+  type EditorAutosaveOptions as E,
+  type LoadEditorRuntimeConflictPersistenceOptions as L,
+  type NormalizedEditorAutosaveOptions as N,
+  type SaveEditorRuntimeConflictPersistenceOptions as S,
+  type EditorAutosaveRetryOptions as a,
+  type EditorConflictStorageAdapter as b,
+  type EditorPersistenceScheduler as c,
+  type EditorPersistenceStateUpdater as d,
+  type EditorPersistenceTimer as e,
+  type EditorRuntimeConflictPersistenceControllerOptions as f,
+  type EditorRuntimePersistenceController as g,
+  type EditorRuntimePersistenceControllerOptions as h,
+  type EditorRuntimeStateUpdater as i,
+  type LoadEditorRuntimeConflictPersistenceResult as j,
+  type SaveEditorRuntimeConflictPersistenceResult as k,
+  normalizeEditorAutosaveOptions as n,
 };
 ```
 
@@ -1019,18 +1099,31 @@ export {
 export {
   clearEditorPersistenceConflict,
   createEditorPersistenceState,
+  createEditorRuntimeConflictPersistenceController,
+  createEditorRuntimePersistenceController,
   loadEditorRuntimeConflictPersistence,
   loadEditorRuntimePersistence,
   saveEditorRuntimeConflictPersistence,
   saveEditorRuntimePersistence,
 } from "./persistence.js";
 export {
-  E as EditorConflictStorageAdapter,
+  E as EditorAutosaveOptions,
+  a as EditorAutosaveRetryOptions,
+  b as EditorConflictStorageAdapter,
+  c as EditorPersistenceScheduler,
+  d as EditorPersistenceStateUpdater,
+  e as EditorPersistenceTimer,
+  f as EditorRuntimeConflictPersistenceControllerOptions,
+  g as EditorRuntimePersistenceController,
+  h as EditorRuntimePersistenceControllerOptions,
+  i as EditorRuntimeStateUpdater,
   L as LoadEditorRuntimeConflictPersistenceOptions,
-  a as LoadEditorRuntimeConflictPersistenceResult,
+  j as LoadEditorRuntimeConflictPersistenceResult,
+  N as NormalizedEditorAutosaveOptions,
   S as SaveEditorRuntimeConflictPersistenceOptions,
-  b as SaveEditorRuntimeConflictPersistenceResult,
-} from "./conflict-BJh4NjsX.js";
+  k as SaveEditorRuntimeConflictPersistenceResult,
+  n as normalizeEditorAutosaveOptions,
+} from "./controller-types-Cbb3X33W.js";
 export {
   ApplyEditorPatchOptions,
   DiffEditorJsonOptions,
@@ -1524,12 +1617,25 @@ export {
   h as EditorPersistenceStatus,
 } from "./types-BZ2JcJCu.js";
 import {
-  E as EditorConflictStorageAdapter,
+  b as EditorConflictStorageAdapter,
   L as LoadEditorRuntimeConflictPersistenceOptions,
-  a as LoadEditorRuntimeConflictPersistenceResult,
+  j as LoadEditorRuntimeConflictPersistenceResult,
   S as SaveEditorRuntimeConflictPersistenceOptions,
-  b as SaveEditorRuntimeConflictPersistenceResult,
-} from "./conflict-BJh4NjsX.js";
+  k as SaveEditorRuntimeConflictPersistenceResult,
+  f as EditorRuntimeConflictPersistenceControllerOptions,
+  g as EditorRuntimePersistenceController,
+  h as EditorRuntimePersistenceControllerOptions,
+} from "./controller-types-Cbb3X33W.js";
+export {
+  E as EditorAutosaveOptions,
+  a as EditorAutosaveRetryOptions,
+  c as EditorPersistenceScheduler,
+  d as EditorPersistenceStateUpdater,
+  e as EditorPersistenceTimer,
+  i as EditorRuntimeStateUpdater,
+  N as NormalizedEditorAutosaveOptions,
+  n as normalizeEditorAutosaveOptions,
+} from "./controller-types-Cbb3X33W.js";
 import { EditorStorageAdapter } from "./browser.js";
 import { b as EditorRuntimeState } from "./types-BobBf3K-.js";
 import "./collaboration.js";
@@ -1564,9 +1670,19 @@ declare function saveEditorRuntimeConflictPersistence<TDocument, TSelection = un
   options?: SaveEditorRuntimeConflictPersistenceOptions,
 ): Promise<SaveEditorRuntimeConflictPersistenceResult<TDocument, TSelection>>;
 
+declare function createEditorRuntimePersistenceController<TDocument, TSelection = unknown>(
+  options: EditorRuntimePersistenceControllerOptions<TDocument, TSelection>,
+): EditorRuntimePersistenceController<TDocument, TSelection>;
+declare function createEditorRuntimeConflictPersistenceController<TDocument, TSelection = unknown>(
+  options: EditorRuntimeConflictPersistenceControllerOptions<TDocument, TSelection>,
+): EditorRuntimePersistenceController<TDocument, TSelection>;
+
 export {
   EditorConflictStorageAdapter,
   EditorPersistenceState,
+  EditorRuntimeConflictPersistenceControllerOptions,
+  EditorRuntimePersistenceController,
+  EditorRuntimePersistenceControllerOptions,
   LoadEditorRuntimeConflictPersistenceOptions,
   LoadEditorRuntimeConflictPersistenceResult,
   LoadEditorRuntimePersistenceOptions,
@@ -1577,6 +1693,8 @@ export {
   SaveEditorRuntimePersistenceResult,
   clearEditorPersistenceConflict,
   createEditorPersistenceState,
+  createEditorRuntimeConflictPersistenceController,
+  createEditorRuntimePersistenceController,
   loadEditorRuntimeConflictPersistence,
   loadEditorRuntimePersistence,
   saveEditorRuntimeConflictPersistence,
@@ -1674,7 +1792,11 @@ import {
   e as EditorPersistenceEventHandler,
   g as EditorPersistenceState,
 } from "./types-BZ2JcJCu.js";
-import { E as EditorConflictStorageAdapter } from "./conflict-BJh4NjsX.js";
+import {
+  E as EditorAutosaveOptions,
+  b as EditorConflictStorageAdapter,
+} from "./controller-types-Cbb3X33W.js";
+export { a as EditorAutosaveRetryOptions } from "./controller-types-Cbb3X33W.js";
 import { EditorCommandDefinition } from "./hotkeys.js";
 import { EditorTreeState, EditorTreeNodeId } from "./tree.js";
 import "./aspects.js";
@@ -1715,16 +1837,6 @@ type UseEditorRuntimeResult<TDocument, TSelection = unknown> = {
 declare function useEditorRuntime<TDocument, TSelection = unknown>(
   options: UseEditorRuntimeOptions<TDocument, TSelection>,
 ): UseEditorRuntimeResult<TDocument, TSelection>;
-
-type EditorAutosaveRetryOptions = {
-  attempts?: number;
-  delayMs?: number;
-};
-type EditorAutosaveOptions = {
-  delayMs?: number;
-  retry?: EditorAutosaveRetryOptions;
-  saveLatest?: boolean;
-};
 
 type UsePersistentEditorRuntimeOptions<TDocument, TSelection = unknown> = UseEditorRuntimeOptions<
   TDocument,
@@ -1795,8 +1907,7 @@ declare function useEditorTreeState(
 
 export {
   type ControllableEditorStateOptions,
-  type EditorAutosaveOptions,
-  type EditorAutosaveRetryOptions,
+  EditorAutosaveOptions,
   type UseConflictAwareEditorRuntimeOptions,
   type UseConflictAwareEditorRuntimeResult,
   type UseEditorHotkeysOptions,

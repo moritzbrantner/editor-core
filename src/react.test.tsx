@@ -6,6 +6,7 @@ import type { EditorStorageAdapter } from "./browser.js";
 import {
   EditorPersistenceConflictError,
   createEditorPersistenceState,
+  normalizeEditorAutosaveOptions,
   type EditorConflictStorageAdapter,
   type EditorPersistedDocument,
 } from "./persistence.js";
@@ -20,11 +21,6 @@ import {
   type UsePersistentEditorRuntimeResult,
 } from "./react.js";
 import { usePersistentEditorRuntimeCore } from "./react/persistence-runtime-core.js";
-import {
-  conflictAwarePersistenceStrategy,
-  editorStoragePersistenceStrategy,
-  normalizeEditorAutosaveOptions,
-} from "./react/persistence-strategy.js";
 
 type Document = {
   title: string;
@@ -601,24 +597,13 @@ describe("editor react hooks", () => {
     });
     expect(normalizeEditorAutosaveOptions({ retry: { attempts: 2.8 } }).retryAttempts).toBe(2);
 
-    const persistence = { ...createEditorPersistenceState(), revisionToken: "server-1" };
-    expect(editorStoragePersistenceStrategy.getSaveOptions()).toEqual({});
-    expect(conflictAwarePersistenceStrategy.getSaveOptions(persistence)).toEqual({
-      revisionToken: "server-1",
-    });
-    expect(editorStoragePersistenceStrategy.prepareLoad(persistence)).toMatchObject({
-      operation: "load",
-      status: "loading",
-    });
-    expect(
-      conflictAwarePersistenceStrategy.prepareSave({ ...persistence, conflict: null }),
-    ).toMatchObject({
-      conflict: null,
+    expect(createEditorPersistenceState()).toMatchObject({
       error: null,
+      status: "idle",
     });
   });
 
-  test("usePersistentEditorRuntimeCore saves through an injected persistence strategy", async () => {
+  test("usePersistentEditorRuntimeCore saves through the selected controller", async () => {
     const storage = createMemoryStorage<Document>(null);
     const fixture = renderHook(() =>
       usePersistentEditorRuntimeCore<Document, string, MemoryStorage<Document>>(
@@ -633,7 +618,7 @@ describe("editor react hooks", () => {
           loadOnMount: false,
           storage,
         },
-        editorStoragePersistenceStrategy,
+        "storage",
       ),
     );
 

@@ -1,12 +1,12 @@
 import type { EditorStorageAdapter } from "../browser.js";
 import type {
   EditorConflictStorageAdapter,
+  EditorAutosaveOptions,
   EditorPersistenceErrorContext,
   EditorPersistenceEventHandler,
   EditorPersistenceState,
 } from "../persistence.js";
 import type { EditorRuntimeState } from "../runtime.js";
-import type { EditorAutosaveOptions } from "./persistence-strategy.js";
 import type { UseEditorRuntimeOptions, UseEditorRuntimeResult } from "./runtime-hooks.js";
 
 export type UsePersistentEditorRuntimeOptions<

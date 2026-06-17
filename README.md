@@ -549,6 +549,33 @@ Persistence stores the document only. Selection, history, revisions, and undo st
 the runtime. React consumers can use `usePersistentEditorRuntime` from
 `@moritzbrantner/editor-core/react` for mount loading and debounced autosave.
 
+Headless consumers can use a persistence controller to coordinate load, manual save, autosave,
+retry, stale-save protection, and latest-revision follow-up saves without React:
+
+```ts
+import {
+  createEditorPersistenceState,
+  createEditorRuntimePersistenceController,
+} from "@moritzbrantner/editor-core/persistence";
+
+let persistence = createEditorPersistenceState();
+
+const controller = createEditorRuntimePersistenceController({
+  autosave: { delayMs: 750, retry: { attempts: 1, delayMs: 1500 } },
+  getPersistence: () => persistence,
+  getRuntime: () => runtime,
+  setPersistence: (next) => {
+    persistence = typeof next === "function" ? next(persistence) : next;
+  },
+  setRuntime: (next) => {
+    runtime = typeof next === "function" ? next(runtime) : next;
+  },
+  storage,
+});
+
+controller.notifyRuntimeChanged();
+```
+
 Use conflict-aware persistence when storage exposes revision tokens:
 
 ```ts

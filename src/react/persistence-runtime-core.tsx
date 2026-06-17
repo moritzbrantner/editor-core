@@ -1,9 +1,15 @@
 import * as React from "react";
-import { createEditorPersistenceState } from "../persistence.js";
+import type { EditorStorageAdapter } from "../browser.js";
 import {
-  normalizeEditorAutosaveOptions,
-  type EditorPersistenceStrategy,
-} from "./persistence-strategy.js";
+  createEditorPersistenceState,
+  createEditorRuntimeConflictPersistenceController,
+  createEditorRuntimePersistenceController,
+  type EditorConflictStorageAdapter,
+  type EditorPersistenceErrorContext,
+  type EditorPersistenceEventHandler,
+  type EditorPersistenceState,
+  type EditorRuntimePersistenceController,
+} from "../persistence.js";
 import type {
   UsePersistentEditorRuntimeCoreOptions,
   UsePersistentEditorRuntimeResult,
@@ -12,7 +18,7 @@ import { useEditorRuntime } from "./runtime-hooks.js";
 
 export function usePersistentEditorRuntimeCore<TDocument, TSelection, TStorage>(
   options: UsePersistentEditorRuntimeCoreOptions<TDocument, TSelection, TStorage>,
-  strategy: EditorPersistenceStrategy<TDocument, TSelection, TStorage>,
+  controllerKind: "storage" | "conflict",
 ): UsePersistentEditorRuntimeResult<TDocument, TSelection> {
   const runtime = useEditorRuntime<TDocument, TSelection>(options);
   const setRuntimeState = runtime.setState;
@@ -23,13 +29,11 @@ export function usePersistentEditorRuntimeCore<TDocument, TSelection, TStorage>(
   const canSaveRef = React.useRef(options.canSave);
   const onPersistenceErrorRef = React.useRef(options.onPersistenceError);
   const onPersistenceEventRef = React.useRef(options.onPersistenceEvent);
-  const saveInFlightRef = React.useRef(false);
-  const failedSaveRevisionRef = React.useRef<number | null>(null);
-  const pendingSaveAfterInFlightRef = React.useRef(false);
-  const skippedLatestSaveRevisionRef = React.useRef<number | null>(null);
-  const retryTimeoutRef = React.useRef<number | null>(null);
-  const mountedRef = React.useRef(true);
-  const [saveSignal, setSaveSignal] = React.useState(0);
+  const autosaveRef = React.useRef(options.autosave);
+  const controllerRef = React.useRef<EditorRuntimePersistenceController<
+    TDocument,
+    TSelection
+  > | null>(null);
 
   runtimeRef.current = runtime.state;
   persistenceRef.current = persistence;
@@ -37,142 +41,44 @@ export function usePersistentEditorRuntimeCore<TDocument, TSelection, TStorage>(
   canSaveRef.current = options.canSave;
   onPersistenceErrorRef.current = options.onPersistenceError;
   onPersistenceEventRef.current = options.onPersistenceEvent;
+  autosaveRef.current = options.autosave;
+
+  if (!controllerRef.current) {
+    controllerRef.current = createPersistentRuntimeController(
+      controllerKind,
+      runtimeRef,
+      persistenceRef,
+      storageRef,
+      canSaveRef,
+      onPersistenceErrorRef,
+      onPersistenceEventRef,
+      autosaveRef,
+      setRuntimeState,
+      setPersistence,
+    );
+  }
+
+  controllerRef.current.updateOptions({
+    autosave: options.autosave,
+    canSave: options.canSave,
+    onError: options.onPersistenceError,
+    onEvent: options.onPersistenceEvent,
+    storage: options.storage as never,
+  });
 
   React.useEffect(() => {
-    mountedRef.current = true;
     return () => {
-      mountedRef.current = false;
-      if (retryTimeoutRef.current !== null) {
-        window.clearTimeout(retryTimeoutRef.current);
-        retryTimeoutRef.current = null;
-      }
+      controllerRef.current?.dispose();
+      controllerRef.current = null;
     };
   }, []);
 
   const load = React.useCallback(async () => {
-    setPersistence((previous) => strategy.prepareLoad(previous));
-
-    const result = await strategy.load(runtimeRef.current, storageRef.current, {
-      onError: onPersistenceErrorRef.current,
-      onEvent: onPersistenceEventRef.current,
-    });
-
-    if (!mountedRef.current) {
-      return;
-    }
-
-    setRuntimeState(result.runtime);
-    setPersistence(result.persistence);
-  }, [setRuntimeState, strategy]);
-
-  const autosaveOptions = normalizeEditorAutosaveOptions(options.autosave);
-  const save = React.useCallback(
-    async (saveOptions: { force?: boolean } = {}) => {
-      const snapshot = runtimeRef.current;
-      const canSave = canSaveRef.current ?? (() => true);
-      if (skippedLatestSaveRevisionRef.current === snapshot.revision) {
-        skippedLatestSaveRevisionRef.current = null;
-      }
-
-      if (saveInFlightRef.current) {
-        onPersistenceEventRef.current?.({
-          reason: "in-flight",
-          revision: snapshot.revision,
-          type: "save-skipped",
-        });
-        return false;
-      }
-
-      if (!canSave(snapshot)) {
-        onPersistenceEventRef.current?.({
-          reason: "blocked",
-          revision: snapshot.revision,
-          type: "save-skipped",
-        });
-        return false;
-      }
-
-      if (snapshot.status === "clean" && !saveOptions.force) {
-        const result = await strategy.save(snapshot, storageRef.current, {
-          force: saveOptions.force,
-          onError: onPersistenceErrorRef.current,
-          onEvent: onPersistenceEventRef.current,
-          ...strategy.getSaveOptions(persistenceRef.current),
-        });
-
-        if (mountedRef.current) {
-          setPersistence(result.persistence);
-        }
-
-        return result.saved;
-      }
-
-      saveInFlightRef.current = true;
-      setPersistence((previous) =>
-        strategy.prepareSave({
-          ...previous,
-          operation: "save",
-          savingRevision: snapshot.revision,
-          status: "saving",
-        }),
-      );
-
-      const result = await strategy.save(snapshot, storageRef.current, {
-        force: saveOptions.force,
-        onError: onPersistenceErrorRef.current,
-        onEvent: onPersistenceEventRef.current,
-        ...strategy.getSaveOptions(persistenceRef.current),
-      });
-
-      saveInFlightRef.current = false;
-      if (!mountedRef.current) {
-        return result.saved;
-      }
-
-      failedSaveRevisionRef.current =
-        result.persistence.status === "error" ? result.revision : null;
-      setRuntimeState((current) =>
-        current.revision === result.revision ? result.runtime : current,
-      );
-      setPersistence(result.persistence);
-      if (
-        pendingSaveAfterInFlightRef.current &&
-        autosaveOptions.enabled &&
-        autosaveOptions.saveLatest
-      ) {
-        pendingSaveAfterInFlightRef.current = false;
-        setSaveSignal((signal) => signal + 1);
-      }
-      return result.saved;
-    },
-    [autosaveOptions.enabled, autosaveOptions.saveLatest, setRuntimeState, strategy],
-  );
-
-  const saveWithAutosaveRetry = React.useCallback(async () => {
-    const revision = runtimeRef.current.revision;
-    let attemptsUsed = 0;
-
-    while (true) {
-      const saved = await save();
-      if (
-        saved ||
-        !mountedRef.current ||
-        runtimeRef.current.revision !== revision ||
-        failedSaveRevisionRef.current !== revision ||
-        attemptsUsed >= autosaveOptions.retryAttempts
-      ) {
-        return;
-      }
-
-      attemptsUsed += 1;
-      await new Promise<void>((resolve) => {
-        retryTimeoutRef.current = window.setTimeout(() => {
-          retryTimeoutRef.current = null;
-          resolve();
-        }, autosaveOptions.retryDelayMs);
-      });
-    }
-  }, [autosaveOptions.retryAttempts, autosaveOptions.retryDelayMs, save]);
+    await controllerRef.current?.load();
+  }, []);
+  const save = React.useCallback(async (saveOptions: { force?: boolean } = {}) => {
+    return (await controllerRef.current?.save(saveOptions)) ?? false;
+  }, []);
 
   const loadOnMount = options.loadOnMount ?? true;
 
@@ -185,54 +91,8 @@ export function usePersistentEditorRuntimeCore<TDocument, TSelection, TStorage>(
   }, [load, loadOnMount]);
 
   React.useEffect(() => {
-    if (!autosaveOptions.enabled || runtime.state.status !== "dirty") {
-      return;
-    }
-
-    if (saveInFlightRef.current) {
-      if (autosaveOptions.saveLatest && !pendingSaveAfterInFlightRef.current) {
-        pendingSaveAfterInFlightRef.current = true;
-        onPersistenceEventRef.current?.({
-          reason: "in-flight",
-          revision: runtime.state.revision,
-          type: "save-skipped",
-        });
-      }
-      if (!autosaveOptions.saveLatest) {
-        skippedLatestSaveRevisionRef.current = runtime.state.revision;
-      }
-      return;
-    }
-
-    if (skippedLatestSaveRevisionRef.current === runtime.state.revision) {
-      return;
-    }
-
-    if (
-      persistence.status === "error" &&
-      failedSaveRevisionRef.current === runtime.state.revision
-    ) {
-      return;
-    }
-
-    const timeout = window.setTimeout(() => {
-      void saveWithAutosaveRetry();
-    }, autosaveOptions.delayMs);
-
-    return () => window.clearTimeout(timeout);
-  }, [
-    autosaveOptions.delayMs,
-    autosaveOptions.enabled,
-    autosaveOptions.retryAttempts,
-    autosaveOptions.retryDelayMs,
-    autosaveOptions.saveLatest,
-    persistence.status,
-    runtime.state.revision,
-    runtime.state.status,
-    save,
-    saveWithAutosaveRetry,
-    saveSignal,
-  ]);
+    controllerRef.current?.notifyRuntimeChanged();
+  }, [options.autosave, persistence.status, runtime.state.revision, runtime.state.status]);
 
   return {
     ...runtime,
@@ -240,4 +100,52 @@ export function usePersistentEditorRuntimeCore<TDocument, TSelection, TStorage>(
     persistence,
     save,
   };
+}
+
+function createPersistentRuntimeController<TDocument, TSelection, TStorage>(
+  controllerKind: "storage" | "conflict",
+  runtimeRef: React.RefObject<ReturnType<typeof useEditorRuntime<TDocument, TSelection>>["state"]>,
+  persistenceRef: React.RefObject<EditorPersistenceState>,
+  storageRef: React.RefObject<TStorage>,
+  canSaveRef: React.RefObject<
+    | ((runtime: ReturnType<typeof useEditorRuntime<TDocument, TSelection>>["state"]) => boolean)
+    | undefined
+  >,
+  onPersistenceErrorRef: React.RefObject<
+    ((error: unknown, context: EditorPersistenceErrorContext) => void) | undefined
+  >,
+  onPersistenceEventRef: React.RefObject<EditorPersistenceEventHandler | undefined>,
+  autosaveRef: React.RefObject<
+    UsePersistentEditorRuntimeCoreOptions<TDocument, TSelection, TStorage>["autosave"]
+  >,
+  setRuntimeState: ReturnType<typeof useEditorRuntime<TDocument, TSelection>>["setState"],
+  setPersistence: React.Dispatch<React.SetStateAction<EditorPersistenceState>>,
+): EditorRuntimePersistenceController<TDocument, TSelection> {
+  const commonOptions = {
+    autosave: autosaveRef.current,
+    canSave: (runtime: ReturnType<typeof useEditorRuntime<TDocument, TSelection>>["state"]) =>
+      canSaveRef.current?.(runtime) ?? true,
+    getPersistence: () => persistenceRef.current,
+    getRuntime: () => runtimeRef.current,
+    onError: (error: unknown, context: EditorPersistenceErrorContext) =>
+      onPersistenceErrorRef.current?.(error, context),
+    onEvent: (event: Parameters<EditorPersistenceEventHandler>[0]) =>
+      onPersistenceEventRef.current?.(event),
+    setPersistence,
+    setRuntime: setRuntimeState,
+  };
+
+  if (controllerKind === "conflict") {
+    return createEditorRuntimeConflictPersistenceController({
+      ...commonOptions,
+      storage: storageRef.current as EditorConflictStorageAdapter<TDocument>,
+    });
+  }
+
+  return createEditorRuntimePersistenceController({
+    ...commonOptions,
+    storage: storageRef.current as TStorage extends EditorStorageAdapter<TDocument>
+      ? TStorage
+      : never,
+  });
 }

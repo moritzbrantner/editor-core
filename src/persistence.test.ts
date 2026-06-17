@@ -13,12 +13,15 @@ import {
   EditorPersistenceConflictError,
   clearEditorPersistenceConflict,
   createEditorPersistenceState,
+  createEditorRuntimeConflictPersistenceController,
+  createEditorRuntimePersistenceController,
   loadEditorRuntimeConflictPersistence,
   loadEditorRuntimePersistence,
   saveEditorRuntimeConflictPersistence,
   saveEditorRuntimePersistence,
   type EditorConflictStorageAdapter,
   type EditorPersistedDocument,
+  type EditorPersistenceScheduler,
   type EditorPersistenceState,
 } from "./persistence.js";
 
@@ -425,7 +428,381 @@ describe("editor persistence", () => {
       status: "error",
     });
   });
+
+  test("controller saves dirty runtime through caller-owned state", async () => {
+    let runtime = commitEditorRuntime(createRuntime(), { body: "Dirty", title: "Dirty" });
+    let persistence = createEditorPersistenceState();
+    const storage = createMemoryStorage<Document>(null);
+    const controller = createEditorRuntimePersistenceController({
+      getPersistence: () => persistence,
+      getRuntime: () => runtime,
+      setPersistence: (updater) => {
+        persistence = resolveUpdater(persistence, updater);
+      },
+      setRuntime: (updater) => {
+        runtime = resolveUpdater(runtime, updater);
+      },
+      storage,
+    });
+
+    const saved = await controller.save();
+
+    expect(saved).toBe(true);
+    expect(runtime.status).toBe("clean");
+    expect(persistence.status).toBe("saved");
+    expect(await storage.load()).toEqual({ body: "Dirty", title: "Dirty" });
+  });
+
+  test("controller loads stored documents and marks caller-owned runtime clean", async () => {
+    let runtime = commitEditorRuntime(createRuntime(), { body: "Dirty", title: "Dirty" });
+    let persistence = createEditorPersistenceState();
+    const controller = createEditorRuntimePersistenceController({
+      getPersistence: () => persistence,
+      getRuntime: () => runtime,
+      now: clock,
+      setPersistence: (updater) => {
+        persistence = resolveUpdater(persistence, updater);
+      },
+      setRuntime: (updater) => {
+        runtime = resolveUpdater(runtime, updater);
+      },
+      storage: createMemoryStorage<Document>({ body: "Stored", title: "Stored" }),
+    });
+
+    await controller.load();
+
+    expect(runtime.document).toEqual({ body: "Stored", title: "Stored" });
+    expect(runtime.status).toBe("clean");
+    expect(persistence.status).toBe("loaded");
+    expect(persistence.loadedAt).toBe("2026-06-06T12:00:00.000Z");
+  });
+
+  test("controller skips clean saves without calling storage", async () => {
+    let runtime = createRuntime();
+    let persistence = createEditorPersistenceState();
+    const onEvent = vi.fn();
+    const storage = createTrackedMemoryStorage<Document>(null);
+    const controller = createEditorRuntimePersistenceController({
+      getPersistence: () => persistence,
+      getRuntime: () => runtime,
+      onEvent,
+      setPersistence: (updater) => {
+        persistence = resolveUpdater(persistence, updater);
+      },
+      setRuntime: (updater) => {
+        runtime = resolveUpdater(runtime, updater);
+      },
+      storage,
+    });
+
+    const saved = await controller.save();
+
+    expect(saved).toBe(false);
+    expect(storage.save).not.toHaveBeenCalled();
+    expect(persistence.status).toBe("idle");
+    expect(onEvent).toHaveBeenCalledWith({
+      reason: "clean",
+      revision: runtime.revision,
+      type: "save-skipped",
+    });
+  });
+
+  test("controller debounces autosave for dirty runtime revisions", async () => {
+    let runtime = commitEditorRuntime(createRuntime(), { body: "Dirty", title: "Dirty" });
+    let persistence = createEditorPersistenceState();
+    const scheduler = createTestScheduler();
+    const storage = createTrackedMemoryStorage<Document>(null);
+    const controller = createEditorRuntimePersistenceController({
+      autosave: { delayMs: 25 },
+      getPersistence: () => persistence,
+      getRuntime: () => runtime,
+      scheduler,
+      setPersistence: (updater) => {
+        persistence = resolveUpdater(persistence, updater);
+      },
+      setRuntime: (updater) => {
+        runtime = resolveUpdater(runtime, updater);
+      },
+      storage,
+    });
+
+    controller.notifyRuntimeChanged();
+
+    expect(scheduler.pendingDelays()).toEqual([25]);
+    expect(storage.save).not.toHaveBeenCalled();
+
+    await scheduler.runNext();
+
+    expect(storage.save).toHaveBeenCalledWith({ body: "Dirty", title: "Dirty" });
+    expect(runtime.status).toBe("clean");
+    expect(persistence.status).toBe("saved");
+  });
+
+  test("controller saves the latest dirty revision after a stale in-flight save finishes", async () => {
+    let runtime = commitEditorRuntime(createRuntime(), { body: "First", title: "First" });
+    let persistence = createEditorPersistenceState();
+    const firstSave = createDeferred<void>();
+    const onEvent = vi.fn();
+    const scheduler = createTestScheduler();
+    const storage = createTrackedMemoryStorage<Document>(null);
+    storage.save.mockImplementationOnce(async (value) => {
+      storage.value = value;
+      await firstSave.promise;
+    });
+    const controller = createEditorRuntimePersistenceController({
+      autosave: { delayMs: 0 },
+      getPersistence: () => persistence,
+      getRuntime: () => runtime,
+      onEvent,
+      scheduler,
+      setPersistence: (updater) => {
+        persistence = resolveUpdater(persistence, updater);
+      },
+      setRuntime: (updater) => {
+        runtime = resolveUpdater(runtime, updater);
+      },
+      storage,
+    });
+
+    controller.notifyRuntimeChanged();
+    await scheduler.runNext();
+    expect(persistence.status).toBe("saving");
+
+    runtime = commitEditorRuntime(runtime, { body: "Second", title: "Second" });
+    controller.notifyRuntimeChanged();
+    expect(onEvent).toHaveBeenCalledWith({
+      reason: "in-flight",
+      revision: runtime.revision,
+      type: "save-skipped",
+    });
+
+    firstSave.resolve();
+    await firstSave.promise;
+    await flushPromises();
+
+    expect(runtime.document).toEqual({ body: "Second", title: "Second" });
+    expect(runtime.status).toBe("dirty");
+    expect(scheduler.pendingDelays()).toEqual([0]);
+
+    await scheduler.runNext();
+
+    expect(storage.save).toHaveBeenCalledTimes(2);
+    expect(storage.save).toHaveBeenLastCalledWith({ body: "Second", title: "Second" });
+    expect(runtime.status).toBe("clean");
+  });
+
+  test("controller does not schedule a latest save when saveLatest is false", async () => {
+    let runtime = commitEditorRuntime(createRuntime(), { body: "First", title: "First" });
+    let persistence = createEditorPersistenceState();
+    const firstSave = createDeferred<void>();
+    const scheduler = createTestScheduler();
+    const storage = createTrackedMemoryStorage<Document>(null);
+    storage.save.mockImplementationOnce(async (value) => {
+      storage.value = value;
+      await firstSave.promise;
+    });
+    const controller = createEditorRuntimePersistenceController({
+      autosave: { delayMs: 0, saveLatest: false },
+      getPersistence: () => persistence,
+      getRuntime: () => runtime,
+      scheduler,
+      setPersistence: (updater) => {
+        persistence = resolveUpdater(persistence, updater);
+      },
+      setRuntime: (updater) => {
+        runtime = resolveUpdater(runtime, updater);
+      },
+      storage,
+    });
+
+    controller.notifyRuntimeChanged();
+    await scheduler.runNext();
+    runtime = commitEditorRuntime(runtime, { body: "Second", title: "Second" });
+    controller.notifyRuntimeChanged();
+    firstSave.resolve();
+    await firstSave.promise;
+    await flushPromises();
+
+    expect(storage.save).toHaveBeenCalledOnce();
+    expect(runtime.status).toBe("dirty");
+    expect(scheduler.pendingDelays()).toEqual([]);
+  });
+
+  test("controller skips blocked saves", async () => {
+    let runtime = commitEditorRuntime(createRuntime(), { body: "Dirty", title: "Dirty" });
+    let persistence = createEditorPersistenceState();
+    const onEvent = vi.fn();
+    const storage = createTrackedMemoryStorage<Document>(null);
+    const controller = createEditorRuntimePersistenceController({
+      canSave: () => false,
+      getPersistence: () => persistence,
+      getRuntime: () => runtime,
+      onEvent,
+      setPersistence: (updater) => {
+        persistence = resolveUpdater(persistence, updater);
+      },
+      setRuntime: (updater) => {
+        runtime = resolveUpdater(runtime, updater);
+      },
+      storage,
+    });
+
+    await expect(controller.save()).resolves.toBe(false);
+
+    expect(storage.save).not.toHaveBeenCalled();
+    expect(persistence.status).toBe("idle");
+    expect(onEvent).toHaveBeenCalledWith({
+      reason: "blocked",
+      revision: runtime.revision,
+      type: "save-skipped",
+    });
+  });
+
+  test("controller retries failed autosaves for the same revision", async () => {
+    let runtime = commitEditorRuntime(createRuntime(), { body: "Retry", title: "Retry" });
+    let persistence = createEditorPersistenceState();
+    const scheduler = createTestScheduler();
+    const storage = createTrackedMemoryStorage<Document>(null);
+    storage.save.mockRejectedValueOnce(new Error("save failed")).mockImplementationOnce((value) => {
+      storage.value = value;
+    });
+    const controller = createEditorRuntimePersistenceController({
+      autosave: { delayMs: 0, retry: { attempts: 1, delayMs: 10 } },
+      getPersistence: () => persistence,
+      getRuntime: () => runtime,
+      scheduler,
+      setPersistence: (updater) => {
+        persistence = resolveUpdater(persistence, updater);
+      },
+      setRuntime: (updater) => {
+        runtime = resolveUpdater(runtime, updater);
+      },
+      storage,
+    });
+
+    controller.notifyRuntimeChanged();
+    await scheduler.runNext();
+
+    expect(storage.save).toHaveBeenCalledOnce();
+    expect(persistence.status).toBe("error");
+    expect(scheduler.pendingDelays()).toEqual([10]);
+
+    await scheduler.runNext();
+
+    expect(storage.save).toHaveBeenCalledTimes(2);
+    expect(runtime.status).toBe("clean");
+    expect(persistence.status).toBe("saved");
+  });
+
+  test("controller dispose clears pending autosave work", async () => {
+    let runtime = commitEditorRuntime(createRuntime(), { body: "Dirty", title: "Dirty" });
+    let persistence = createEditorPersistenceState();
+    const scheduler = createTestScheduler();
+    const storage = createTrackedMemoryStorage<Document>(null);
+    const controller = createEditorRuntimePersistenceController({
+      autosave: { delayMs: 25 },
+      getPersistence: () => persistence,
+      getRuntime: () => runtime,
+      scheduler,
+      setPersistence: (updater) => {
+        persistence = resolveUpdater(persistence, updater);
+      },
+      setRuntime: (updater) => {
+        runtime = resolveUpdater(runtime, updater);
+      },
+      storage,
+    });
+
+    controller.notifyRuntimeChanged();
+    controller.dispose();
+    await scheduler.runAll();
+
+    expect(storage.save).not.toHaveBeenCalled();
+    expect(runtime.status).toBe("dirty");
+    expect(persistence.status).toBe("idle");
+  });
+
+  test("conflict controller loads and saves with revision tokens", async () => {
+    let runtime = createRuntime();
+    let persistence = createEditorPersistenceState();
+    const storage = createConflictMemoryStorage<Document>({
+      document: { body: "Stored", title: "Stored" },
+      revisionToken: "server-1",
+    });
+    storage.save.mockImplementationOnce((value) => {
+      storage.value = { document: value.document, revisionToken: "server-2" };
+      return storage.value;
+    });
+    const controller = createEditorRuntimeConflictPersistenceController({
+      getPersistence: () => persistence,
+      getRuntime: () => runtime,
+      setPersistence: (updater) => {
+        persistence = resolveUpdater(persistence, updater);
+      },
+      setRuntime: (updater) => {
+        runtime = resolveUpdater(runtime, updater);
+      },
+      storage,
+    });
+
+    await controller.load();
+    runtime = commitEditorRuntime(runtime, { body: "Saved", title: "Saved" });
+    await controller.save();
+
+    expect(storage.save).toHaveBeenCalledWith({
+      document: { body: "Saved", title: "Saved" },
+      revisionToken: "server-1",
+    });
+    expect(persistence.revisionToken).toBe("server-2");
+    expect(runtime.status).toBe("clean");
+  });
+
+  test("conflict controller keeps runtime dirty and exposes stale save conflicts", async () => {
+    let runtime = commitEditorRuntime(createRuntime(), { body: "Local", title: "Local" });
+    let persistence: EditorPersistenceState = {
+      ...createEditorPersistenceState(),
+      revisionToken: "server-1",
+    };
+    const conflict = new EditorPersistenceConflictError("stale revision", {
+      local: { document: runtime.document, revisionToken: "server-1" },
+      remote: {
+        document: { body: "Remote", title: "Remote" },
+        revisionToken: "server-2",
+      },
+    });
+    const storage = createConflictMemoryStorage<Document>(null);
+    storage.save.mockImplementationOnce(() => {
+      throw conflict;
+    });
+    const controller = createEditorRuntimeConflictPersistenceController({
+      getPersistence: () => persistence,
+      getRuntime: () => runtime,
+      setPersistence: (updater) => {
+        persistence = resolveUpdater(persistence, updater);
+      },
+      setRuntime: (updater) => {
+        runtime = resolveUpdater(runtime, updater);
+      },
+      storage,
+    });
+
+    await expect(controller.save()).resolves.toBe(false);
+
+    expect(runtime.status).toBe("dirty");
+    expect(persistence.conflict).toBe(conflict);
+    expect(persistence.revisionToken).toBe("server-1");
+  });
 });
+
+function resolveUpdater<T>(value: T, updater: T | ((current: T) => T)): T {
+  return typeof updater === "function" ? (updater as (current: T) => T)(value) : updater;
+}
+
+async function flushPromises(): Promise<void> {
+  for (let index = 0; index < 5; index += 1) {
+    await Promise.resolve();
+  }
+}
 
 function createRuntime(): EditorRuntimeState<Document, string> {
   return createEditorRuntime<Document, string>({
@@ -467,6 +844,27 @@ function createThrowingStorage<TValue>(operation: "load" | "save"): EditorStorag
   };
 }
 
+type TrackedMemoryStorage<TValue> = EditorStorageAdapter<TValue> & {
+  value: TValue | null;
+  load: ReturnType<typeof vi.fn<() => TValue | null>>;
+  save: ReturnType<typeof vi.fn<(value: TValue) => void | Promise<void>>>;
+};
+
+function createTrackedMemoryStorage<TValue>(
+  initialValue: TValue | null,
+): TrackedMemoryStorage<TValue> {
+  const storage = {
+    value: initialValue,
+  } as TrackedMemoryStorage<TValue>;
+
+  storage.load = vi.fn(() => storage.value);
+  storage.save = vi.fn((value: TValue) => {
+    storage.value = value;
+  });
+
+  return storage;
+}
+
 type ConflictMemoryStorage<TValue> = EditorConflictStorageAdapter<TValue> & {
   value: EditorPersistedDocument<TValue> | null;
   load: ReturnType<typeof vi.fn<() => EditorPersistedDocument<TValue> | null>>;
@@ -489,4 +887,83 @@ function createConflictMemoryStorage<TValue>(
   });
 
   return storage;
+}
+
+type Deferred<TValue> = {
+  promise: Promise<TValue>;
+  reject: (error: unknown) => void;
+  resolve: (value: TValue | PromiseLike<TValue>) => void;
+};
+
+function createDeferred<TValue>(): Deferred<TValue> {
+  let resolve: Deferred<TValue>["resolve"] | undefined;
+  let reject: Deferred<TValue>["reject"] | undefined;
+  const promise = new Promise<TValue>((promiseResolve, promiseReject) => {
+    resolve = promiseResolve;
+    reject = promiseReject;
+  });
+
+  return {
+    promise,
+    reject(error) {
+      reject?.(error);
+    },
+    resolve(value) {
+      resolve?.(value);
+    },
+  };
+}
+
+function createTestScheduler(): EditorPersistenceScheduler & {
+  pendingDelays: () => number[];
+  runAll: () => Promise<void>;
+  runNext: () => Promise<void>;
+} {
+  type Task = {
+    active: boolean;
+    callback: () => void;
+    delayMs: number;
+    id: number;
+  };
+  const tasks: Task[] = [];
+  let nextId = 1;
+
+  const scheduler = {
+    clearTimeout(timer: unknown) {
+      const task = tasks.find((candidate) => candidate.id === timer);
+      if (task) {
+        task.active = false;
+      }
+    },
+    pendingDelays() {
+      return tasks.filter((task) => task.active).map((task) => task.delayMs);
+    },
+    async runAll() {
+      while (tasks.some((task) => task.active)) {
+        await scheduler.runNext();
+      }
+    },
+    async runNext() {
+      const task = tasks.find((candidate) => candidate.active);
+      if (!task) {
+        return;
+      }
+      task.active = false;
+      task.callback();
+      await flushPromises();
+    },
+    setTimeout(callback: () => void, delayMs: number) {
+      const task = {
+        active: true,
+        callback,
+        delayMs,
+        id: nextId,
+      };
+      nextId += 1;
+      tasks.push(task);
+      return task.id;
+    },
+  };
+
+  return scheduler;
 }

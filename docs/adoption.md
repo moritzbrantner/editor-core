@@ -179,6 +179,31 @@ const runtime = usePersistentEditorRuntime({
 `saveLatest: true` schedules one follow-up save when a newer dirty revision appears while an older
 save is still in flight. A stale save completion never marks the newer revision clean.
 
+For non-React hosts, use the headless persistence controller. It coordinates the same load, save,
+autosave, retry, and latest-revision behavior through caller-owned runtime and persistence state:
+
+```ts
+import {
+  createEditorPersistenceState,
+  createEditorRuntimePersistenceController,
+} from "@moritzbrantner/editor-core/persistence";
+
+let persistence = createEditorPersistenceState();
+
+const controller = createEditorRuntimePersistenceController({
+  autosave: { delayMs: 750, retry: { attempts: 1, delayMs: 1500 }, saveLatest: true },
+  getPersistence: () => persistence,
+  getRuntime: () => runtime,
+  setPersistence: (next) => {
+    persistence = typeof next === "function" ? next(persistence) : next;
+  },
+  setRuntime: (next) => {
+    runtime = typeof next === "function" ? next(runtime) : next;
+  },
+  storage,
+});
+```
+
 ## Operation Logs
 
 Use operation logs when a downstream editor needs importable semantic edit history:
