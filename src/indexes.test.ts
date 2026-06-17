@@ -106,6 +106,51 @@ describe("editor indexes", () => {
     ]);
   });
 
+  test("does not mutate root id order while returning ordered roots", () => {
+    const document = createEditorEntityDocument(
+      [
+        { id: "b", order: 2, parentId: null, type: "layer" },
+        { id: "a", order: 1, parentId: null, type: "layer" },
+      ],
+      ["b", "a"],
+    );
+    const indexes = createEditorEntityIndexes(document);
+
+    expect(document.rootIds).toEqual(["b", "a"]);
+    expect(indexes.orderedRootIds).toEqual(["a", "b"]);
+  });
+
+  test("sorts existing child groups in deterministic numeric order", () => {
+    const document = createEditorEntityDocument([
+      { id: "parent", order: 1, parentId: null, type: "layer" },
+      { id: "child-10", order: "10", parentId: "parent", type: "layer" },
+      { id: "child-2", order: "2", parentId: "parent", type: "layer" },
+    ]);
+    const indexes = createEditorEntityIndexes(document);
+
+    expect(indexes.childrenByParentId.get("parent")?.map((entity) => entity.id)).toEqual([
+      "child-2",
+      "child-10",
+    ]);
+  });
+
+  test("keeps graph edge insertion order per node", () => {
+    const graph = createEditorGraphIndexes([
+      { id: "edge-1", sourceId: "a", targetId: "b" },
+      { id: "edge-2", sourceId: "a", targetId: "c" },
+      { id: "edge-3", sourceId: "d", targetId: "b" },
+    ]);
+
+    expect(graph.outgoingEdgesByNodeId.get("a")?.map((edge) => edge.id)).toEqual([
+      "edge-1",
+      "edge-2",
+    ]);
+    expect(graph.incomingEdgesByNodeId.get("b")?.map((edge) => edge.id)).toEqual([
+      "edge-1",
+      "edge-3",
+    ]);
+  });
+
   test("groups validation issues by entity id", () => {
     const grouped = groupEditorValidationIssuesByEntityId([
       { message: "Missing", path: "entities.node-a.label" },

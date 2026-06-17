@@ -145,6 +145,44 @@ describe("serialization", () => {
     ).toThrow("Migration cycle detected");
   });
 
+  test("does not mutate provided migration cycle tracking set", () => {
+    const seenVersions = new Set(["prefilled"]);
+
+    expect(
+      migrateEditorDocument(
+        { format: adapter.format, schemaVersion: 1, document: { values: ["direct"] } },
+        adapter,
+        {
+          1: (input) => ({
+            ...input,
+            schemaVersion: 2,
+            document: { nodes: (input.document as { values: string[] }).values },
+          }),
+        },
+        seenVersions,
+      ),
+    ).toEqual({
+      document: { nodes: ["direct"] },
+      format: adapter.format,
+      schemaVersion: 2,
+    });
+    expect([...seenVersions]).toEqual(["prefilled"]);
+  });
+
+  test("supports migrations that return raw documents", () => {
+    expect(
+      readEditorDocument(
+        { format: adapter.format, schemaVersion: 1, document: { values: ["raw"] } },
+        adapter,
+        {
+          migrations: {
+            1: () => ({ nodes: ["raw"] }),
+          },
+        },
+      ),
+    ).toEqual({ nodes: ["raw"] });
+  });
+
   test("unwraps legacy envelopes before serialized migration handling", () => {
     expect(
       readEditorDocument(
@@ -164,5 +202,45 @@ describe("serialization", () => {
         },
       ),
     ).toEqual({ nodes: ["legacy-first"] });
+  });
+
+  test("runs legacy unwrap before migration handling at every migration step", () => {
+    const laterMigration = () => {
+      throw new Error("Later migration should not run for legacy envelopes");
+    };
+
+    expect(
+      readEditorDocument(
+        { format: adapter.format, schemaVersion: 0, document: { values: ["legacy-step"] } },
+        adapter,
+        {
+          migrations: {
+            0: (input) => ({
+              ...input,
+              document: { nodes: ["legacy-step"] },
+              legacy: true,
+              schemaVersion: 1,
+            }),
+            1: laterMigration,
+          },
+        },
+      ),
+    ).toEqual({ nodes: ["legacy-step"] });
+  });
+
+  test("reads documents without validator without creating issues", () => {
+    const adapterWithoutValidator: EditorDocumentAdapter<Document> = {
+      format: adapter.format,
+      normalize: adapter.normalize,
+      read: adapter.read,
+      schemaVersion: adapter.schemaVersion,
+    };
+
+    expect(
+      readEditorDocument(
+        { format: adapter.format, schemaVersion: 2, document: { nodes: ["node"] } },
+        adapterWithoutValidator,
+      ),
+    ).toEqual({ nodes: ["node"] });
   });
 });

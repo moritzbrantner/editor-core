@@ -83,6 +83,41 @@ export function createStableComparisonScenarios() {
       },
     },
     {
+      name: "entity indexes ordered roots and children",
+      run(api) {
+        const entityDocument = api.createEditorEntityDocument(
+          [
+            { id: "root-b", order: 2, parentId: null, type: "layer" },
+            { id: "root-a", order: 1, parentId: null, type: "layer" },
+            { id: "child-10", order: "10", parentId: "root-a", type: "layer" },
+            { id: "child-2", order: "2", parentId: "root-a", type: "layer" },
+          ],
+          ["root-b", "root-a"],
+        );
+        const indexes = api.createEditorEntityIndexes(entityDocument);
+        return {
+          childIds: indexes.childrenByParentId.get("root-a")?.map((entity) => entity.id),
+          orderedRootIds: indexes.orderedRootIds,
+          parentByChildId: indexes.parentByChildId,
+        };
+      },
+    },
+    {
+      name: "timeline indexes sorted track items",
+      run(api) {
+        const indexes = api.createEditorTimelineIndexes([
+          { id: "late", range: { end: 20, start: 10 }, trackId: "track-a", type: "clip" },
+          { id: "early", range: { end: 5, start: 0 }, trackId: "track-a", type: "clip" },
+          { id: "middle", range: { end: 12, start: 5 }, trackId: "track-a", type: "clip" },
+          { id: "other", range: { end: 3, start: 1 }, trackId: "track-b", type: "clip" },
+        ]);
+        return {
+          trackA: indexes.trackItemsByTrackId.get("track-a")?.map((item) => item.id),
+          trackB: indexes.trackItemsByTrackId.get("track-b")?.map((item) => item.id),
+        };
+      },
+    },
+    {
       name: "runtime commit with aspects",
       run(api) {
         const wordCountAspect = api.createEditorAspect({
@@ -181,6 +216,16 @@ export function createStableComparisonScenarios() {
       },
     },
     {
+      name: "selection normalize stale anchor",
+      run(api) {
+        const selection = api.createEditorEntitySelection(
+          ["a", "b", "b", "", "missing", "c"],
+          "missing",
+        );
+        return api.normalizeEditorSelection(selection, (id) => id === "a" || id === "b" || id === "c");
+      },
+    },
+    {
       name: "patch diff apply invert",
       run(api) {
         const before = {
@@ -208,6 +253,7 @@ export function createStableComparisonScenarios() {
     {
       name: "serialization migrated document read",
       run(api) {
+        const migrationTrace = [];
         return api.readEditorDocument(
           {
             document: {
@@ -237,19 +283,58 @@ export function createStableComparisonScenarios() {
           },
           {
             migrations: {
-              1: (input) => ({
-                ...input,
-                document: {
-                  blocks: input.document.blocks,
-                  title: input.document.name,
-                },
-                schemaVersion: 2,
-              }),
-              2: (input) => ({
-                ...input,
-                schemaVersion: 3,
-              }),
+              1: (input) => {
+                migrationTrace.push(`from-${input.schemaVersion}`);
+                return {
+                  ...input,
+                  document: {
+                    blocks: input.document.blocks,
+                    migrationTrace,
+                    title: ` ${input.document.name} `,
+                  },
+                  schemaVersion: 2,
+                };
+              },
+              2: (input) => {
+                migrationTrace.push(`from-${input.schemaVersion}`);
+                return {
+                  ...input,
+                  document: {
+                    ...input.document,
+                    finalSchemaVersion: 3,
+                  },
+                  schemaVersion: 3,
+                };
+              },
             },
+          },
+        );
+      },
+    },
+    {
+      name: "serialization read current document",
+      run(api) {
+        return api.readEditorDocument(
+          {
+            document: {
+              blocks: jsonDocument.blocks,
+              title: " Current stable comparison ",
+            },
+            format: "@stable-comparison/document",
+            schemaVersion: 3,
+          },
+          {
+            format: "@stable-comparison/document",
+            normalize(document) {
+              return {
+                ...document,
+                title: document.title.trim(),
+              };
+            },
+            read(input) {
+              return input;
+            },
+            schemaVersion: 3,
           },
         );
       },
@@ -315,7 +400,48 @@ export async function compareEditorCoreBuilds({
       passed: performanceFailures.length === 0,
     },
     scenarios: scenarioResults,
+    summary: summarizeComparisonPerformance(scenarioResults),
   };
+}
+
+export function summarizeComparisonPerformance(scenarios) {
+  const summary = {
+    fastestImprovement: null,
+    improved: 0,
+    regressed: 0,
+    slowestRegression: null,
+    unchanged: 0,
+  };
+
+  for (const scenario of scenarios) {
+    if (scenario.ratio > 1.01) {
+      summary.improved += 1;
+      if (
+        !summary.fastestImprovement ||
+        scenario.ratio > summary.fastestImprovement.ratio
+      ) {
+        summary.fastestImprovement = {
+          name: scenario.name,
+          ratio: scenario.ratio,
+        };
+      }
+    } else if (scenario.ratio < 0.99) {
+      summary.regressed += 1;
+      if (
+        !summary.slowestRegression ||
+        scenario.ratio < summary.slowestRegression.ratio
+      ) {
+        summary.slowestRegression = {
+          name: scenario.name,
+          ratio: scenario.ratio,
+        };
+      }
+    } else {
+      summary.unchanged += 1;
+    }
+  }
+
+  return summary;
 }
 
 export function createMoonlightHttpComparisonServer(context) {

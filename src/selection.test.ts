@@ -97,4 +97,50 @@ describe("editor selection", () => {
     });
     expect(getEditorSelectionPrimaryEntityId({ kind: "empty" })).toBeNull();
   });
+
+  test("normalizes entity selections while preserving surviving anchors", () => {
+    expect(
+      normalizeEditorSelection(
+        createEditorEntitySelection(["a", "b", "b", "", "missing", "c"], "b"),
+        (id) => id === "a" || id === "b" || id === "c",
+      ),
+    ).toEqual({ anchorId: "b", ids: ["a", "b", "c"], kind: "entity" });
+  });
+
+  test("falls back to last surviving id when anchor is stale", () => {
+    expect(
+      normalizeEditorSelection(
+        createEditorEntitySelection(["a", "b", "b", "", "missing", "c"], "missing"),
+        (id) => id === "a" || id === "b" || id === "c",
+      ),
+    ).toEqual({ anchorId: "c", ids: ["a", "b", "c"], kind: "entity" });
+  });
+
+  test("checks selected entities without changing selection shape", () => {
+    const entitySelection = createEditorEntitySelection(["a", "b"], "a");
+    const rangeSelection = { anchorId: "a", focusId: "b", kind: "range" } as const;
+    const portSelection = { entityId: "a", kind: "port", portId: "out" } as const;
+    const timeSelection = {
+      end: 10,
+      kind: "time",
+      start: 0,
+      trackIds: ["track-a", "track-b"],
+    } as const;
+
+    expect(isEditorEntitySelected(entitySelection, "a")).toBe(true);
+    expect(isEditorEntitySelected(rangeSelection, "b")).toBe(true);
+    expect(isEditorEntitySelected(portSelection, "a")).toBe(true);
+    expect(isEditorEntitySelected(timeSelection, "track-b")).toBe(true);
+    expect(isEditorEntitySelected(timeSelection, "missing")).toBe(false);
+
+    expect(entitySelection).toEqual({ anchorId: "a", ids: ["a", "b"], kind: "entity" });
+    expect(rangeSelection).toEqual({ anchorId: "a", focusId: "b", kind: "range" });
+    expect(portSelection).toEqual({ entityId: "a", kind: "port", portId: "out" });
+    expect(timeSelection).toEqual({
+      end: 10,
+      kind: "time",
+      start: 0,
+      trackIds: ["track-a", "track-b"],
+    });
+  });
 });

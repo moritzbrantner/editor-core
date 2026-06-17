@@ -19,16 +19,7 @@ export function createEditorEntitySelection(
   ids: readonly EditorEntityId[],
   anchorId: EditorEntityId | undefined = ids.at(-1),
 ): EditorSelection {
-  const normalizedIds = normalizeSelectionIds(ids);
-  if (normalizedIds.length === 0) {
-    return emptyEditorSelection;
-  }
-
-  return {
-    anchorId: anchorId && normalizedIds.includes(anchorId) ? anchorId : normalizedIds.at(-1),
-    ids: normalizedIds,
-    kind: "entity",
-  };
+  return createNormalizedEditorEntitySelection(normalizeSelectionIds(ids), anchorId);
 }
 
 export function getEditorSelectedEntityIds(selection: EditorSelection | null): EditorEntityId[] {
@@ -55,7 +46,23 @@ export function isEditorEntitySelected(
   selection: EditorSelection | null,
   id: EditorEntityId,
 ): boolean {
-  return getEditorSelectedEntityIds(selection).includes(id);
+  if (!selection || selection.kind === "empty") {
+    return false;
+  }
+
+  if (selection.kind === "entity") {
+    return selection.ids.includes(id);
+  }
+
+  if (selection.kind === "range") {
+    return selection.anchorId === id || selection.focusId === id;
+  }
+
+  if (selection.kind === "port") {
+    return selection.entityId === id;
+  }
+
+  return selection.trackIds?.includes(id) ?? false;
 }
 
 export function addEditorEntityToSelection(
@@ -92,8 +99,26 @@ export function normalizeEditorSelection(
   }
 
   if (selection.kind === "entity") {
-    const ids = selection.ids.filter(exists);
-    return createEditorEntitySelection(ids, selection.anchorId);
+    const ids: EditorEntityId[] = [];
+    const seen = new Set<EditorEntityId>();
+    let anchorSurvived = false;
+
+    for (const id of selection.ids) {
+      if (typeof id !== "string" || id.length === 0 || seen.has(id) || !exists(id)) {
+        continue;
+      }
+
+      seen.add(id);
+      ids.push(id);
+      if (id === selection.anchorId) {
+        anchorSurvived = true;
+      }
+    }
+
+    return createNormalizedEditorEntitySelection(
+      ids,
+      anchorSurvived ? selection.anchorId : undefined,
+    );
   }
 
   if (selection.kind === "range") {
@@ -146,7 +171,34 @@ function getTreeNodeEntityId(node: EditorTreeNode<{ entityId?: EditorEntityId }>
 }
 
 function normalizeSelectionIds(ids: readonly EditorEntityId[]): EditorEntityId[] {
-  return [...new Set(ids.filter((id) => typeof id === "string" && id.length > 0))];
+  const normalizedIds: EditorEntityId[] = [];
+  const seen = new Set<EditorEntityId>();
+
+  for (const id of ids) {
+    if (typeof id !== "string" || id.length === 0 || seen.has(id)) {
+      continue;
+    }
+
+    seen.add(id);
+    normalizedIds.push(id);
+  }
+
+  return normalizedIds;
+}
+
+function createNormalizedEditorEntitySelection(
+  ids: readonly EditorEntityId[],
+  anchorId: EditorEntityId | undefined,
+): EditorSelection {
+  if (ids.length === 0) {
+    return emptyEditorSelection;
+  }
+
+  return {
+    anchorId: anchorId && ids.includes(anchorId) ? anchorId : ids.at(-1),
+    ids,
+    kind: "entity",
+  };
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

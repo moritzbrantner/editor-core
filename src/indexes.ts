@@ -31,25 +31,31 @@ export function createEditorEntityIndexes<TEntity extends EditorEntityBase>(
   const childrenByParentId = new Map<EditorEntityId | null, TEntity[]>();
   const parentByChildId = new Map<EditorEntityId, EditorEntityId | null>();
 
-  for (const entity of Object.values(document.entities)) {
+  for (const id in document.entities) {
+    if (!Object.hasOwn(document.entities, id)) {
+      continue;
+    }
+
+    const entity = document.entities[id];
     entitiesById.set(entity.id, entity);
     const parentId = entity.parentId ?? null;
     parentByChildId.set(entity.id, parentId);
-    const children = childrenByParentId.get(parentId) ?? [];
-    children.push(entity);
-    childrenByParentId.set(parentId, children);
+    pushMapArray(childrenByParentId, parentId, entity);
   }
 
-  for (const [parentId, children] of childrenByParentId) {
-    childrenByParentId.set(parentId, [...children].sort(compareEditorEntityOrder));
+  for (const children of childrenByParentId.values()) {
+    children.sort(compareEditorEntityOrder);
   }
+
+  const orderedRootIds = [...document.rootIds];
+  orderedRootIds.sort((leftId, rightId) =>
+    compareEditorEntityOrder(document.entities[leftId], document.entities[rightId]),
+  );
 
   return {
     childrenByParentId,
     entitiesById,
-    orderedRootIds: [...document.rootIds].sort((leftId, rightId) =>
-      compareEditorEntityOrder(document.entities[leftId], document.entities[rightId]),
-    ),
+    orderedRootIds,
     parentByChildId,
   };
 }
@@ -82,11 +88,8 @@ export function createEditorTimelineIndexes<TItem extends EditorTimelineItem>(
     pushMapArray(trackItemsByTrackId, item.trackId, item);
   }
 
-  for (const [trackId, trackItems] of trackItemsByTrackId) {
-    trackItemsByTrackId.set(
-      trackId,
-      [...trackItems].sort((left, right) => left.range.start - right.range.start),
-    );
+  for (const trackItems of trackItemsByTrackId.values()) {
+    trackItems.sort((left, right) => left.range.start - right.range.start);
   }
 
   return { trackItemsByTrackId };
@@ -122,9 +125,12 @@ function compareEditorEntityOrder(
 }
 
 function pushMapArray<TKey, TValue>(map: Map<TKey, TValue[]>, key: TKey, value: TValue): void {
-  const values = map.get(key) ?? [];
+  let values = map.get(key);
+  if (!values) {
+    values = [];
+    map.set(key, values);
+  }
   values.push(value);
-  map.set(key, values);
 }
 
 function parseIssueEntityId(path: string): EditorEntityId | null {

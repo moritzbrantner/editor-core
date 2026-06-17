@@ -5,6 +5,7 @@ import {
   compareEditorCoreBuilds,
   createMoonlightHttpComparisonServer,
   findComparisonFailures,
+  summarizeComparisonPerformance,
 } from "./stable-comparison-harness.mjs";
 
 test("canonicalizes object keys and map entries deterministically", () => {
@@ -19,6 +20,29 @@ test("canonicalizes object keys and map entries deterministically", () => {
       ["a", ["first"]],
       ["b", { a: 1, z: 2 }],
     ]),
+  };
+
+  assert.equal(canonicalize(left), canonicalize(right));
+});
+
+test("canonicalizes sets, maps, and function-bearing objects", () => {
+  const left = {
+    fn() {
+      return "ignored";
+    },
+    map: new Map([
+      ["b", new Set(["two", "one"])],
+      ["a", { z: 2, a: 1 }],
+    ]),
+  };
+  const right = {
+    map: new Map([
+      ["a", { a: 1, z: 2 }],
+      ["b", new Set(["one", "two"])],
+    ]),
+    otherFn() {
+      return "also ignored";
+    },
   };
 
   assert.equal(canonicalize(left), canonicalize(right));
@@ -57,6 +81,41 @@ test("exposes a health endpoint through the HTTP harness", async () => {
   }
 });
 
+test("serves compare results through HTTP", async () => {
+  const api = createFakeEditorCoreApi();
+  const server = createMoonlightHttpComparisonServer({
+    localApi: api,
+    maxRegressionRatio: 0.5,
+    minDurationMs: 1,
+    stableApi: api,
+  });
+  await new Promise((resolve, reject) => {
+    server.once("error", reject);
+    server.listen(0, "127.0.0.1", resolve);
+  });
+
+  try {
+    const address = server.address();
+    assert.ok(address && typeof address !== "string");
+    const response = await fetch(`http://127.0.0.1:${address.port}/compare`, {
+      body: JSON.stringify({ minDurationMs: 1 }),
+      headers: { "content-type": "application/json" },
+      method: "POST",
+    });
+    const result = await response.json();
+
+    assert.equal(response.status, 200);
+    assert.equal(result.correctness.passed, true);
+    assert.equal(result.performance.passed, true);
+    assert.ok(result.summary);
+    assert.ok(result.scenarios.length > 0);
+  } finally {
+    await new Promise((resolve, reject) => {
+      server.close((error) => (error ? reject(error) : resolve()));
+    });
+  }
+});
+
 test("reports correctness differences", async () => {
   const api = createFakeEditorCoreApi();
   const changedApi = {
@@ -75,6 +134,25 @@ test("reports correctness differences", async () => {
 
   assert.equal(result.correctness.passed, false);
   assert.match(result.correctness.failures[0], /stable JSON/u);
+});
+
+test("summarizes improvements and regressions", () => {
+  assert.deepEqual(
+    summarizeComparisonPerformance([
+      { name: "fast", ratio: 1.2 },
+      { name: "same", ratio: 1.0 },
+      { name: "slow", ratio: 0.8 },
+      { name: "faster", ratio: 1.5 },
+      { name: "slower", ratio: 0.7 },
+    ]),
+    {
+      fastestImprovement: { name: "faster", ratio: 1.5 },
+      improved: 2,
+      regressed: 2,
+      slowestRegression: { name: "slower", ratio: 0.7 },
+      unchanged: 1,
+    },
+  );
 });
 
 function createFakeEditorCoreApi() {
@@ -113,24 +191,59 @@ function createFakeEditorCoreApi() {
     createEditorAspect(definition) {
       return definition;
     },
-    createEditorEntityDocument(entities) {
+    createEditorEntityDocument(entities, rootIds) {
       return {
         entities: Object.fromEntries(entities.map((entity) => [entity.id, entity])),
-        rootIds: entities
-          .filter((entity) => entity.parentId === undefined || entity.parentId === null)
-          .map((entity) => entity.id),
+        rootIds:
+          rootIds ??
+          entities
+            .filter((entity) => entity.parentId === undefined || entity.parentId === null)
+            .map((entity) => entity.id),
       };
     },
     createEditorEntityIndexes(document) {
+      const childrenByParentId = new Map();
+      const parentByChildId = new Map();
+      for (const entity of Object.values(document.entities)) {
+        const parentId = entity.parentId ?? null;
+        const children = childrenByParentId.get(parentId) ?? [];
+        children.push(entity);
+        childrenByParentId.set(parentId, children);
+        parentByChildId.set(entity.id, parentId);
+      }
+      for (const children of childrenByParentId.values()) {
+        children.sort((left, right) =>
+          String(left.order ?? left.id).localeCompare(String(right.order ?? right.id), undefined, {
+            numeric: true,
+            sensitivity: "base",
+          }),
+        );
+      }
+      const orderedRootIds = [...document.rootIds].sort((leftId, rightId) =>
+        String(document.entities[leftId]?.order ?? leftId).localeCompare(
+          String(document.entities[rightId]?.order ?? rightId),
+          undefined,
+          {
+            numeric: true,
+            sensitivity: "base",
+          },
+        ),
+      );
       return {
-        childrenByParentId: new Map(),
+        childrenByParentId,
         entitiesById: new Map(Object.entries(document.entities)),
-        orderedRootIds: document.rootIds,
-        parentByChildId: new Map(),
+        orderedRootIds,
+        parentByChildId,
       };
     },
-    createEditorEntitySelection(ids) {
-      return { ids, kind: "entity" };
+    createEditorEntitySelection(ids, anchorId = ids.at(-1)) {
+      const normalizedIds = [...new Set(ids.filter((id) => typeof id === "string" && id.length > 0))];
+      return {
+        anchorId:
+          anchorId && normalizedIds.includes(anchorId) ? anchorId : normalizedIds.at(-1),
+        ids: normalizedIds,
+        kind: "entity",
+      };
     },
     createEditorGraphIndexes(edges) {
       return {
@@ -159,8 +272,17 @@ function createFakeEditorCoreApi() {
       });
     },
     createEditorTimelineIndexes(items) {
+      const trackItemsByTrackId = new Map();
+      for (const item of items) {
+        const trackItems = trackItemsByTrackId.get(item.trackId) ?? [];
+        trackItems.push(item);
+        trackItemsByTrackId.set(item.trackId, trackItems);
+      }
+      for (const trackItems of trackItemsByTrackId.values()) {
+        trackItems.sort((left, right) => left.range.start - right.range.start);
+      }
       return {
-        trackItemsByTrackId: new Map(items.map((item) => [item.trackId, [item]])),
+        trackItemsByTrackId,
       };
     },
     createStableEditorJsonEquals() {
@@ -184,15 +306,25 @@ function createFakeEditorCoreApi() {
       }));
     },
     normalizeEditorSelection(selection, hasEntity) {
+      if (selection.kind !== "entity") {
+        return selection;
+      }
+      const ids = [];
+      for (const id of selection.ids) {
+        if (hasEntity(id) && !ids.includes(id)) {
+          ids.push(id);
+        }
+      }
       return {
         ...selection,
-        ids: selection.ids.filter((id) => hasEntity(id)),
+        anchorId: ids.includes(selection.anchorId) ? selection.anchorId : ids.at(-1),
+        ids,
       };
     },
     projectEditorTree(document, adapter) {
       return adapter.getRoot(document);
     },
-    readEditorDocument(input, adapter, options) {
+    readEditorDocument(input, adapter, options = {}) {
       let current = input;
       while (current.schemaVersion < adapter.schemaVersion) {
         current = options.migrations[current.schemaVersion](current);

@@ -70,6 +70,8 @@ export type EditorDocumentMigrations<TDocument> = Record<
   EditorDocumentMigration<TDocument>
 >;
 
+const noEditorDocumentMigrations: EditorDocumentMigrations<unknown> = {};
+
 export function serializeEditorDocument<
   TDocument,
   TFormat extends string = string,
@@ -122,10 +124,13 @@ export function readEditorDocument<TDocument>(
   const migrated = migrateEditorDocument(input, adapter, options.migrations);
   const documentInput = unwrapDocumentInput(migrated, adapter);
   const document = adapter.normalize(adapter.read(documentInput, options.path ?? ""));
-  const issues = adapter.validate?.(document) ?? [];
 
-  if (issues.length > 0) {
-    throw new EditorJsonParseError(issues);
+  const validate = adapter.validate;
+  if (validate) {
+    const issues = validate(document);
+    if (issues.length > 0) {
+      throw new EditorJsonParseError(issues);
+    }
   }
 
   return document;
@@ -134,47 +139,47 @@ export function readEditorDocument<TDocument>(
 export function migrateEditorDocument<TDocument>(
   input: unknown,
   adapter: EditorDocumentAdapter<TDocument>,
-  migrations: EditorDocumentMigrations<TDocument> = {},
+  migrations: EditorDocumentMigrations<TDocument> = noEditorDocumentMigrations as EditorDocumentMigrations<TDocument>,
   seenVersions: ReadonlySet<string> = new Set(),
 ): unknown {
-  if (!isEditorRecord(input)) {
-    return input;
-  }
+  let current = input;
+  const seen = new Set(seenVersions);
 
-  const legacyDocument = adapter.unwrapLegacyEnvelope?.(input);
-  if (legacyDocument !== undefined) {
-    return legacyDocument;
-  }
+  while (true) {
+    if (!isEditorRecord(current)) {
+      return current;
+    }
 
-  if (!isSerializedEnvelope(input, adapter.format)) {
-    return input;
-  }
+    const legacyDocument = adapter.unwrapLegacyEnvelope?.(current);
+    if (legacyDocument !== undefined) {
+      return legacyDocument;
+    }
 
-  if (input.schemaVersion === adapter.schemaVersion) {
-    return input;
-  }
+    if (!isSerializedEnvelope(current, adapter.format)) {
+      return current;
+    }
 
-  const versionKey = String(input.schemaVersion);
-  if (seenVersions.has(versionKey)) {
-    throw new EditorMigrationError(
-      `Migration cycle detected for ${adapter.format} schema version ${versionKey}.`,
-    );
-  }
+    if (current.schemaVersion === adapter.schemaVersion) {
+      return current;
+    }
 
-  const migration = migrations[versionKey];
-  if (!migration) {
-    throw new EditorMigrationError(
-      `Unsupported ${adapter.format} schema version ${String(input.schemaVersion)}.`,
-    );
-  }
+    const versionKey = String(current.schemaVersion);
+    if (seen.has(versionKey)) {
+      throw new EditorMigrationError(
+        `Migration cycle detected for ${adapter.format} schema version ${versionKey}.`,
+      );
+    }
 
-  const migrated = migration(input as SerializedEditorDocument<unknown>, adapter);
-  return migrateEditorDocument(
-    migrated,
-    adapter,
-    migrations,
-    new Set([...seenVersions, versionKey]),
-  );
+    const migration = migrations[versionKey];
+    if (!migration) {
+      throw new EditorMigrationError(
+        `Unsupported ${adapter.format} schema version ${String(current.schemaVersion)}.`,
+      );
+    }
+
+    seen.add(versionKey);
+    current = migration(current as SerializedEditorDocument<unknown>, adapter);
+  }
 }
 
 function unwrapDocumentInput<TDocument>(

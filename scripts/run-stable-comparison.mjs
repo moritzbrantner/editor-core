@@ -127,6 +127,24 @@ function printReport(report) {
     );
   }
 
+  process.stdout.write(
+    `\nImproved: ${report.summary.improved}, regressed: ${report.summary.regressed}, unchanged: ${report.summary.unchanged}.\n`,
+  );
+  process.stdout.write(
+    `Fastest improvement: ${
+      report.summary.fastestImprovement
+        ? `${report.summary.fastestImprovement.name} (${report.summary.fastestImprovement.ratio.toFixed(2)}x)`
+        : "none"
+    }.\n`,
+  );
+  process.stdout.write(
+    `Slowest regression: ${
+      report.summary.slowestRegression
+        ? `${report.summary.slowestRegression.name} (${report.summary.slowestRegression.ratio.toFixed(2)}x)`
+        : "none"
+    }.\n`,
+  );
+
   process.stdout.write(`\nReport written to ${reportPath}\n`);
 }
 
