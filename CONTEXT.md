@@ -18,6 +18,11 @@ _Avoid_: Operation store, editor operation service
 Applying operations received from another client without adding them to the local undo history.
 _Avoid_: Remote patch, server replay
 
+**Command Runtime**:
+A runtime that resolves, diagnoses, and executes editor commands from hotkey events under shared
+disabled, read-only, scope, and editable-target policy.
+_Avoid_: Shortcut handler, keydown service
+
 **Persistence State**:
 The load/save status that describes how a runtime relates to stored data. It records operation,
 error, timestamps, saved revision, in-flight revision, and optional conflict information.

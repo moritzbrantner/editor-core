@@ -388,6 +388,28 @@ const merged = acceptMergedEditorPersistenceConflict(runtime, persistence, merge
 These helpers are state-only. Save after accept-local or accept-merged when the chosen document
 should be persisted.
 
+## Command Runtime
+
+Use `createEditorCommandRuntime` when headless code needs the same hotkey policy as React hooks:
+
+```ts
+import { createEditorCommandRuntime } from "@moritzbrantner/editor-core/commands";
+
+const commandRuntime = createEditorCommandRuntime({
+  commands,
+  readOnly: isReadOnly,
+});
+
+const result = await commandRuntime.run(event);
+if (result.status === "ran") {
+  console.log(`Ran ${result.commandId}`);
+}
+```
+
+The runtime centralizes disabled, read-only, scope, and editable-target checks. `useEditorHotkeys`
+delegates to the same policy, so `readOnly: true` suppresses command execution in React and
+headless integrations.
+
 ## Command Diagnostics
 
 Run command diagnostics in development or CI to catch duplicate ids and bad shortcuts:

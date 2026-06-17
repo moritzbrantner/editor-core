@@ -1,11 +1,6 @@
 import * as React from "react";
-import {
-  getEditorCommandIdFromKeyboardEvent,
-  isEditorEditableTarget,
-  matchesEditorHotkey,
-  type EditorCommandDefinition,
-  type EditorHotkeyEvent,
-} from "../hotkeys.js";
+import { createEditorCommandRuntime, type EditorCommandRuntimeEvent } from "../commands.js";
+import { type EditorCommandDefinition, type EditorHotkeyEvent } from "../hotkeys.js";
 
 export type UseEditorHotkeysOptions<TId extends string> = {
   commands: readonly EditorCommandDefinition<TId>[];
@@ -23,34 +18,24 @@ export function useEditorHotkeys<TId extends string>({
   scopeRef,
 }: UseEditorHotkeysOptions<TId>): void {
   React.useEffect(() => {
-    if (disabled || typeof document === "undefined") {
+    if (typeof document === "undefined") {
       return;
     }
 
     const scope = scopeRef?.current ?? null;
+    const runtime = createEditorCommandRuntime({
+      allowEditableTargets,
+      commands,
+      disabled,
+      readOnly,
+      ...(scope
+        ? {
+            isInScope: (event) => isEditorHotkeyInScope(scope, event),
+          }
+        : {}),
+    });
     const onKeyDown = (event: KeyboardEvent) => {
-      if (scope && !isEditorHotkeyInScope(scope, event)) {
-        return;
-      }
-
-      if (!allowEditableTargets && isEditorEditableTarget(event.target)) {
-        return;
-      }
-
-      const commandId = allowEditableTargets
-        ? (commands.find(
-            (command) =>
-              !command.disabled &&
-              command.hotkeys?.some((hotkey) => matchesEditorHotkey(event, hotkey)),
-          )?.id ?? null)
-        : getEditorCommandIdFromKeyboardEvent(event as EditorHotkeyEvent, commands);
-      const command = commands.find((candidate) => candidate.id === commandId);
-      if (!command?.run) {
-        return;
-      }
-
-      event.preventDefault();
-      void command.run(event as EditorHotkeyEvent);
+      void runtime.run(event as EditorCommandRuntimeEvent);
     };
 
     document.addEventListener("keydown", onKeyDown as EventListener);
@@ -58,7 +43,7 @@ export function useEditorHotkeys<TId extends string>({
   }, [allowEditableTargets, commands, disabled, readOnly, scopeRef]);
 }
 
-function isEditorHotkeyInScope(scope: HTMLElement, event: KeyboardEvent): boolean {
+function isEditorHotkeyInScope(scope: HTMLElement, event: EditorHotkeyEvent): boolean {
   const target = event.target;
   if (target instanceof Node && scope.contains(target)) {
     return true;

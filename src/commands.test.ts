@@ -1,5 +1,6 @@
 import { describe, expect, test, vi } from "vitest";
 import {
+  createEditorCommandRuntime,
   createEditorCommands,
   createEditorSnapshotHistoryCommands,
   defaultEditorSnapshotHistoryCommandHotkeys,
@@ -75,6 +76,113 @@ describe("generic editor command factory", () => {
     expect(runBlocked).not.toHaveBeenCalled();
     expect(runSave).toHaveBeenCalledOnce();
     expect(seen).toEqual(["s"]);
+  });
+});
+
+describe("editor command runtime", () => {
+  test("resolves the first enabled matching command and skips disabled or invalid shortcuts", () => {
+    const runtime = createEditorCommandRuntime<"disabled" | "invalid" | "first" | "second">({
+      commands: [
+        { disabled: true, hotkeys: ["Mod+K"], id: "disabled", label: "Disabled" },
+        { hotkeys: ["Mod+K+P"], id: "invalid", label: "Invalid" },
+        { hotkeys: ["Mod+K"], id: "first", label: "First" },
+        { hotkeys: ["Mod+K"], id: "second", label: "Second" },
+      ],
+    });
+
+    expect(runtime.resolve(hotkeyEvent({ key: "k", metaKey: true }))).toMatchObject({
+      commandId: "first",
+      hotkey: "Mod+K",
+    });
+  });
+
+  test("applies runtime disabled, read-only, scope, editable target, and no-match guards", async () => {
+    const input = document.createElement("input");
+    const command = { hotkeys: ["Mod+K"], id: "palette", label: "Palette", run: vi.fn() } as const;
+
+    await expect(
+      createEditorCommandRuntime({ commands: [command], disabled: true }).run(
+        hotkeyEvent({ key: "k", metaKey: true }),
+      ),
+    ).resolves.toEqual({ reason: "runtime-disabled", status: "ignored" });
+    await expect(
+      createEditorCommandRuntime({ commands: [command], readOnly: true }).run(
+        hotkeyEvent({ key: "k", metaKey: true }),
+      ),
+    ).resolves.toEqual({ reason: "read-only", status: "ignored" });
+    await expect(
+      createEditorCommandRuntime({ commands: [command], isInScope: () => false }).run(
+        hotkeyEvent({ key: "k", metaKey: true }),
+      ),
+    ).resolves.toEqual({ reason: "out-of-scope", status: "ignored" });
+    await expect(
+      createEditorCommandRuntime({ commands: [command] }).run(
+        hotkeyEvent({ key: "k", metaKey: true, target: input }),
+      ),
+    ).resolves.toEqual({ reason: "editable-target", status: "ignored" });
+    await expect(
+      createEditorCommandRuntime({ commands: [command] }).run(hotkeyEvent({ key: "x" })),
+    ).resolves.toEqual({ reason: "no-match", status: "ignored" });
+
+    expect(command.run).not.toHaveBeenCalled();
+  });
+
+  test("allows editable targets when requested and reports missing handlers", async () => {
+    const input = document.createElement("input");
+    const runtime = createEditorCommandRuntime({
+      allowEditableTargets: true,
+      commands: [{ hotkeys: ["Mod+K"], id: "palette", label: "Palette" }],
+    });
+
+    await expect(
+      runtime.run(hotkeyEvent({ key: "k", metaKey: true, target: input })),
+    ).resolves.toEqual({ commandId: "palette", reason: "missing-run", status: "ignored" });
+  });
+
+  test("prevents defaults, awaits runnable commands, and exposes diagnostics", async () => {
+    const seen: string[] = [];
+    const preventDefault = vi.fn();
+    const runtime = createEditorCommandRuntime<"palette" | "search" | "broken" | "empty">({
+      commands: [
+        {
+          hotkeys: ["Mod+K"],
+          id: "palette",
+          label: "Palette",
+          run: async () => {
+            seen.push("palette");
+          },
+        },
+        { hotkeys: ["Mod+K"], id: "search", label: "Search" },
+        { hotkeys: ["Mod"], id: "broken", label: "Broken" },
+        { id: "empty", label: " " },
+      ],
+    });
+
+    await expect(
+      runtime.run({ ...hotkeyEvent({ key: "k", metaKey: true }), preventDefault }),
+    ).resolves.toMatchObject({
+      commandId: "palette",
+      hotkey: "Mod+K",
+      status: "ran",
+    });
+    expect(preventDefault).toHaveBeenCalledOnce();
+    expect(seen).toEqual(["palette"]);
+    expect(runtime.diagnostics()).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          commandId: "broken",
+          message: 'Invalid hotkey "Mod".',
+        }),
+        expect.objectContaining({
+          commandId: "empty",
+          message: "Command labels should not be empty.",
+        }),
+        expect.objectContaining({
+          commandId: "palette",
+          message: 'Hotkey "Mod+K" conflicts with command "search".',
+        }),
+      ]),
+    );
   });
 });
 
@@ -548,3 +656,17 @@ const event: EditorHotkeyEvent = {
   shiftKey: false,
   target: null,
 };
+
+function hotkeyEvent(
+  partial: Partial<EditorHotkeyEvent> & { key: string; preventDefault?: () => void },
+): EditorHotkeyEvent & { preventDefault?: () => void } {
+  return {
+    altKey: partial.altKey ?? false,
+    ctrlKey: partial.ctrlKey ?? false,
+    key: partial.key,
+    metaKey: partial.metaKey ?? false,
+    preventDefault: partial.preventDefault,
+    shiftKey: partial.shiftKey ?? false,
+    target: partial.target ?? document.createElement("div"),
+  };
+}

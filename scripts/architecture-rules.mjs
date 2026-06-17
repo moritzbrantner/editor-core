@@ -44,7 +44,7 @@ export const architectureRules = {
     patches: ["json"],
     persistence: ["runtime"],
     plugins: ["commands"],
-    react: ["browser", "hotkeys", "persistence", "runtime", "tree"],
+    react: ["browser", "commands", "hotkeys", "persistence", "runtime", "tree"],
     runtime: ["aspects", "commands", "history"],
     selection: [],
     serialization: ["json"],

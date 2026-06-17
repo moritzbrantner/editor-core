@@ -497,6 +497,51 @@ describe("editor react hooks", () => {
     fixture.unmount();
   });
 
+  test("useEditorHotkeys suppresses commands when read-only", () => {
+    const run = vi.fn();
+    const fixture = renderHook(() =>
+      useEditorHotkeys({
+        commands: [{ hotkeys: ["Mod+K"], id: "palette", label: "Palette", run }],
+        readOnly: true,
+      }),
+    );
+
+    document.dispatchEvent(
+      new KeyboardEvent("keydown", {
+        bubbles: true,
+        key: "k",
+        metaKey: true,
+      }),
+    );
+
+    expect(run).not.toHaveBeenCalled();
+    fixture.unmount();
+  });
+
+  test("useEditorHotkeys can run commands from editable targets", () => {
+    const run = vi.fn();
+    const fixture = renderHook(() =>
+      useEditorHotkeys({
+        allowEditableTargets: true,
+        commands: [{ hotkeys: ["Mod+K"], id: "palette", label: "Palette", run }],
+      }),
+    );
+    const input = document.createElement("input");
+    document.body.append(input);
+
+    input.dispatchEvent(
+      new KeyboardEvent("keydown", {
+        bubbles: true,
+        key: "k",
+        metaKey: true,
+      }),
+    );
+
+    expect(run).toHaveBeenCalledOnce();
+    input.remove();
+    fixture.unmount();
+  });
+
   test("useEditorHotkeys scopes document shortcuts to active scoped workbenches", () => {
     const run = vi.fn();
     const scope = document.createElement("section");

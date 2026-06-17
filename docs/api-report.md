@@ -297,7 +297,17 @@ export {
 
 ```ts
 import { EditorSnapshotHistory, EditorSnapshotHistoryOptions } from "./history.js";
-import { EditorHotkeyMap, EditorHotkeyEvent, EditorCommandDefinition } from "./hotkeys.js";
+import { EditorCommandDefinition, EditorHotkeyMap, EditorHotkeyEvent } from "./hotkeys.js";
+
+type EditorCommandDiagnostic<TId extends string = string> = {
+  commandId: TId;
+  path: string;
+  message: string;
+  severity: "error" | "warning";
+};
+declare function getEditorCommandDiagnostics<TId extends string>(
+  commands: readonly EditorCommandDefinition<TId>[],
+): readonly EditorCommandDiagnostic<TId>[];
 
 type EditorCommandFactoryDefinition<TId extends string, TContext> = {
   id: TId;
@@ -317,6 +327,50 @@ declare function createEditorCommands<TId extends string, TContext>(
   context: TContext,
   options?: CreateEditorCommandsOptions<TId>,
 ): readonly EditorCommandDefinition<TId>[];
+
+type EditorCommandRuntimeEvent = EditorHotkeyEvent & {
+  preventDefault?: () => void;
+};
+type EditorCommandRuntimeOptions<TId extends string> = {
+  commands: readonly EditorCommandDefinition<TId>[];
+  disabled?: boolean;
+  readOnly?: boolean;
+  allowEditableTargets?: boolean;
+  isInScope?: (event: EditorHotkeyEvent) => boolean;
+};
+type EditorCommandRuntimeMatch<TId extends string> = {
+  command: EditorCommandDefinition<TId>;
+  commandId: TId;
+  hotkey: string;
+};
+type EditorCommandRuntimeIgnoredReason =
+  | "runtime-disabled"
+  | "read-only"
+  | "out-of-scope"
+  | "editable-target"
+  | "no-match"
+  | "missing-run";
+type EditorCommandRuntimeRunResult<TId extends string> =
+  | {
+      status: "ignored";
+      reason: EditorCommandRuntimeIgnoredReason;
+      commandId?: TId;
+    }
+  | {
+      status: "ran";
+      command: EditorCommandDefinition<TId>;
+      commandId: TId;
+      hotkey: string;
+    };
+type EditorCommandRuntime<TId extends string> = {
+  commands: readonly EditorCommandDefinition<TId>[];
+  resolve(event: EditorHotkeyEvent): EditorCommandRuntimeMatch<TId> | null;
+  run(event: EditorCommandRuntimeEvent): Promise<EditorCommandRuntimeRunResult<TId>>;
+  diagnostics(): readonly EditorCommandDiagnostic<TId>[];
+};
+declare function createEditorCommandRuntime<TId extends string>(
+  options: EditorCommandRuntimeOptions<TId>,
+): EditorCommandRuntime<TId>;
 
 type EditorSnapshotHistoryCommandId = "undo" | "redo" | "reset";
 type EditorCommandContext<TDocument, TSelection, TViewport = unknown> = {
@@ -349,12 +403,6 @@ type EditorResolvedCommandDefinition<TId extends string> = EditorCommandDefiniti
     order?: number;
   };
   checked?: boolean;
-};
-type EditorCommandDiagnostic<TId extends string = string> = {
-  commandId: TId;
-  path: string;
-  message: string;
-  severity: "error" | "warning";
 };
 declare const defaultEditorSnapshotHistoryCommandHotkeys: EditorHotkeyMap<EditorSnapshotHistoryCommandId>;
 declare const defaultEditorSnapshotHistoryCommandLabels: Record<
@@ -393,20 +441,24 @@ declare function resolveEditorCommands<
 declare function getRunnableEditorCommands<TId extends string>(
   commands: readonly EditorResolvedCommandDefinition<TId>[],
 ): readonly EditorResolvedCommandDefinition<TId>[];
-declare function getEditorCommandDiagnostics<TId extends string>(
-  commands: readonly EditorCommandDefinition<TId>[],
-): readonly EditorCommandDiagnostic<TId>[];
 
 export {
   type CreateEditorCommandsOptions,
   type EditorCommandContext,
   type EditorCommandDiagnostic,
   type EditorCommandFactoryDefinition,
+  type EditorCommandRuntime,
+  type EditorCommandRuntimeEvent,
+  type EditorCommandRuntimeIgnoredReason,
+  type EditorCommandRuntimeMatch,
+  type EditorCommandRuntimeOptions,
+  type EditorCommandRuntimeRunResult,
   type EditorContextualCommandDefinition,
   type EditorResolvedCommandDefinition,
   type EditorSnapshotHistoryCommandId,
   type EditorSnapshotHistoryCommandRunContext,
   type EditorSnapshotHistoryCommandsOptions,
+  createEditorCommandRuntime,
   createEditorCommands,
   createEditorSnapshotHistoryCommands,
   defaultEditorSnapshotHistoryCommandHotkeys,
@@ -965,11 +1017,18 @@ export {
   EditorCommandContext,
   EditorCommandDiagnostic,
   EditorCommandFactoryDefinition,
+  EditorCommandRuntime,
+  EditorCommandRuntimeEvent,
+  EditorCommandRuntimeIgnoredReason,
+  EditorCommandRuntimeMatch,
+  EditorCommandRuntimeOptions,
+  EditorCommandRuntimeRunResult,
   EditorContextualCommandDefinition,
   EditorResolvedCommandDefinition,
   EditorSnapshotHistoryCommandId,
   EditorSnapshotHistoryCommandRunContext,
   EditorSnapshotHistoryCommandsOptions,
+  createEditorCommandRuntime,
   createEditorCommands,
   createEditorSnapshotHistoryCommands,
   defaultEditorSnapshotHistoryCommandHotkeys,

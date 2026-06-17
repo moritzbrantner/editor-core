@@ -1,6 +1,6 @@
 import type { EditorAspectDefinition } from "./aspects.js";
 import {
-  getEditorCommandDiagnostics,
+  createEditorCommandRuntime,
   resolveEditorCommands,
   type EditorCommandContext,
   type EditorCommandDiagnostic,
@@ -93,7 +93,9 @@ export function getEditorPluginDiagnostics<TDocument, TSelection>(
   }
 
   diagnostics.push(
-    ...getEditorCommandDiagnostics(toEditorPluginDiagnosticCommands(registry.commands)),
+    ...createEditorCommandRuntime({
+      commands: toEditorPluginDiagnosticCommands(registry.commands),
+    }).diagnostics(),
   );
   return diagnostics;
 }
