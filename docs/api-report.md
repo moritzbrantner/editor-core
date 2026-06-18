@@ -951,10 +951,6 @@ declare function getEditorHotkeyConflicts<TId extends string>(
   definitions?: readonly EditorCommandDefinition<TId>[],
 ): TId[];
 declare function isEditorHotkeyValid(hotkey: string): boolean;
-declare function getEditorCommandIdFromKeyboardEvent<TId extends string>(
-  event: EditorHotkeyEvent,
-  commands: readonly EditorCommandDefinition<TId>[],
-): TId | null;
 declare function parseEditorHotkey(hotkey: string): EditorParsedHotkey | null;
 
 export {
@@ -963,7 +959,6 @@ export {
   type EditorHotkeyMap,
   type EditorParsedHotkey,
   formatEditorShortcutLabel,
-  getEditorCommandIdFromKeyboardEvent,
   getEditorHotkeyConflicts,
   getEditorHotkeyFromKeyboardEvent,
   isEditorEditableTarget,
@@ -1118,7 +1113,6 @@ export {
   EditorHotkeyMap,
   EditorParsedHotkey,
   formatEditorShortcutLabel,
-  getEditorCommandIdFromKeyboardEvent,
   getEditorHotkeyConflicts,
   getEditorHotkeyFromKeyboardEvent,
   isEditorEditableTarget,

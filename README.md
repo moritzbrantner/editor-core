@@ -36,7 +36,7 @@ bun add react @moritzbrantner/editor-core
 | ------------------------------------------- | ---------------------------------------------------------------- |
 | `@moritzbrantner/editor-core`               | Headless single-user editor exports except React and sync.       |
 | `@moritzbrantner/editor-core/history`       | Snapshot and transaction undo/redo helpers.                      |
-| `@moritzbrantner/editor-core/commands`      | Command definitions for snapshot history actions.                |
+| `@moritzbrantner/editor-core/commands`      | Command definitions, runtime policy, and diagnostics.            |
 | `@moritzbrantner/editor-core/collaboration` | Presence, remote operation dedupe, and revision-token types.     |
 | `@moritzbrantner/editor-core/constraints`   | Shared constraint and validation helpers.                        |
 | `@moritzbrantner/editor-core/entities`      | Shared entity ids, bounds, and domain adapter types.             |

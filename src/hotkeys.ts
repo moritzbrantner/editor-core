@@ -145,27 +145,6 @@ export function isEditorHotkeyValid(hotkey: string): boolean {
   return parseEditorHotkey(hotkey) !== null;
 }
 
-export function getEditorCommandIdFromKeyboardEvent<TId extends string>(
-  event: EditorHotkeyEvent,
-  commands: readonly EditorCommandDefinition<TId>[],
-): TId | null {
-  if (isEditorEditableTarget(event.target)) {
-    return null;
-  }
-
-  for (const command of commands) {
-    if (command.disabled) {
-      continue;
-    }
-
-    if (command.hotkeys?.some((hotkey) => matchesEditorHotkey(event, hotkey))) {
-      return command.id;
-    }
-  }
-
-  return null;
-}
-
 function canonicalEditorHotkey(hotkey: string): string | null {
   const parsed = parseEditorHotkey(hotkey);
   if (!parsed) {

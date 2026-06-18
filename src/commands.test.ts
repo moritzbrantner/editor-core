@@ -81,6 +81,7 @@ describe("generic editor command factory", () => {
 
 describe("editor command runtime", () => {
   test("resolves the first enabled matching command and skips disabled or invalid shortcuts", () => {
+    const input = document.createElement("input");
     const runtime = createEditorCommandRuntime<"disabled" | "invalid" | "first" | "second">({
       commands: [
         { disabled: true, hotkeys: ["Mod+K"], id: "disabled", label: "Disabled" },
@@ -94,6 +95,8 @@ describe("editor command runtime", () => {
       commandId: "first",
       hotkey: "Mod+K",
     });
+    expect(runtime.resolve(hotkeyEvent({ key: "k", metaKey: true, target: input }))).toBeNull();
+    expect(runtime.resolve(hotkeyEvent({ key: "p", metaKey: true }))).toBeNull();
   });
 
   test("applies runtime disabled, read-only, scope, editable target, and no-match guards", async () => {

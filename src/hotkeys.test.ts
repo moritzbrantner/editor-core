@@ -1,7 +1,6 @@
 import { describe, expect, test } from "vitest";
 import {
   formatEditorShortcutLabel,
-  getEditorCommandIdFromKeyboardEvent,
   getEditorHotkeyConflicts,
   getEditorHotkeyFromKeyboardEvent,
   isEditorEditableTarget,
@@ -28,36 +27,11 @@ describe("hotkeys", () => {
     );
   });
 
-  test("suppresses editable targets and resolves commands", () => {
+  test("detects editable targets", () => {
     const input = document.createElement("input");
     expect(isEditorEditableTarget(input)).toBe(true);
-    expect(
-      getEditorCommandIdFromKeyboardEvent(event({ key: "a", metaKey: true, target: input }), [
-        { id: "select-all", label: "Select all", hotkeys: ["Mod+A"] },
-      ]),
-    ).toBeNull();
-
-    const editor = document.createElement("div");
-    expect(
-      getEditorCommandIdFromKeyboardEvent(event({ key: "a", metaKey: true, target: editor }), [
-        { id: "select-all", label: "Select all", hotkeys: ["Mod+A"] },
-      ]),
-    ).toBe("select-all");
-  });
-
-  test("ignores invalid hotkeys and editable targets when resolving command ids", () => {
-    const input = document.createElement("input");
-    expect(
-      getEditorCommandIdFromKeyboardEvent(event({ key: "k", metaKey: true, target: input }), [
-        { hotkeys: ["Mod+K"], id: "palette", label: "Palette" },
-      ]),
-    ).toBeNull();
-    expect(
-      getEditorCommandIdFromKeyboardEvent(event({ key: "p", metaKey: true }), [
-        { hotkeys: ["Mod+K+P"], id: "palette", label: "Palette" },
-        { hotkeys: ["Mod+P"], id: "print", label: "Print" },
-      ]),
-    ).toBe("print");
+    expect(isEditorEditableTarget(document.createElement("textarea"))).toBe(true);
+    expect(isEditorEditableTarget(document.createElement("div"))).toBe(false);
   });
 
   test("captures labels and detects conflicts", () => {
