@@ -722,6 +722,129 @@ describe("editor persistence", () => {
     expect(persistence.status).toBe("idle");
   });
 
+  test("controller dispose prevents retry continuation saves", async () => {
+    let runtime = commitEditorRuntime(createRuntime(), { body: "Retry", title: "Retry" });
+    let persistence = createEditorPersistenceState();
+    const scheduler = createTestScheduler();
+    const storage = createTrackedMemoryStorage<Document>(null);
+    storage.save.mockRejectedValueOnce(new Error("save failed")).mockImplementationOnce((value) => {
+      storage.value = value;
+    });
+    const controller = createEditorRuntimePersistenceController({
+      autosave: { delayMs: 0, retry: { attempts: 1, delayMs: 10 } },
+      getPersistence: () => persistence,
+      getRuntime: () => runtime,
+      scheduler,
+      setPersistence: (updater) => {
+        persistence = resolveUpdater(persistence, updater);
+      },
+      setRuntime: (updater) => {
+        runtime = resolveUpdater(runtime, updater);
+      },
+      storage,
+    });
+
+    controller.notifyRuntimeChanged();
+    await scheduler.runNext();
+
+    expect(storage.save).toHaveBeenCalledOnce();
+    expect(persistence.status).toBe("error");
+    expect(scheduler.pendingDelays()).toEqual([10]);
+
+    controller.dispose();
+    await scheduler.runAll();
+    await flushPromises();
+
+    expect(storage.save).toHaveBeenCalledOnce();
+    expect(runtime.status).toBe("dirty");
+    expect(persistence.status).toBe("error");
+  });
+
+  test("controller save is a no-op after dispose", async () => {
+    let runtime = commitEditorRuntime(createRuntime(), { body: "Dirty", title: "Dirty" });
+    let persistence = createEditorPersistenceState();
+    const storage = createTrackedMemoryStorage<Document>(null);
+    const controller = createEditorRuntimePersistenceController({
+      getPersistence: () => persistence,
+      getRuntime: () => runtime,
+      setPersistence: (updater) => {
+        persistence = resolveUpdater(persistence, updater);
+      },
+      setRuntime: (updater) => {
+        runtime = resolveUpdater(runtime, updater);
+      },
+      storage,
+    });
+
+    controller.dispose();
+    const saved = await controller.save();
+
+    expect(saved).toBe(false);
+    expect(storage.save).not.toHaveBeenCalled();
+    expect(runtime.status).toBe("dirty");
+    expect(persistence.status).toBe("idle");
+  });
+
+  test("controller load is a no-op after dispose", async () => {
+    let runtime = commitEditorRuntime(createRuntime(), { body: "Dirty", title: "Dirty" });
+    let persistence = createEditorPersistenceState();
+    const storage = createTrackedMemoryStorage<Document>({ body: "Stored", title: "Stored" });
+    const controller = createEditorRuntimePersistenceController({
+      getPersistence: () => persistence,
+      getRuntime: () => runtime,
+      setPersistence: (updater) => {
+        persistence = resolveUpdater(persistence, updater);
+      },
+      setRuntime: (updater) => {
+        runtime = resolveUpdater(runtime, updater);
+      },
+      storage,
+    });
+
+    controller.dispose();
+    await controller.load();
+
+    expect(storage.load).not.toHaveBeenCalled();
+    expect(runtime.document).toEqual({ body: "Dirty", title: "Dirty" });
+    expect(runtime.status).toBe("dirty");
+    expect(persistence.status).toBe("idle");
+  });
+
+  test("controller skips load while save is in flight", async () => {
+    let runtime = commitEditorRuntime(createRuntime(), { body: "Dirty", title: "Dirty" });
+    let persistence = createEditorPersistenceState();
+    const firstSave = createDeferred<void>();
+    const storage = createTrackedMemoryStorage<Document>({ body: "Stored", title: "Stored" });
+    storage.save.mockImplementationOnce(async (value) => {
+      storage.value = value;
+      await firstSave.promise;
+    });
+    const controller = createEditorRuntimePersistenceController({
+      getPersistence: () => persistence,
+      getRuntime: () => runtime,
+      setPersistence: (updater) => {
+        persistence = resolveUpdater(persistence, updater);
+      },
+      setRuntime: (updater) => {
+        runtime = resolveUpdater(runtime, updater);
+      },
+      storage,
+    });
+
+    const savePromise = controller.save();
+    await flushPromises();
+    await controller.load();
+
+    expect(storage.load).not.toHaveBeenCalled();
+    expect(persistence.status).toBe("saving");
+
+    firstSave.resolve();
+    await savePromise;
+
+    expect(runtime.status).toBe("clean");
+    expect(persistence.status).toBe("saved");
+  });
+
   test("conflict controller loads and saves with revision tokens", async () => {
     let runtime = createRuntime();
     let persistence = createEditorPersistenceState();

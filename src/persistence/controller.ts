@@ -2,9 +2,24 @@ import {
   basicPersistenceControllerAdapter,
   conflictPersistenceControllerAdapter,
 } from "./controller-adapters.js";
+import {
+  beginEditorPersistenceSave,
+  consumePendingLatestSave,
+  consumeSkippedLatestSaveRevision,
+  createEditorPersistenceControllerState,
+  clearEditorPersistenceAutosave,
+  disposeEditorPersistenceControllerState,
+  finishEditorPersistenceSave,
+  isEditorPersistenceControllerDisposed,
+  reduceEditorPersistenceRuntimeChanged,
+  scheduleEditorPersistenceAutosave,
+  shouldRunPendingLatestSave,
+  shouldSkipEditorPersistenceLoad,
+  shouldStopEditorPersistenceAutosaveRetry,
+  waitForEditorPersistenceRetryDelay,
+} from "./controller-state.js";
 import type {
   EditorPersistenceScheduler,
-  EditorPersistenceTimer,
   EditorRuntimeConflictPersistenceControllerOptions,
   EditorRuntimePersistenceController,
   EditorRuntimePersistenceControllerOptions,
@@ -37,35 +52,32 @@ function createEditorRuntimePersistenceControllerCore<TDocument, TSelection>(
   adapter: PersistenceControllerAdapter<TDocument, TSelection>,
 ): EditorRuntimePersistenceController<TDocument, TSelection> {
   let options = initialOptions;
-  let disposed = false;
-  let saveInFlight = false;
-  let saveInFlightRevision: number | null = null;
-  let pendingSaveAfterInFlight = false;
-  let skippedLatestSaveRevision: number | null = null;
-  let failedSaveRevision: number | null = null;
-  let autosaveTimer: EditorPersistenceTimer | null = null;
-  let autosaveRevision: number | null = null;
-  let retryTimer: EditorPersistenceTimer | null = null;
-  let resolveRetryDelay: (() => void) | null = null;
+  const state = createEditorPersistenceControllerState();
 
   const controller: EditorRuntimePersistenceController<TDocument, TSelection> = {
     async load() {
+      if (shouldSkipEditorPersistenceLoad(state)) {
+        return;
+      }
+
       options.setPersistence((previous) => adapter.prepareLoad(previous));
       const result = await adapter.load(options.getRuntime(), options);
-      if (disposed) {
+      if (isEditorPersistenceControllerDisposed(state)) {
         return;
       }
       options.setRuntime(result.runtime);
       options.setPersistence(result.persistence);
     },
     async save(saveOptions: { force?: boolean } = {}) {
-      const snapshot = options.getRuntime();
-      const canSave = options.canSave ?? (() => true);
-      if (skippedLatestSaveRevision === snapshot.revision) {
-        skippedLatestSaveRevision = null;
+      if (isEditorPersistenceControllerDisposed(state)) {
+        return false;
       }
 
-      if (saveInFlight) {
+      const snapshot = options.getRuntime();
+      const canSave = options.canSave ?? (() => true);
+      consumeSkippedLatestSaveRevision(state, snapshot.revision);
+
+      if (state.saveInFlightRevision !== null) {
         options.onEvent?.({
           reason: "in-flight",
           revision: snapshot.revision,
@@ -85,14 +97,13 @@ function createEditorRuntimePersistenceControllerCore<TDocument, TSelection>(
 
       if (snapshot.status === "clean" && !saveOptions.force) {
         const result = await adapter.save(snapshot, withSaveOptions(options, saveOptions));
-        if (!disposed) {
+        if (!isEditorPersistenceControllerDisposed(state)) {
           options.setPersistence(result.persistence);
         }
         return result.saved;
       }
 
-      saveInFlight = true;
-      saveInFlightRevision = snapshot.revision;
+      beginEditorPersistenceSave(state, snapshot.revision);
       options.setPersistence((previous) =>
         adapter.prepareSave({
           ...previous,
@@ -103,75 +114,66 @@ function createEditorRuntimePersistenceControllerCore<TDocument, TSelection>(
       );
 
       const result = await adapter.save(snapshot, withSaveOptions(options, saveOptions));
-      saveInFlight = false;
-      saveInFlightRevision = null;
-      if (disposed) {
+      finishEditorPersistenceSave(state, {
+        failed: result.persistence.status === "error",
+        revision: result.revision,
+      });
+      if (isEditorPersistenceControllerDisposed(state)) {
         return result.saved;
       }
 
-      failedSaveRevision = result.persistence.status === "error" ? result.revision : null;
       options.setRuntime((current) =>
         current.revision === result.revision ? result.runtime : current,
       );
       options.setPersistence(result.persistence);
 
       const autosave = normalizeEditorAutosaveOptions(options.autosave);
-      if (pendingSaveAfterInFlight && autosave.enabled && autosave.saveLatest) {
-        pendingSaveAfterInFlight = false;
+      if (shouldRunPendingLatestSave(state, autosave)) {
+        consumePendingLatestSave(state);
         controller.notifyRuntimeChanged();
       }
 
       return result.saved;
     },
     notifyRuntimeChanged() {
-      if (disposed) {
+      if (isEditorPersistenceControllerDisposed(state)) {
         return;
       }
 
       const autosave = normalizeEditorAutosaveOptions(options.autosave);
       const runtime = options.getRuntime();
-      if (!autosave.enabled || runtime.status !== "dirty") {
-        clearAutosaveTimer();
+      const result = reduceEditorPersistenceRuntimeChanged(state, {
+        autosave,
+        persistence: options.getPersistence(),
+        runtime,
+      });
+
+      if (result.type === "none") {
         return;
       }
 
-      if (saveInFlight) {
-        if (runtime.revision === saveInFlightRevision) {
-          return;
-        }
-        if (autosave.saveLatest && !pendingSaveAfterInFlight) {
-          pendingSaveAfterInFlight = true;
-          options.onEvent?.({
-            reason: "in-flight",
-            revision: runtime.revision,
-            type: "save-skipped",
-          });
-        }
-        if (!autosave.saveLatest) {
-          skippedLatestSaveRevision = runtime.revision;
-        }
+      if (result.type === "clear-autosave") {
+        clearEditorPersistenceAutosave(state, getScheduler(options));
         return;
       }
 
-      if (skippedLatestSaveRevision === runtime.revision) {
+      if (result.type === "emit-save-skipped") {
+        options.onEvent?.({
+          reason: "in-flight",
+          revision: result.revision,
+          type: "save-skipped",
+        });
         return;
       }
 
-      if (options.getPersistence().status === "error" && failedSaveRevision === runtime.revision) {
-        return;
-      }
-
-      if (autosaveRevision === runtime.revision && autosaveTimer !== null) {
-        return;
-      }
-
-      clearAutosaveTimer();
-      autosaveRevision = runtime.revision;
-      autosaveTimer = getScheduler(options).setTimeout(() => {
-        autosaveTimer = null;
-        autosaveRevision = null;
-        void saveWithAutosaveRetry(autosave);
-      }, autosave.delayMs);
+      scheduleEditorPersistenceAutosave(state, {
+        callback: () => {
+          void saveWithAutosaveRetry(autosave);
+        },
+        delayMs: result.delayMs,
+        revision: result.revision,
+        scheduler: getScheduler(options),
+      });
     },
     updateOptions(nextOptions) {
       options = {
@@ -180,11 +182,7 @@ function createEditorRuntimePersistenceControllerCore<TDocument, TSelection>(
       } as RuntimePersistenceControllerOptions<TDocument, TSelection>;
     },
     dispose() {
-      disposed = true;
-      clearAutosaveTimer();
-      clearRetryTimer();
-      resolveRetryDelay?.();
-      resolveRetryDelay = null;
+      disposeEditorPersistenceControllerState(state, getScheduler(options));
     },
   };
 
@@ -193,48 +191,29 @@ function createEditorRuntimePersistenceControllerCore<TDocument, TSelection>(
     let attemptsUsed = 0;
 
     while (true) {
+      if (isEditorPersistenceControllerDisposed(state)) {
+        return;
+      }
+
       const saved = await controller.save();
       if (
-        saved ||
-        disposed ||
-        options.getRuntime().revision !== revision ||
-        failedSaveRevision !== revision ||
-        attemptsUsed >= autosave.retryAttempts
+        shouldStopEditorPersistenceAutosaveRetry(state, {
+          attemptsUsed,
+          currentRevision: options.getRuntime().revision,
+          retryAttempts: autosave.retryAttempts,
+          saved,
+          targetRevision: revision,
+        })
       ) {
         return;
       }
 
       attemptsUsed += 1;
-      await waitForRetryDelay(autosave.retryDelayMs);
+      await waitForEditorPersistenceRetryDelay(state, {
+        delayMs: autosave.retryDelayMs,
+        scheduler: getScheduler(options),
+      });
     }
-  }
-
-  function waitForRetryDelay(delayMs: number): Promise<void> {
-    return new Promise((resolve) => {
-      resolveRetryDelay = resolve;
-      retryTimer = getScheduler(options).setTimeout(() => {
-        retryTimer = null;
-        resolveRetryDelay = null;
-        resolve();
-      }, delayMs);
-    });
-  }
-
-  function clearAutosaveTimer() {
-    if (autosaveTimer === null) {
-      return;
-    }
-    getScheduler(options).clearTimeout(autosaveTimer);
-    autosaveTimer = null;
-    autosaveRevision = null;
-  }
-
-  function clearRetryTimer() {
-    if (retryTimer === null) {
-      return;
-    }
-    getScheduler(options).clearTimeout(retryTimer);
-    retryTimer = null;
   }
 
   return controller;
