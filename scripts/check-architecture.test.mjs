@@ -9,6 +9,7 @@ const src = join(root, "src");
 await mkdir(join(src, "react"), { recursive: true });
 await mkdir(join(src, "runtime"), { recursive: true });
 await mkdir(join(src, "operations"), { recursive: true });
+await mkdir(join(src, "persistence"), { recursive: true });
 
 await write("index.ts", 'export * from "./runtime.js";\n');
 await write("runtime.ts", 'export * from "./runtime/index.js";\n');
@@ -28,6 +29,36 @@ await write(
 
 const passing = await checkArchitecture({ rootDir: root });
 assert.equal(passing.errors.length, 0);
+
+await write(
+  "oversized.test.ts",
+  Array.from({ length: 301 }, (_, index) => `export const value${index} = ${index};`).join("\n"),
+);
+const oversizedTest = await checkArchitecture({ rootDir: root });
+assert.equal(oversizedTest.errors.length, 0);
+assert.match(
+  oversizedTest.warnings.map((warning) => warning.message).join("\n"),
+  /Test file has 301 lines/,
+);
+
+await write(
+  "runtime.test.ts",
+  "import { createEditorRuntime } from './runtime.js';\nvoid createEditorRuntime;\n",
+);
+const rootSplitDomainTest = await checkArchitecture({ rootDir: root });
+assert.equal(rootSplitDomainTest.errors.length, 0);
+assert.match(
+  rootSplitDomainTest.warnings.map((warning) => warning.message).join("\n"),
+  /Split-domain tests should live under src\/runtime\//,
+);
+
+await write(
+  "persistence/test-support.ts",
+  'import * as React from "react";\nexport const value = React;\n',
+);
+const testSupport = await checkArchitecture({ rootDir: root });
+assert.equal(testSupport.errors.length, 0);
+assert.doesNotMatch(testSupport.warnings.map((warning) => warning.file).join("\n"), /test-support/);
 
 await write(
   "operations/bad-deep.ts",

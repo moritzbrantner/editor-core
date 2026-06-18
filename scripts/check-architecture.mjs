@@ -19,11 +19,22 @@ export async function checkArchitecture(options = {}) {
   const root = options.rootDir ?? rootDir;
   const src = join(root, "src");
   const files = (await listSourceFiles(src)).sort((left, right) => left.localeCompare(right));
-  const implementationFiles = files.filter((file) => !isTestFile(file));
+  const testFiles = files.filter((file) => isTestFile(file));
+  const implementationFiles = files.filter((file) => !isTestFile(file) && !isTestSupportFile(file));
   const lineCounts = await getLineCounts(files);
   const parsedFiles = new Map();
   const errors = [];
   const warnings = [];
+
+  for (const file of testFiles) {
+    checkTestFileSize({
+      file,
+      lineCounts,
+      relativePath: toRepoPath(root, file),
+      warnings,
+    });
+  }
+  checkSplitDomainRootTests({ files, root, warnings });
 
   for (const file of implementationFiles) {
     const content = await readFile(file, "utf8");
@@ -201,9 +212,6 @@ function isDomainEntrypoint(targetRelative, targetDomain) {
 }
 
 function checkFileSize({ errors, file, lineCounts, mode, relativePath, warnings }) {
-  if (isTestFile(file)) {
-    return;
-  }
   const lineCount = lineCounts.get(file);
   const count = lineCount ?? 0;
   if (count > architectureRules.fileSize.hardLimit) {
@@ -220,6 +228,33 @@ function checkFileSize({ errors, file, lineCounts, mode, relativePath, warnings 
     });
   }
   void mode;
+}
+
+function checkTestFileSize({ file, lineCounts, relativePath, warnings }) {
+  const lineCount = lineCounts.get(file);
+  const count = lineCount ?? 0;
+  if (count > architectureRules.fileSize.softLimit) {
+    warnings.push({
+      file: relativePath,
+      message: `Test file has ${count} lines; soft split signal is ${architectureRules.fileSize.softLimit}.`,
+    });
+  }
+}
+
+function checkSplitDomainRootTests({ files, root, warnings }) {
+  const repoPaths = new Set(files.map((file) => toRepoPath(root, file)));
+  for (const domain of architectureRules.splitDomains) {
+    for (const extension of ["ts", "tsx"]) {
+      const relativePath = `src/${domain}.test.${extension}`;
+      if (!repoPaths.has(relativePath)) {
+        continue;
+      }
+      warnings.push({
+        file: relativePath,
+        message: `Split-domain tests should live under src/${domain}/.`,
+      });
+    }
+  }
 }
 
 function checkPublicEntrypoint({ content, domain, errors, relativePath }) {
@@ -302,6 +337,10 @@ function findCycles(graph) {
 
 function isTestFile(file) {
   return /\.(test|spec)\.tsx?$/.test(file);
+}
+
+function isTestSupportFile(file) {
+  return /(^|[\\/])test-support\.tsx?$/.test(file);
 }
 
 function toRepoPath(root, file) {
