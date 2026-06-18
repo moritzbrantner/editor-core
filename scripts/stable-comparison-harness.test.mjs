@@ -98,7 +98,7 @@ test("serves compare results through HTTP", async () => {
     const address = server.address();
     assert.ok(address && typeof address !== "string");
     const response = await fetch(`http://127.0.0.1:${address.port}/compare`, {
-      body: JSON.stringify({ minDurationMs: 1 }),
+      body: JSON.stringify({ maxRegressionRatio: 1, minDurationMs: 1 }),
       headers: { "content-type": "application/json" },
       method: "POST",
     });
@@ -237,10 +237,11 @@ function createFakeEditorCoreApi() {
       };
     },
     createEditorEntitySelection(ids, anchorId = ids.at(-1)) {
-      const normalizedIds = [...new Set(ids.filter((id) => typeof id === "string" && id.length > 0))];
+      const normalizedIds = [
+        ...new Set(ids.filter((id) => typeof id === "string" && id.length > 0)),
+      ];
       return {
-        anchorId:
-          anchorId && normalizedIds.includes(anchorId) ? anchorId : normalizedIds.at(-1),
+        anchorId: anchorId && normalizedIds.includes(anchorId) ? anchorId : normalizedIds.at(-1),
         ids: normalizedIds,
         kind: "entity",
       };

@@ -222,7 +222,10 @@ export function createStableComparisonScenarios() {
           ["a", "b", "b", "", "missing", "c"],
           "missing",
         );
-        return api.normalizeEditorSelection(selection, (id) => id === "a" || id === "b" || id === "c");
+        return api.normalizeEditorSelection(
+          selection,
+          (id) => id === "a" || id === "b" || id === "c",
+        );
       },
     },
     {
@@ -416,10 +419,7 @@ export function summarizeComparisonPerformance(scenarios) {
   for (const scenario of scenarios) {
     if (scenario.ratio > 1.01) {
       summary.improved += 1;
-      if (
-        !summary.fastestImprovement ||
-        scenario.ratio > summary.fastestImprovement.ratio
-      ) {
+      if (!summary.fastestImprovement || scenario.ratio > summary.fastestImprovement.ratio) {
         summary.fastestImprovement = {
           name: scenario.name,
           ratio: scenario.ratio,
@@ -427,10 +427,7 @@ export function summarizeComparisonPerformance(scenarios) {
       }
     } else if (scenario.ratio < 0.99) {
       summary.regressed += 1;
-      if (
-        !summary.slowestRegression ||
-        scenario.ratio < summary.slowestRegression.ratio
-      ) {
+      if (!summary.slowestRegression || scenario.ratio < summary.slowestRegression.ratio) {
         summary.slowestRegression = {
           name: scenario.name,
           ratio: scenario.ratio,
