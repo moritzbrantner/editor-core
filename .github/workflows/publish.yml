@@ -108,6 +108,9 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
+      - name: Install Playwright browsers
+        run: bunx playwright install chromium
+
       - name: Verify npm trusted publishing support
         run: |
           npm_version="$(npm --version)"
