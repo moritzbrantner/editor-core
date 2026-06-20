@@ -3,7 +3,7 @@
   "configVersion": 1,
   "workspaces": {
     "": {
-      "name": "@moritzbrantner/editor-core",
+      "name": "@moenarch/editor-core",
       "devDependencies": {
         "@playwright/test": "^1.60.0",
         "@storybook/addon-vitest": "^10.4.2",

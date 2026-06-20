@@ -1,6 +1,6 @@
 # Adoption Guide
 
-Use this guide when adding `@moritzbrantner/editor-core` to a downstream editor package.
+Use this guide when adding `@moenarch/editor-core` to a downstream editor package.
 
 ## Minimal Runtime
 
@@ -11,7 +11,7 @@ import {
   commitEditorRuntime,
   createEditorRuntime,
   createEditorRuntimeCommands,
-} from "@moritzbrantner/editor-core/runtime";
+} from "@moenarch/editor-core/runtime";
 
 type Document = {
   body: string;
@@ -49,7 +49,7 @@ Adapters own the downstream document contract. Keep `format` globally specific a
 `schemaVersion` whenever serialized input needs a migration.
 
 ```ts
-import type { EditorDocumentAdapter, EditorDocumentMigrations } from "@moritzbrantner/editor-core";
+import type { EditorDocumentAdapter, EditorDocumentMigrations } from "@moenarch/editor-core";
 
 type Document = {
   body: string;
@@ -97,7 +97,7 @@ export const migrations: EditorDocumentMigrations<Document> = {
 The testing subpath is framework-free. Use it from Vitest, Jest, Node test, or custom CI scripts.
 
 ```ts
-import { assertEditorDocumentAdapter } from "@moritzbrantner/editor-core/testing";
+import { assertEditorDocumentAdapter } from "@moenarch/editor-core/testing";
 import { adapter, migrations } from "./document-adapter.js";
 
 assertEditorDocumentAdapter(adapter, [
@@ -148,8 +148,8 @@ import {
   createLocalStorageEditorStorage,
   readEditorDocument,
   serializeEditorDocument,
-} from "@moritzbrantner/editor-core";
-import { usePersistentEditorRuntime } from "@moritzbrantner/editor-core/react";
+} from "@moenarch/editor-core";
+import { usePersistentEditorRuntime } from "@moenarch/editor-core/react";
 import { adapter, migrations } from "./document-adapter.js";
 
 const storage = createLocalStorageEditorStorage({
@@ -186,7 +186,7 @@ autosave, retry, and latest-revision behavior through caller-owned runtime and p
 import {
   createEditorPersistenceState,
   createEditorRuntimePersistenceController,
-} from "@moritzbrantner/editor-core/persistence";
+} from "@moenarch/editor-core/persistence";
 
 let persistence = createEditorPersistenceState();
 
@@ -213,7 +213,7 @@ import {
   readEditorOperationLog,
   serializeEditorOperationLog,
   type EditorOperationLogAdapter,
-} from "@moritzbrantner/editor-core/operations";
+} from "@moenarch/editor-core/operations";
 
 type RenameOperation = {
   id: string;
@@ -254,7 +254,7 @@ revision tokens:
 import {
   createEditorCollaborationState,
   dedupeEditorRemoteOperations,
-} from "@moritzbrantner/editor-core/collaboration";
+} from "@moenarch/editor-core/collaboration";
 
 let collaboration = createEditorCollaborationState({
   clientId: "client-a",
@@ -277,7 +277,7 @@ operation runtime:
 import {
   applyEditorRemoteOperations,
   createEditorOperationRemoteApplyAdapter,
-} from "@moritzbrantner/editor-core/sync";
+} from "@moenarch/editor-core/sync";
 
 const remoteApply = createEditorOperationRemoteApplyAdapter({
   decode(envelope) {
@@ -302,11 +302,7 @@ Use patch helpers for JSON-compatible editor documents when a downstream package
 summaries, simple conflict previews, or reversible updates:
 
 ```ts
-import {
-  applyEditorPatch,
-  diffEditorJson,
-  invertEditorPatch,
-} from "@moritzbrantner/editor-core/patches";
+import { applyEditorPatch, diffEditorJson, invertEditorPatch } from "@moenarch/editor-core/patches";
 
 const patch = diffEditorJson(previousDocument, nextDocument);
 const restored = applyEditorPatch(nextDocument, invertEditorPatch(patch));
@@ -325,7 +321,7 @@ import {
   createEditorPluginRegistry,
   getEditorPluginDiagnostics,
   resolveEditorPluginRuntimeOptions,
-} from "@moritzbrantner/editor-core/plugins";
+} from "@moenarch/editor-core/plugins";
 
 const registry = createEditorPluginRegistry([metadataPlugin, timelinePlugin]);
 const diagnostics = getEditorPluginDiagnostics(registry);
@@ -346,7 +342,7 @@ import {
   saveEditorRuntimeConflictPersistence,
   type EditorConflictStorageAdapter,
   type EditorPersistedDocument,
-} from "@moritzbrantner/editor-core/persistence";
+} from "@moenarch/editor-core/persistence";
 
 async function saveToServer(
   value: EditorPersistedDocument<Document>,
@@ -378,7 +374,7 @@ import {
   acceptLocalEditorPersistenceConflict,
   acceptMergedEditorPersistenceConflict,
   acceptRemoteEditorPersistenceConflict,
-} from "@moritzbrantner/editor-core/sync";
+} from "@moenarch/editor-core/sync";
 
 const local = acceptLocalEditorPersistenceConflict(runtime, persistence);
 const remote = acceptRemoteEditorPersistenceConflict(runtime, persistence);
@@ -393,7 +389,7 @@ should be persisted.
 Use `createEditorCommandRuntime` when headless code needs the same hotkey policy as React hooks:
 
 ```ts
-import { createEditorCommandRuntime } from "@moritzbrantner/editor-core/commands";
+import { createEditorCommandRuntime } from "@moenarch/editor-core/commands";
 
 const commandRuntime = createEditorCommandRuntime({
   commands,
@@ -415,7 +411,7 @@ headless integrations.
 Run command diagnostics in development or CI to catch duplicate ids and bad shortcuts:
 
 ```ts
-import { getEditorCommandDiagnostics } from "@moritzbrantner/editor-core/commands";
+import { getEditorCommandDiagnostics } from "@moenarch/editor-core/commands";
 
 const diagnostics = getEditorCommandDiagnostics(commands);
 if (diagnostics.some((diagnostic) => diagnostic.severity === "error")) {

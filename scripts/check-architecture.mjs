@@ -74,7 +74,7 @@ export async function checkArchitecture(options = {}) {
         continue;
       }
 
-      if (reference.specifier.startsWith("@moritzbrantner/editor-core")) {
+      if (reference.specifier.startsWith("@moenarch/editor-core")) {
         errors.push({
           file: parsed.relativePath,
           message: `Source files must not self-import the package: ${reference.specifier}`,

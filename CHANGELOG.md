@@ -1,17 +1,25 @@
 # Changelog
 
-All notable changes to `@moritzbrantner/editor-core` are documented here.
+All notable changes to `@moenarch/editor-core` are documented here.
 
 This package follows semver. While the package is in `0.x`, breaking changes may ship in minor releases, but every breaking change must be called out in this file.
 
+## 0.4.0
+
+- Moved the package to `@moenarch/editor-core`.
+- Consumers should update imports from `@moritzbrantner/editor-core/*` to
+  `@moenarch/editor-core/*`.
+- No runtime API changes are intended in this release.
+- The old `@moritzbrantner/editor-core` package will be deprecated after this package is published.
+
 ## 0.2.1
 
-- Added `@moritzbrantner/editor-core/sync` with headless remote operation apply helpers and
+- Added `@moenarch/editor-core/sync` with headless remote operation apply helpers and
   explicit persistence conflict resolution helpers.
 
 ## 0.2.0
 
-- Added adapter contract helpers under `@moritzbrantner/editor-core/testing`.
+- Added adapter contract helpers under `@moenarch/editor-core/testing`.
 - Added persistence lifecycle events for load/save observability.
 - Improved React autosave behavior with latest-revision follow-up saves and optional retry.
 - Added command diagnostics for duplicate ids, invalid hotkeys, conflicts, and empty labels.

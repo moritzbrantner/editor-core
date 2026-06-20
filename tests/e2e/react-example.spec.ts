@@ -48,7 +48,7 @@ test("edits the React example document and updates editor state", async ({ page 
           body: "Imported body text.",
           title: "Imported Draft",
         },
-        format: "@moritzbrantner/editor-core/example-document",
+        format: "@moenarch/editor-core/example-document",
         schemaVersion: 1,
       }),
     ),

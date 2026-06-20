@@ -9,9 +9,9 @@
     "moduleResolution": "Bundler",
     "noEmit": true,
     "paths": {
-      "@moritzbrantner/editor-core": ["./src/index.ts"],
-      "@moritzbrantner/editor-core/react": ["./src/react.tsx"],
-      "@moritzbrantner/editor-core/tree": ["./src/tree.ts"]
+      "@moenarch/editor-core": ["./src/index.ts"],
+      "@moenarch/editor-core/react": ["./src/react.tsx"],
+      "@moenarch/editor-core/tree": ["./src/tree.ts"]
     },
     "types": ["vite/client"]
   },

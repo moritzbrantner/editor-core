@@ -33,7 +33,7 @@ async function smokeHeadlessConsumer(tarball) {
   await mkdir(consumerDir, { recursive: true });
   await writeJson(join(consumerDir, "package.json"), {
     dependencies: {
-      "@moritzbrantner/editor-core": `file:${tarball}`,
+      "@moenarch/editor-core": `file:${tarball}`,
     },
     private: true,
     type: "module",
@@ -48,32 +48,32 @@ async function smokeHeadlessConsumer(tarball) {
   await writeFile(
     join(consumerDir, "node-esm.mjs"),
     `
-      import * as core from "@moritzbrantner/editor-core";
-      import { createEditorSnapshotHistory } from "@moritzbrantner/editor-core/history";
-      import { stableEditorJsonStringify } from "@moritzbrantner/editor-core/json";
-      import { serializeEditorDocument } from "@moritzbrantner/editor-core/serialization";
-      import { checkEditorDocumentAdapter } from "@moritzbrantner/editor-core/testing";
-      import { matchesEditorHotkey } from "@moritzbrantner/editor-core/hotkeys";
-      import { projectEditorTree } from "@moritzbrantner/editor-core/tree";
-      import { createEditorAspect } from "@moritzbrantner/editor-core/aspects";
-      import { editorShareUrl } from "@moritzbrantner/editor-core/share";
-      import { ensureEditorJsonFilename } from "@moritzbrantner/editor-core/browser";
-      import { createEditorSnapshotHistoryCommands } from "@moritzbrantner/editor-core/commands";
-      import { validateEditorGraphConnection } from "@moritzbrantner/editor-core/constraints";
-      import { createEditorEntityDocument, createUniqueEditorId } from "@moritzbrantner/editor-core/entities";
-      import { createEditorEntityIndexes } from "@moritzbrantner/editor-core/indexes";
-      import { createEditorInteractionSession } from "@moritzbrantner/editor-core/interaction";
-      import { createEditorOperationRuntime } from "@moritzbrantner/editor-core/operations";
-      import { createEditorEntitySelection } from "@moritzbrantner/editor-core/selection";
-      import { createEditorViewportState } from "@moritzbrantner/editor-core/viewport";
-      import { createEditorCollaborationState } from "@moritzbrantner/editor-core/collaboration";
-      import { applyEditorPatch, diffEditorJson } from "@moritzbrantner/editor-core/patches";
-      import { createEditorPluginRegistry } from "@moritzbrantner/editor-core/plugins";
-      import { applyEditorRemoteOperations } from "@moritzbrantner/editor-core/sync";
+      import * as core from "@moenarch/editor-core";
+      import { createEditorSnapshotHistory } from "@moenarch/editor-core/history";
+      import { stableEditorJsonStringify } from "@moenarch/editor-core/json";
+      import { serializeEditorDocument } from "@moenarch/editor-core/serialization";
+      import { checkEditorDocumentAdapter } from "@moenarch/editor-core/testing";
+      import { matchesEditorHotkey } from "@moenarch/editor-core/hotkeys";
+      import { projectEditorTree } from "@moenarch/editor-core/tree";
+      import { createEditorAspect } from "@moenarch/editor-core/aspects";
+      import { editorShareUrl } from "@moenarch/editor-core/share";
+      import { ensureEditorJsonFilename } from "@moenarch/editor-core/browser";
+      import { createEditorSnapshotHistoryCommands } from "@moenarch/editor-core/commands";
+      import { validateEditorGraphConnection } from "@moenarch/editor-core/constraints";
+      import { createEditorEntityDocument, createUniqueEditorId } from "@moenarch/editor-core/entities";
+      import { createEditorEntityIndexes } from "@moenarch/editor-core/indexes";
+      import { createEditorInteractionSession } from "@moenarch/editor-core/interaction";
+      import { createEditorOperationRuntime } from "@moenarch/editor-core/operations";
+      import { createEditorEntitySelection } from "@moenarch/editor-core/selection";
+      import { createEditorViewportState } from "@moenarch/editor-core/viewport";
+      import { createEditorCollaborationState } from "@moenarch/editor-core/collaboration";
+      import { applyEditorPatch, diffEditorJson } from "@moenarch/editor-core/patches";
+      import { createEditorPluginRegistry } from "@moenarch/editor-core/plugins";
+      import { applyEditorRemoteOperations } from "@moenarch/editor-core/sync";
       import {
         EditorPersistenceConflictError,
         saveEditorRuntimeConflictPersistence,
-      } from "@moritzbrantner/editor-core/persistence";
+      } from "@moenarch/editor-core/persistence";
 
       if ("useEditorHotkeys" in core || "useEditorTreeState" in core) {
         throw new Error("React hooks leaked from the root entrypoint");
@@ -177,7 +177,7 @@ async function smokeHeadlessConsumer(tarball) {
   await writeFile(
     join(consumerDir, "node-compat.mjs"),
     `
-      import { decodeEditorSharePayload, encodeEditorSharePayload } from "@moritzbrantner/editor-core/share";
+      import { decodeEditorSharePayload, encodeEditorSharePayload } from "@moenarch/editor-core/share";
 
       delete globalThis.atob;
       delete globalThis.btoa;
@@ -199,17 +199,17 @@ async function smokeHeadlessConsumer(tarball) {
         createEditorOperationRuntime,
         type EditorSnapshotHistory,
         type EditorGraphAdapter,
-      } from "@moritzbrantner/editor-core";
+      } from "@moenarch/editor-core";
       import type {
         EditorCollaborationState,
         EditorRemoteOperation,
-      } from "@moritzbrantner/editor-core/collaboration";
-      import type { EditorPatch } from "@moritzbrantner/editor-core/patches";
-      import type { EditorPlugin } from "@moritzbrantner/editor-core/plugins";
-      import type { EditorConflictStorageAdapter } from "@moritzbrantner/editor-core/persistence";
-      import type { EditorRemoteApplyAdapter } from "@moritzbrantner/editor-core/sync";
-      import type { EditorDocumentAdapterCheckCase } from "@moritzbrantner/editor-core/testing";
-      import type { EditorTreeAdapter } from "@moritzbrantner/editor-core/tree";
+      } from "@moenarch/editor-core/collaboration";
+      import type { EditorPatch } from "@moenarch/editor-core/patches";
+      import type { EditorPlugin } from "@moenarch/editor-core/plugins";
+      import type { EditorConflictStorageAdapter } from "@moenarch/editor-core/persistence";
+      import type { EditorRemoteApplyAdapter } from "@moenarch/editor-core/sync";
+      import type { EditorDocumentAdapterCheckCase } from "@moenarch/editor-core/testing";
+      import type { EditorTreeAdapter } from "@moenarch/editor-core/tree";
 
       type Document = { title: string };
       const history: EditorSnapshotHistory<Document> = createEditorSnapshotHistory({ title: "Draft" });
@@ -290,7 +290,7 @@ async function smokeReactSubpath(tarball) {
   await mkdir(consumerDir, { recursive: true });
   await writeJson(join(consumerDir, "package.json"), {
     dependencies: {
-      "@moritzbrantner/editor-core": `file:${tarball}`,
+      "@moenarch/editor-core": `file:${tarball}`,
     },
     private: true,
     type: "module",
@@ -317,7 +317,7 @@ async function smokeReactSubpath(tarball) {
   await writeFile(
     join(consumerDir, "react-subpath.mjs"),
     `
-      import { useConflictAwareEditorRuntime, useEditorHotkeys, useEditorTreeState } from "@moritzbrantner/editor-core/react";
+      import { useConflictAwareEditorRuntime, useEditorHotkeys, useEditorTreeState } from "@moenarch/editor-core/react";
       if (typeof useEditorHotkeys !== "function" || typeof useEditorTreeState !== "function" || typeof useConflictAwareEditorRuntime !== "function") {
         throw new Error("React subpath did not load");
       }
@@ -331,7 +331,7 @@ async function smokeBrowserBundle(tarball) {
   await mkdir(join(consumerDir, "src"), { recursive: true });
   await writeJson(join(consumerDir, "package.json"), {
     dependencies: {
-      "@moritzbrantner/editor-core": `file:${tarball}`,
+      "@moenarch/editor-core": `file:${tarball}`,
     },
     private: true,
     type: "module",
@@ -347,9 +347,9 @@ async function smokeBrowserBundle(tarball) {
   await writeFile(
     join(consumerDir, "src", "main.ts"),
     `
-      import { createEditorSnapshotHistory } from "@moritzbrantner/editor-core";
-      import { encodeEditorSharePayload } from "@moritzbrantner/editor-core/share";
-      import { projectEditorTree } from "@moritzbrantner/editor-core/tree";
+      import { createEditorSnapshotHistory } from "@moenarch/editor-core";
+      import { encodeEditorSharePayload } from "@moenarch/editor-core/share";
+      import { projectEditorTree } from "@moenarch/editor-core/tree";
 
       const history = createEditorSnapshotHistory({ title: "Draft" });
       const tree = projectEditorTree(history.present, {

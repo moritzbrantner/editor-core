@@ -21,18 +21,18 @@ import {
   type EditorDocumentMigrations,
   type EditorHotkeyEvent,
   type EditorRuntimeCommandId,
-} from "@moritzbrantner/editor-core";
+} from "@moenarch/editor-core";
 import {
   useEditorHotkeys,
   usePersistentEditorRuntime,
   useEditorTreeState,
-} from "@moritzbrantner/editor-core/react";
+} from "@moenarch/editor-core/react";
 import {
   projectEditorTree,
   type EditorTreeAdapter,
   type EditorTreeItem,
   type EditorTreeNode,
-} from "@moritzbrantner/editor-core/tree";
+} from "@moenarch/editor-core/tree";
 import { ReferenceEditor } from "./reference-editor";
 import "./styles.css";
 
@@ -119,7 +119,7 @@ const exampleDocumentTreeAdapter: EditorTreeAdapter<ExampleDocument> = {
 };
 
 const exampleDocumentAdapter: EditorDocumentAdapter<ExampleDocument> = {
-  format: "@moritzbrantner/editor-core/example-document",
+  format: "@moenarch/editor-core/example-document",
   schemaVersion: 2,
   normalize(document) {
     return {
@@ -161,7 +161,7 @@ const exampleDocumentMigrations: EditorDocumentMigrations<ExampleDocument> = {
 };
 
 const exampleStorage = createLocalStorageEditorStorage<ExampleDocument>({
-  key: "@moritzbrantner/editor-core/react-example",
+  key: "@moenarch/editor-core/react-example",
   parse(input) {
     return readEditorDocument(input, exampleDocumentAdapter, {
       migrations: exampleDocumentMigrations,
@@ -370,7 +370,7 @@ function App() {
       <header className="mx-auto mb-5 grid max-w-[1180px] items-start gap-5 md:flex md:items-end md:justify-between">
         <div>
           <p className={`mb-1.5 text-xs font-bold uppercase ${tone.accent}`}>
-            @moritzbrantner/editor-core
+            @moenarch/editor-core
           </p>
           <h1 className="m-0 text-[clamp(2rem,5vw,4.8rem)] leading-[0.95] font-extrabold">
             React editor example

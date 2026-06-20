@@ -1,172 +1,235 @@
 # Release Checklist
 
-Use this checklist for npm releases of `@moritzbrantner/editor-core`.
+Use this checklist for npm releases of `@moenarch/editor-core`.
 
-## Release Target
+## Release Model
 
-Choose the next version before publishing. The package is already published on npm, so every
-release must use a version that does not already exist on the registry.
+This repository uses an agent-driven, tag-triggered npm release flow after the first
+`@moenarch/editor-core` package has been published:
 
-For the next release, use `0.2.0` because the current changes add public APIs. npm `latest` was
-checked as `0.1.0` on June 7, 2026.
+1. A coding agent bumps `package.json`, updates `CHANGELOG.md`, runs release validation, commits,
+   and pushes to `main`.
+2. The agent creates and pushes an annotated `v<version>` tag from the release commit.
+3. `.github/workflows/publish.yml` verifies the tag, changelog, npm CLI support, and npm registry
+   state before publishing.
+4. GitHub Actions publishes to npm through npm Trusted Publishing.
 
-Before tagging or publishing, confirm the current npm state:
+The workflow intentionally does not use a GitHub Environment approval gate. The release security
+boundary is repository write access, `v*` tag creation rights, and npm's trusted publisher binding
+to this repository and workflow.
+
+## Bootstrap `@moenarch/editor-core`
+
+The first `@moenarch/editor-core` release must be published manually because npm Trusted
+Publishing can only be configured after the package exists on npm.
+
+For the scope migration release:
+
+- Package: `@moenarch/editor-core`
+- Version: `0.4.0`
+- Publish command: `npm publish --access public`
+- Tag: `v0.4.0`
+
+Before the first publish, confirm the package name is still available:
 
 ```sh
-npm view @moritzbrantner/editor-core version dist-tags --json
+npm view @moenarch/editor-core version dist-tags --json
 ```
 
-Verify the registry state again immediately before publishing.
+An `E404` response means the package has not been published yet.
 
-While the package is in `0.x`, breaking changes may ship in minor releases, but every breaking
-change must be called out in `CHANGELOG.md`.
-
-## Before Publishing
-
-Run the local verification sequence from the release commit:
+After publishing `@moenarch/editor-core@0.4.0`, configure npm Trusted Publishing for future
+versions and then create the matching source tag:
 
 ```sh
-git status --short --branch
+git tag -a v0.4.0 -m "@moenarch/editor-core v0.4.0"
+git push origin v0.4.0
+```
+
+The `Release` workflow intentionally skips the publish job for `v0.4.0`; that tag is only for
+source traceability after the manual bootstrap publish. Later `v*` tags publish through Trusted
+Publishing.
+
+The old package should be deprecated only after `@moenarch/editor-core@0.4.0` has been verified:
+
+```sh
+npm deprecate @moritzbrantner/editor-core "Package moved to @moenarch/editor-core. Install @moenarch/editor-core instead."
+```
+
+## npm Trusted Publishing Setup
+
+Configure npm Trusted Publishing for `@moenarch/editor-core` after the bootstrap publish and before
+using the workflow for later versions:
+
+- Provider: GitHub Actions
+- Organization/user: `moritzbrantner`
+- Repository: `editor-core`
+- Workflow filename: `publish.yml`
+- Environment name: leave blank
+- Allowed action: `npm publish`
+
+Do not add an `NPM_TOKEN` secret for the normal release path. The publish job uses GitHub OIDC via
+the workflow's `id-token: write` permission.
+
+npm Trusted Publishing requires a supported Node and npm CLI on the runner. The publish workflow
+uses Node 24 and fails before publishing if `npm --version` is older than `11.5.1`.
+
+## GitHub Setup
+
+The coding agent identity must be allowed to:
+
+- Push release commits to `main`.
+- Create and push tags matching `v*`.
+- Read GitHub Actions results.
+- Create GitHub Releases if release notes are added later.
+
+Recommended repository rules:
+
+- Keep required CI on pull requests if branch protection is enabled.
+- If direct pushes to `main` are blocked, add only the agent identity to the bypass list.
+- If tag rules protect `v*`, allow only maintainers and the agent identity to create matching tags.
+- Consider CODEOWNERS coverage for `.github/workflows/*` if workflow changes should still be
+  reviewed separately.
+
+## Version Target
+
+Every release must use a version that does not already exist on npm.
+
+Check the current npm state before choosing the next version:
+
+```sh
+npm view @moenarch/editor-core version dist-tags --json
+```
+
+While the package is in `0.x`, breaking public API changes may ship in minor releases, but every
+breaking change must be called out in `CHANGELOG.md`.
+
+Use this version policy:
+
+- Patch: fixes and compatible internal changes.
+- Minor: new public APIs, and breaking public API changes while the package is `0.x`.
+- Major: breaking public API changes after `1.0.0`.
+
+## Agent Release Procedure
+
+Run the release from `main`:
+
+```sh
+git checkout main
+git pull --ff-only origin main
+git status --short
+```
+
+Inspect unreleased changes, choose the bump, and confirm the current npm registry state. For the
+bootstrap release, `@moenarch/editor-core` should return `E404`; later releases should return the
+current published version and dist-tags.
+
+```sh
+npm view @moenarch/editor-core version dist-tags --json
+```
+
+Update:
+
+- `package.json` with the intended new version.
+- `CHANGELOG.md` with an entry for the exact same version.
+- `docs/api-report.md` if public type changes are intentional.
+- `docs/performance-baselines.json` only when benchmark changes are intentional and verified.
+
+Run the local release gate from the release commit:
+
+```sh
 bun install --frozen-lockfile
-npm whoami
-npm view @moritzbrantner/editor-core version dist-tags --json
 bun run verify:release
 npm pack --dry-run --json
 npm publish --dry-run --access public
 ```
 
-npm may prompt for a one-time password if two-factor authentication is enabled.
+Commit and push:
 
-Detailed checklist:
+```sh
+git add package.json CHANGELOG.md docs/api-report.md docs/performance-baselines.json
+git commit -m "Release v<version>"
+git push origin main
+```
 
-1. Confirm the working tree and branch state:
+Create and push the matching annotated tag:
 
-   ```sh
-   git status --short --branch
-   ```
+```sh
+git tag -a v<version> -m "@moenarch/editor-core v<version>"
+git push origin v<version>
+```
 
-2. Install with the pinned package manager:
+Watch the `Release` workflow. After it succeeds, verify the published package:
 
-   ```sh
-   bun install --frozen-lockfile
-   ```
+```sh
+npm view @moenarch/editor-core@<version> version repository license dist-tags --json
+```
 
-3. Confirm the active npm account and registry state:
+Confirm a clean install can import the root package and the `/react` subpath.
 
-   ```sh
-   npm whoami
-   npm view @moritzbrantner/editor-core version dist-tags --json
-   ```
+## Workflow Guards
 
-4. Confirm `package.json` has the intended new version and that the version is not already
-   published.
-5. Confirm `CHANGELOG.md` has an entry for the version, including any breaking changes while the
-   package is in `0.x`.
-6. Run the release gate before publishing:
+The `Release` workflow fails before `npm publish` when:
 
-   ```sh
-   bun run verify:release
-   ```
+- The tag is not exactly `v<package.json version>`.
+- `CHANGELOG.md` lacks a `## <version>` or `## [<version>]` entry.
+- `npm --version` is older than `11.5.1`.
+- The exact package version already exists on npm.
+- The repository validation or release validation jobs fail.
 
-7. If public types changed intentionally, update and review the API report before rerunning the
-   release gate:
+For the bootstrap `v0.4.0` tag, the publish job is skipped because the package must already have
+been manually published before npm Trusted Publishing can be configured.
 
-   ```sh
-   bun run api:update
-   ```
+## crates.io
 
-8. Confirm package exports and tarball contents:
+There is no Rust crate in this repository today, so the release workflow does not publish to
+crates.io.
 
-   ```sh
-   npm pack --dry-run --json
-   npm publish --dry-run --access public
-   ```
+If a Rust crate is added later:
 
-9. If benchmark changes are intentional, run `bun run bench` several times, update
-   `docs/performance-baselines.json`, and include before/after output in the pull request.
+1. Publish the first crate version manually if the crate does not already exist on crates.io.
+2. Configure crates.io Trusted Publishing for each crate:
+   - GitHub owner: `moritzbrantner`
+   - Repository: `editor-core`
+   - Workflow filename: `publish.yml`, or a dedicated future Rust release workflow
+   - Environment: leave blank
+3. Add a Rust publish job that uses `rust-lang/crates-io-auth-action@v1`.
+4. Pass the action output as `CARGO_REGISTRY_TOKEN` to `cargo publish`.
 
-## Trusted Publishing
+Use crates.io Trusted Publishing instead of long-lived API tokens whenever possible.
 
-The preferred release path is npm trusted publishing from GitHub Actions.
+## Manual npm Fallback
 
-Before the first trusted publish, configure npm trusted publishing for
-`.github/workflows/release.yml` and the `npm` GitHub environment.
+Use manual npm publishing for `@moenarch/editor-core@0.4.0`, or later only when Trusted Publishing
+is unavailable and the package version has not been published yet.
 
-1. Push `main`:
-
-   ```sh
-   git push origin main
-   ```
-
-2. Wait for the `Validate` workflow on `main` to pass.
-3. Create and push a matching annotated tag from the validated commit:
-
-   ```sh
-   git tag -a v<version> -m "@moritzbrantner/editor-core v<version>"
-   git push origin v<version>
-   ```
-
-4. The `Release` workflow runs the release gate again and publishes with npm provenance:
-
-   ```sh
-   npm publish --access public --provenance
-   ```
-
-5. Verify the npm package page shows the intended version, repository, license, and dist-tag:
-
-   ```sh
-   npm view @moritzbrantner/editor-core@<version> version repository license dist-tags --json
-   ```
-
-6. Confirm a clean install can import the root package and the `/react` subpath.
-
-## Manual Publishing Fallback
-
-Use manual publishing only if trusted publishing is unavailable.
-
-1. Push `main` and wait for GitHub validation to pass.
-2. Confirm the working tree and branch state:
-
-   ```sh
-   git status --short --branch
-   ```
-
-3. Publish the package:
+1. Run the full local release gate.
+2. Publish manually:
 
    ```sh
    npm publish --access public
    ```
 
-4. Verify the npm package page:
+3. Verify the package:
 
    ```sh
-   npm view @moritzbrantner/editor-core@<version> version repository license dist-tags --json
+   npm view @moenarch/editor-core@<version> version repository license dist-tags --json
    ```
 
-5. Create and push the matching git tag after the package is published:
+4. Create and push the matching tag from the exact release commit:
 
    ```sh
-   git tag -a v<version> -m "@moritzbrantner/editor-core v<version>"
+   git tag -a v<version> -m "@moenarch/editor-core v<version>"
    git push origin v<version>
    ```
 
-## After Publishing
-
-1. Check the GitHub release or tag notes match the changelog.
-2. Confirm the deployed React example still builds and loads after the release workflow runs.
-3. Open a follow-up issue for any deferred compatibility, benchmark, or API-report work.
-
 ## Failure Handling
 
-- If `npm publish --dry-run` or `npm publish` reports that the version was already published, bump
-  to the next appropriate patch or minor version, update `CHANGELOG.md`, rerun the release gate,
-  rerun `npm publish --dry-run --access public`, and publish the new version.
-- If `npm publish` fails before publishing for any other reason, fix the issue, rerun the release
-  gate, rerun `npm publish --dry-run --access public`, and publish again.
-- If trusted publishing fails before npm accepts the package, fix the workflow or use the manual
-  fallback without changing the version.
-- If `npm publish` succeeds but tag creation fails during manual publishing, do not republish.
-  Create and push the `v<version>` tag from the exact commit that was published.
-- If the published package is broken, do not overwrite the published version. Publish a fixed patch
-  version, document the issue in `CHANGELOG.md`, and create a GitHub issue for the release
-  incident.
+- If the version is already published, bump to the next appropriate patch, minor, or major version,
+  update `CHANGELOG.md`, rerun the release gate, and push a new release commit and tag.
+- If the trusted publish fails before npm accepts the package, fix the workflow or registry setup
+  and rerun the same tag after confirming npm does not have the version.
+- If npm accepts the package but a later workflow step fails, do not republish the same version.
+  Fix forward with a new version if the package contents are wrong.
+- If tag creation fails after a manual publish, create and push the `v<version>` tag from the exact
+  commit that produced the published package.

@@ -8,7 +8,7 @@ import {
 } from "./stable-comparison-harness.mjs";
 
 const rootDir = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const packageName = "@moritzbrantner/editor-core";
+const packageName = "@moenarch/editor-core";
 const defaultStableSpecifier = `${packageName}@latest`;
 const resultsDir = join(rootDir, "benchmark-results", "stable-comparison");
 const stableInstallDir = join(resultsDir, "published-package");

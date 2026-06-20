@@ -1,64 +1,64 @@
-# @moritzbrantner/editor-core
+# @moenarch/editor-core
 
 Headless shared infrastructure for Moritz Brantner editor packages.
 
 The root entrypoint is framework-free and works for single-user editors. React helpers live at
-`@moritzbrantner/editor-core/react`, and remote synchronization helpers live at
-`@moritzbrantner/editor-core/sync`, so consumers only opt into those surfaces when they need them.
+`@moenarch/editor-core/react`, and remote synchronization helpers live at
+`@moenarch/editor-core/sync`, so consumers only opt into those surfaces when they need them.
 
 ```ts
-import { createEditorSnapshotHistory, serializeEditorDocument } from "@moritzbrantner/editor-core";
+import { createEditorSnapshotHistory, serializeEditorDocument } from "@moenarch/editor-core";
 ```
 
 ## Install
 
 ```sh
-npm install @moritzbrantner/editor-core
+npm install @moenarch/editor-core
 ```
 
 ```sh
-bun add @moritzbrantner/editor-core
+bun add @moenarch/editor-core
 ```
 
 For React hooks:
 
 ```sh
-npm install react @moritzbrantner/editor-core
+npm install react @moenarch/editor-core
 ```
 
 ```sh
-bun add react @moritzbrantner/editor-core
+bun add react @moenarch/editor-core
 ```
 
 ## Entrypoints
 
-| Import path                                 | Purpose                                                          |
-| ------------------------------------------- | ---------------------------------------------------------------- |
-| `@moritzbrantner/editor-core`               | Headless single-user editor exports except React and sync.       |
-| `@moritzbrantner/editor-core/history`       | Snapshot and transaction undo/redo helpers.                      |
-| `@moritzbrantner/editor-core/commands`      | Command definitions, runtime policy, and diagnostics.            |
-| `@moritzbrantner/editor-core/collaboration` | Presence, remote operation dedupe, and revision-token types.     |
-| `@moritzbrantner/editor-core/constraints`   | Shared constraint and validation helpers.                        |
-| `@moritzbrantner/editor-core/entities`      | Shared entity ids, bounds, and domain adapter types.             |
-| `@moritzbrantner/editor-core/indexes`       | Entity, graph, timeline, and validation index helpers.           |
-| `@moritzbrantner/editor-core/interaction`   | Transient interaction session helpers.                           |
-| `@moritzbrantner/editor-core/operations`    | Semantic operation runtime and operation-log helpers.            |
-| `@moritzbrantner/editor-core/persistence`   | Runtime document load/save and autosave orchestration.           |
-| `@moritzbrantner/editor-core/patches`       | Immutable JSON diff, patch application, and patch inversion.     |
-| `@moritzbrantner/editor-core/plugins`       | Plugin registry composition for commands, validators, aspects.   |
-| `@moritzbrantner/editor-core/runtime`       | Document runtime state, validation, aspects, and dirty tracking. |
-| `@moritzbrantner/editor-core/selection`     | Structured entity, range, port, and time selections.             |
-| `@moritzbrantner/editor-core/hotkeys`       | Shortcut parsing, matching, formatting, and conflict detection.  |
-| `@moritzbrantner/editor-core/sync`          | Remote operation apply and explicit conflict resolution helpers. |
-| `@moritzbrantner/editor-core/tree`          | Adapter-driven tree projection and tree UI state.                |
-| `@moritzbrantner/editor-core/viewport`      | Canvas and timeline viewport math.                               |
-| `@moritzbrantner/editor-core/serialization` | Versioned JSON document envelopes and migrations.                |
-| `@moritzbrantner/editor-core/json`          | Stable JSON sorting, stringifying, and equality helpers.         |
-| `@moritzbrantner/editor-core/browser`       | Browser file, clipboard, download, and storage helpers.          |
-| `@moritzbrantner/editor-core/share`         | URL-safe share token encode/decode helpers.                      |
-| `@moritzbrantner/editor-core/testing`       | Test-runner-agnostic adapter contract checks.                    |
-| `@moritzbrantner/editor-core/aspects`       | Derived document aspect snapshots.                               |
-| `@moritzbrantner/editor-core/react`         | Optional React hooks.                                            |
+| Import path                           | Purpose                                                          |
+| ------------------------------------- | ---------------------------------------------------------------- |
+| `@moenarch/editor-core`               | Headless single-user editor exports except React and sync.       |
+| `@moenarch/editor-core/history`       | Snapshot and transaction undo/redo helpers.                      |
+| `@moenarch/editor-core/commands`      | Command definitions, runtime policy, and diagnostics.            |
+| `@moenarch/editor-core/collaboration` | Presence, remote operation dedupe, and revision-token types.     |
+| `@moenarch/editor-core/constraints`   | Shared constraint and validation helpers.                        |
+| `@moenarch/editor-core/entities`      | Shared entity ids, bounds, and domain adapter types.             |
+| `@moenarch/editor-core/indexes`       | Entity, graph, timeline, and validation index helpers.           |
+| `@moenarch/editor-core/interaction`   | Transient interaction session helpers.                           |
+| `@moenarch/editor-core/operations`    | Semantic operation runtime and operation-log helpers.            |
+| `@moenarch/editor-core/persistence`   | Runtime document load/save and autosave orchestration.           |
+| `@moenarch/editor-core/patches`       | Immutable JSON diff, patch application, and patch inversion.     |
+| `@moenarch/editor-core/plugins`       | Plugin registry composition for commands, validators, aspects.   |
+| `@moenarch/editor-core/runtime`       | Document runtime state, validation, aspects, and dirty tracking. |
+| `@moenarch/editor-core/selection`     | Structured entity, range, port, and time selections.             |
+| `@moenarch/editor-core/hotkeys`       | Shortcut parsing, matching, formatting, and conflict detection.  |
+| `@moenarch/editor-core/sync`          | Remote operation apply and explicit conflict resolution helpers. |
+| `@moenarch/editor-core/tree`          | Adapter-driven tree projection and tree UI state.                |
+| `@moenarch/editor-core/viewport`      | Canvas and timeline viewport math.                               |
+| `@moenarch/editor-core/serialization` | Versioned JSON document envelopes and migrations.                |
+| `@moenarch/editor-core/json`          | Stable JSON sorting, stringifying, and equality helpers.         |
+| `@moenarch/editor-core/browser`       | Browser file, clipboard, download, and storage helpers.          |
+| `@moenarch/editor-core/share`         | URL-safe share token encode/decode helpers.                      |
+| `@moenarch/editor-core/testing`       | Test-runner-agnostic adapter contract checks.                    |
+| `@moenarch/editor-core/aspects`       | Derived document aspect snapshots.                               |
+| `@moenarch/editor-core/react`         | Optional React hooks.                                            |
 
 ## History
 
@@ -69,7 +69,7 @@ import {
   commitEditorSnapshotHistory,
   createEditorSnapshotHistory,
   undoEditorSnapshotHistory,
-} from "@moritzbrantner/editor-core/history";
+} from "@moenarch/editor-core/history";
 
 let history = createEditorSnapshotHistory({ title: "Draft" });
 history = commitEditorSnapshotHistory(history, { title: "Release Notes" });
@@ -84,7 +84,7 @@ import {
   createEditorTransactionHistory,
   pushEditorTransactionHistory,
   undoEditorTransactionHistory,
-} from "@moritzbrantner/editor-core/history";
+} from "@moenarch/editor-core/history";
 
 let history = createEditorTransactionHistory<string, string>();
 history = pushEditorTransactionHistory(history, {
@@ -103,7 +103,7 @@ const undo = undoEditorTransactionHistory(history);
 Create command definitions for snapshot history controls:
 
 ```ts
-import { createEditorSnapshotHistoryCommands } from "@moritzbrantner/editor-core/commands";
+import { createEditorSnapshotHistoryCommands } from "@moenarch/editor-core/commands";
 
 const commands = createEditorSnapshotHistoryCommands({
   getResetDocument: () => initialDocument,
@@ -115,10 +115,7 @@ const commands = createEditorSnapshotHistoryCommands({
 Contextual commands can derive disabled and checked state from editor state:
 
 ```ts
-import {
-  getEditorCommandDiagnostics,
-  resolveEditorCommands,
-} from "@moritzbrantner/editor-core/commands";
+import { getEditorCommandDiagnostics, resolveEditorCommands } from "@moenarch/editor-core/commands";
 
 const commands = resolveEditorCommands(
   [
@@ -146,7 +143,7 @@ import {
   downloadEditorJson,
   saveEditorRuntimePersistence,
   serializeEditorDocument,
-} from "@moritzbrantner/editor-core";
+} from "@moenarch/editor-core";
 
 const commands = [
   ...createEditorRuntimeCommands({
@@ -185,7 +182,7 @@ import {
   commitEditorRuntime,
   createEditorRuntime,
   createEditorRuntimeCommands,
-} from "@moritzbrantner/editor-core/runtime";
+} from "@moenarch/editor-core/runtime";
 
 let runtime = createEditorRuntime({
   initialDocument: { body: "", title: "Draft" },
@@ -220,7 +217,7 @@ import {
   readEditorOperationLog,
   serializeEditorOperationLog,
   undoEditorOperationRuntime,
-} from "@moritzbrantner/editor-core/operations";
+} from "@moenarch/editor-core/operations";
 
 let editor = createEditorOperationRuntime({
   initialDocument: { nodes: { a: { x: 0, y: 0 } } },
@@ -264,7 +261,7 @@ import {
   createEditorCollaborationState,
   dedupeEditorRemoteOperations,
   updateEditorPresence,
-} from "@moritzbrantner/editor-core/collaboration";
+} from "@moenarch/editor-core/collaboration";
 
 let collaboration = createEditorCollaborationState({ clientId: "client-a" });
 collaboration = updateEditorPresence(collaboration, {
@@ -293,7 +290,7 @@ apply them through its own operation adapter:
 import {
   applyEditorRemoteOperations,
   createEditorOperationRemoteApplyAdapter,
-} from "@moritzbrantner/editor-core/sync";
+} from "@moenarch/editor-core/sync";
 
 const adapter = createEditorOperationRemoteApplyAdapter({
   decode(envelope) {
@@ -317,7 +314,7 @@ the document but do not enter the local user's undo stack.
 Diff JSON-compatible values and apply immutable patches:
 
 ```ts
-import { applyEditorPatch, diffEditorJson } from "@moritzbrantner/editor-core/patches";
+import { applyEditorPatch, diffEditorJson } from "@moenarch/editor-core/patches";
 
 const patch = diffEditorJson({ title: "Draft" }, { title: "Published" });
 const next = applyEditorPatch({ title: "Draft" }, patch);
@@ -335,7 +332,7 @@ Compose feature modules into runtime options and contextual commands:
 import {
   createEditorPluginRegistry,
   resolveEditorPluginRuntimeOptions,
-} from "@moritzbrantner/editor-core/plugins";
+} from "@moenarch/editor-core/plugins";
 
 const registry = createEditorPluginRegistry([metadataPlugin, graphPlugin]);
 const runtimeOptions = resolveEditorPluginRuntimeOptions(registry, {
@@ -351,12 +348,9 @@ preflight hooks.
 Entity primitives are optional adapter targets for layer, graph, workflow, and timeline packages:
 
 ```ts
-import {
-  createEditorEntityDocument,
-  createUniqueEditorId,
-} from "@moritzbrantner/editor-core/entities";
-import { createEditorEntityIndexes } from "@moritzbrantner/editor-core/indexes";
-import { createEditorEntitySelection } from "@moritzbrantner/editor-core/selection";
+import { createEditorEntityDocument, createUniqueEditorId } from "@moenarch/editor-core/entities";
+import { createEditorEntityIndexes } from "@moenarch/editor-core/indexes";
+import { createEditorEntitySelection } from "@moenarch/editor-core/selection";
 
 const document = createEditorEntityDocument([
   { id: "layer-a", type: "layer", order: 1 },
@@ -375,7 +369,7 @@ Use shared constraints when multiple editor families need the same validation sh
 import {
   validateEditorGraphConnection,
   validateEditorTimelineRange,
-} from "@moritzbrantner/editor-core/constraints";
+} from "@moenarch/editor-core/constraints";
 
 validateEditorGraphConnection({ sourceId: "node-a", targetId: "node-b" });
 validateEditorTimelineRange({ start: 0, end: 24 }, { min: 0 });
@@ -390,7 +384,7 @@ import {
   createEditorViewportState,
   screenPointToEditorPoint,
   zoomEditorViewportAtPoint,
-} from "@moritzbrantner/editor-core/viewport";
+} from "@moenarch/editor-core/viewport";
 
 let viewport = createEditorViewportState({ zoom: 1 });
 viewport = zoomEditorViewportAtPoint(viewport, 2, { x: 200, y: 100 });
@@ -406,7 +400,7 @@ import {
   formatEditorShortcutLabel,
   getEditorHotkeyConflicts,
   matchesEditorHotkey,
-} from "@moritzbrantner/editor-core/hotkeys";
+} from "@moenarch/editor-core/hotkeys";
 
 matchesEditorHotkey(event, "Mod+Z");
 formatEditorShortcutLabel("mod+shift+z");
@@ -418,7 +412,7 @@ getEditorHotkeyConflicts("redo", "Mod+Shift+Z", hotkeys);
 Project any host document into an inspectable editing tree without changing the document model:
 
 ```ts
-import { projectEditorTree } from "@moritzbrantner/editor-core/tree";
+import { projectEditorTree } from "@moenarch/editor-core/tree";
 
 const tree = projectEditorTree(document, {
   getRoot(document) {
@@ -440,10 +434,7 @@ state survive document updates, reordering, and synchronization.
 Wrap documents in versioned envelopes and migrate older versions when reading:
 
 ```ts
-import {
-  readEditorDocument,
-  serializeEditorDocument,
-} from "@moritzbrantner/editor-core/serialization";
+import { readEditorDocument, serializeEditorDocument } from "@moenarch/editor-core/serialization";
 
 const adapter = {
   format: "@example/editor/document",
@@ -468,7 +459,7 @@ envelopes whose `schemaVersion` is older than the adapter's current version.
 Use adapter contract helpers in any test runner:
 
 ```ts
-import { assertEditorDocumentAdapter } from "@moritzbrantner/editor-core/testing";
+import { assertEditorDocumentAdapter } from "@moenarch/editor-core/testing";
 
 assertEditorDocumentAdapter(adapter, [
   {
@@ -499,7 +490,7 @@ Create stable fingerprints for documents whose object key order should not matte
 import {
   createStableEditorJsonEquals,
   stableEditorJsonStringify,
-} from "@moritzbrantner/editor-core/json";
+} from "@moenarch/editor-core/json";
 
 const equals = createStableEditorJsonEquals();
 equals({ b: 2, a: 1 }, { a: 1, b: 2 });
@@ -516,7 +507,7 @@ import {
   downloadEditorJson,
   loadEditorStorage,
   saveEditorStorage,
-} from "@moritzbrantner/editor-core/browser";
+} from "@moenarch/editor-core/browser";
 
 const storage = createLocalStorageEditorStorage({ key: "editor-document" });
 const document = await loadEditorStorage(storage, fallbackDocument);
@@ -535,7 +526,7 @@ Use persistence helpers to load and save runtime documents through any storage a
 import {
   loadEditorRuntimePersistence,
   saveEditorRuntimePersistence,
-} from "@moritzbrantner/editor-core/persistence";
+} from "@moenarch/editor-core/persistence";
 
 const onEvent = (event) => console.debug("[editor:persistence]", event);
 const loaded = await loadEditorRuntimePersistence(runtime, storage, { onEvent });
@@ -547,7 +538,7 @@ runtime = saved.runtime;
 
 Persistence stores the document only. Selection, history, revisions, and undo stacks are rebuilt by
 the runtime. React consumers can use `usePersistentEditorRuntime` from
-`@moritzbrantner/editor-core/react` for mount loading and debounced autosave.
+`@moenarch/editor-core/react` for mount loading and debounced autosave.
 
 Headless consumers can use a persistence controller to coordinate load, manual save, autosave,
 retry, stale-save protection, and latest-revision follow-up saves without React:
@@ -556,7 +547,7 @@ retry, stale-save protection, and latest-revision follow-up saves without React:
 import {
   createEditorPersistenceState,
   createEditorRuntimePersistenceController,
-} from "@moritzbrantner/editor-core/persistence";
+} from "@moenarch/editor-core/persistence";
 
 let persistence = createEditorPersistenceState();
 
@@ -583,7 +574,7 @@ import {
   saveEditorRuntimeConflictPersistence,
   type EditorConflictStorageAdapter,
   type EditorPersistedDocument,
-} from "@moritzbrantner/editor-core/persistence";
+} from "@moenarch/editor-core/persistence";
 
 async function saveToServer(
   document: Document,
@@ -612,7 +603,7 @@ import {
   acceptLocalEditorPersistenceConflict,
   acceptMergedEditorPersistenceConflict,
   acceptRemoteEditorPersistenceConflict,
-} from "@moritzbrantner/editor-core/sync";
+} from "@moenarch/editor-core/sync";
 
 const keepLocal = acceptLocalEditorPersistenceConflict(runtime, persistence);
 const useRemote = acceptRemoteEditorPersistenceConflict(runtime, persistence);
@@ -632,7 +623,7 @@ import {
   decodeEditorSharePayload,
   editorShareUrl,
   encodeEditorSharePayload,
-} from "@moritzbrantner/editor-core/share";
+} from "@moenarch/editor-core/share";
 
 const token = await encodeEditorSharePayload(document);
 const url = editorShareUrl(window.location.origin, "/editor", token);
@@ -646,7 +637,7 @@ Compressed tokens require `DecompressionStream` when decoding.
 Resolve derived document data and track whether each derived value changed:
 
 ```ts
-import { createEditorAspect, resolveEditorAspects } from "@moritzbrantner/editor-core/aspects";
+import { createEditorAspect, resolveEditorAspects } from "@moenarch/editor-core/aspects";
 
 const wordCount = createEditorAspect({
   id: "word-count",
@@ -665,7 +656,7 @@ import {
   useEditorHotkeys,
   useEditorRuntime,
   useEditorTreeState,
-} from "@moritzbrantner/editor-core/react";
+} from "@moenarch/editor-core/react";
 
 function EditorTree() {
   const runtime = useEditorRuntime({
@@ -740,11 +731,11 @@ bun run test:stable
 ```
 
 `bun run test:stable` builds the local package and compares deterministic correctness and
-performance scenarios against the latest published `@moritzbrantner/editor-core` package through the
+performance scenarios against the latest published `@moenarch/editor-core` package through the
 Moonlight HTTP stable-comparison harness. Pin a different published target when needed:
 
 ```sh
-EDITOR_CORE_STABLE_PACKAGE=@moritzbrantner/editor-core@0.3.0 bun run test:stable
+EDITOR_CORE_STABLE_PACKAGE=@moenarch/editor-core@0.4.0 bun run test:stable
 ```
 
 ## Releases

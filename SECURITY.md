@@ -2,7 +2,7 @@
 
 ## Supported Versions
 
-Security fixes are provided for the latest published version of `@moritzbrantner/editor-core`.
+Security fixes are provided for the latest published version of `@moenarch/editor-core`.
 
 ## Reporting A Vulnerability
 

@@ -17,7 +17,7 @@ import {
   type EditorCommandDefinition,
   type EditorOperationRuntimeCommandId,
   type EditorSelection,
-} from "@moritzbrantner/editor-core";
+} from "@moenarch/editor-core";
 
 type ReferenceTab = "layers" | "graph" | "workflow" | "timeline";
 

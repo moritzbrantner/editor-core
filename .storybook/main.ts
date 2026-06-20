@@ -23,15 +23,15 @@ const config: StorybookConfig = {
       resolve: {
         alias: [
           {
-            find: "@moritzbrantner/editor-core/react",
+            find: "@moenarch/editor-core/react",
             replacement: resolve(rootDir, "src/react.tsx"),
           },
           {
-            find: "@moritzbrantner/editor-core/tree",
+            find: "@moenarch/editor-core/tree",
             replacement: resolve(rootDir, "src/tree.ts"),
           },
           {
-            find: "@moritzbrantner/editor-core",
+            find: "@moenarch/editor-core",
             replacement: resolve(rootDir, "src/index.ts"),
           },
         ],

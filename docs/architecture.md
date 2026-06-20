@@ -2,7 +2,7 @@
 
 This package keeps public import paths stable while implementation code is divided by editor
 capability. The root entrypoint is headless; React stays behind
-`@moritzbrantner/editor-core/react`.
+`@moenarch/editor-core/react`.
 
 ## Public Entrypoints
 
@@ -38,7 +38,7 @@ Avoid:
 import { createEditorRuntime } from "../runtime/state.js";
 ```
 
-No source file under `src/` should self-import `@moritzbrantner/editor-core`, and no source file
+No source file under `src/` should self-import `@moenarch/editor-core`, and no source file
 should import from `src/index.ts`.
 
 ## Dependency Direction

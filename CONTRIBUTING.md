@@ -56,7 +56,7 @@ as a fallback.
    git status --short --branch
    bun install --frozen-lockfile
    npm whoami
-   npm view @moritzbrantner/editor-core version dist-tags --json
+   npm view @moenarch/editor-core version dist-tags --json
    bun run verify:release
    npm pack --dry-run --json
    npm publish --dry-run --access public

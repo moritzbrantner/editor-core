@@ -131,7 +131,7 @@ let benchmarkSink: unknown;
 
 function consumeBenchmarkResult(value: unknown): void {
   benchmarkSink = value;
-  if (benchmarkSink === Symbol.for("@moritzbrantner/editor-core/unreachable")) {
+  if (benchmarkSink === Symbol.for("@moenarch/editor-core/unreachable")) {
     throw new Error("Unreachable benchmark sink value.");
   }
 }

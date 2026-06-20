@@ -33,7 +33,7 @@ published package:
 bun run test:stable
 ```
 
-The harness builds `dist`, installs `@moritzbrantner/editor-core@latest` into
+The harness builds `dist`, installs `@moenarch/editor-core@latest` into
 `benchmark-results/stable-comparison/published-package`, starts a local HTTP comparison endpoint,
 and checks deterministic correctness plus scenario-level throughput. It writes the full report to
 `benchmark-results/stable-comparison/report.json`.
@@ -41,7 +41,7 @@ and checks deterministic correctness plus scenario-level throughput. It writes t
 Pin a different published target when reviewing a release branch:
 
 ```sh
-EDITOR_CORE_STABLE_PACKAGE=@moritzbrantner/editor-core@0.3.0 bun run test:stable
+EDITOR_CORE_STABLE_PACKAGE=@moenarch/editor-core@0.4.0 bun run test:stable
 ```
 
 By default, local throughput may be up to 50% slower than the published package before the command

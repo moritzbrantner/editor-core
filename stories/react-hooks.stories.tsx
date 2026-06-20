@@ -11,14 +11,14 @@ import {
   panEditorViewport,
   screenPointToEditorPoint,
   type EditorSelection,
-} from "@moritzbrantner/editor-core";
-import { useControllableEditorState, useEditorTreeState } from "@moritzbrantner/editor-core/react";
+} from "@moenarch/editor-core";
+import { useControllableEditorState, useEditorTreeState } from "@moenarch/editor-core/react";
 import {
   projectEditorTree,
   windowEditorTreeItems,
   type EditorTreeAdapter,
   type EditorTreeItem,
-} from "@moritzbrantner/editor-core/tree";
+} from "@moenarch/editor-core/tree";
 
 type DemoDocument = {
   sections: readonly string[];
