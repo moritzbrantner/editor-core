@@ -4,6 +4,11 @@ All notable changes to `@moenarch/editor-core` are documented here.
 
 This package follows semver. While the package is in `0.x`, breaking changes may ship in minor releases, but every breaking change must be called out in this file.
 
+## 0.4.1
+
+- Re-published the `@moenarch/editor-core` package through the GitHub Actions trusted publishing flow.
+- No runtime API changes are intended in this release.
+
 ## 0.4.0
 
 - Moved the package to `@moenarch/editor-core`.
