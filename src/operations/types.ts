@@ -17,9 +17,9 @@ export type EditorOperation<TDocument, TSelection = unknown> = {
 };
 
 export type EditorOperationPreflightContext<TDocument, TSelection = unknown> = {
-  document: TDocument;
-  operation: EditorOperation<TDocument, TSelection>;
-  runtime: EditorRuntimeState<TDocument, TSelection>;
+  readonly document: TDocument;
+  readonly operation: EditorOperation<TDocument, TSelection>;
+  readonly runtime: EditorRuntimeState<TDocument, TSelection>;
 };
 
 export type EditorOperationPreflightIssue = {
@@ -38,13 +38,26 @@ export type EditorOperationRuntimeOptions<TDocument, TSelection = unknown> = Edi
   ) => readonly EditorOperationPreflightIssue[];
 };
 
-export type EditorOperationRuntimeState<TDocument, TSelection = unknown> = {
-  runtime: EditorRuntimeState<TDocument, TSelection>;
-  operationHistory: EditorTransactionHistory<TDocument, TSelection>;
-  canUndo: boolean;
-  canRedo: boolean;
-  lastMergeKey: string | null;
-  issues: readonly EditorOperationPreflightIssue[];
+declare class EditorOperationRuntimeStateIdentity {
+  private readonly __editorOperationRuntimeStateIdentity: void;
+}
+
+/**
+ * Opaque Operation Runtime state created and changed through Operation Runtime transitions.
+ *
+ * Do not construct, copy with object spread, or deserialize this state. Its identity owns
+ * operation preflight, transaction merging, and history-limit policy.
+ */
+export type EditorOperationRuntimeState<
+  TDocument,
+  TSelection = unknown,
+> = EditorOperationRuntimeStateIdentity & {
+  readonly runtime: EditorRuntimeState<TDocument, TSelection>;
+  readonly operationHistory: EditorTransactionHistory<TDocument, TSelection>;
+  readonly canUndo: boolean;
+  readonly canRedo: boolean;
+  readonly lastMergeKey: string | null;
+  readonly issues: readonly EditorOperationPreflightIssue[];
 };
 
 export type ApplyEditorOperationOptions = {

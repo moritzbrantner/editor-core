@@ -306,12 +306,36 @@ describe("editor runtime", () => {
     expect(runtime.issues).toEqual([]);
   });
 
-  test("public runtime operations reject objects without runtime metadata", () => {
-    const runtime = createTestRuntime();
+  test("public runtime transitions reject copied state before running policy", () => {
+    const derive = vi.fn(({ document }: { document: Document }) => document.body.length);
+    const update = vi.fn(() => ({ body: "Body", title: "Next" }));
+    const validator = vi.fn(validate);
+    const runtime = createEditorRuntime<Document, string>({
+      aspects: [createEditorAspect({ derive, id: "body-length" })],
+      initialDocument: { body: "Body", title: "Draft" },
+      initialSelection: "title",
+      validate: validator,
+    });
+    const copiedRuntime = { ...runtime } as typeof runtime;
+    derive.mockClear();
+    validator.mockClear();
 
-    expect(() => commitEditorRuntime({ ...runtime }, { body: "Body", title: "Next" })).toThrow(
-      "Editor runtime state must be created by createEditorRuntime.",
-    );
+    const transitions = [
+      () => commitEditorRuntime(copiedRuntime, update),
+      () => undoEditorRuntime(copiedRuntime),
+      () => redoEditorRuntime(copiedRuntime),
+      () => resetEditorRuntime(copiedRuntime, { body: "Body", title: "Reset" }),
+      () => markEditorRuntimeSaved(copiedRuntime),
+      () => setEditorRuntimeSelection(copiedRuntime, "body"),
+      () => validateEditorRuntime(copiedRuntime),
+    ];
+
+    for (const transition of transitions) {
+      expect(transition).toThrow("Editor runtime state must be created by createEditorRuntime.");
+    }
+    expect(update).not.toHaveBeenCalled();
+    expect(derive).not.toHaveBeenCalled();
+    expect(validator).not.toHaveBeenCalled();
   });
 });
 

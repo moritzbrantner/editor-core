@@ -2,13 +2,13 @@
 
 Use these canonical labels for issue triage roles:
 
-| Role | Label |
-| --- | --- |
-| Needs triage | `needs-triage` |
-| Needs reporter info | `needs-info` |
-| Ready for agent | `ready-for-agent` |
-| Ready for human | `ready-for-human` |
-| Will not fix | `wontfix` |
+| Role                | Label             |
+| ------------------- | ----------------- |
+| Needs triage        | `needs-triage`    |
+| Needs reporter info | `needs-info`      |
+| Ready for agent     | `ready-for-agent` |
+| Ready for human     | `ready-for-human` |
+| Will not fix        | `wontfix`         |
 
 PRD issues use `prd`.
 

@@ -272,7 +272,7 @@ function withOperationRuntimeFlags<TDocument, TSelection>(
     ...state,
     canRedo: state.operationHistory.redoStack.length > 0,
     canUndo: state.operationHistory.undoStack.length > 0,
-  };
+  } as EditorOperationRuntimeState<TDocument, TSelection>;
   operationRuntimeOptionsByState.set(runtime, options as EditorOperationRuntimeOptions<unknown>);
   return runtime;
 }
@@ -281,5 +281,11 @@ function getOperationRuntimeOptions<TDocument, TSelection>(
   state: EditorOperationRuntimeState<TDocument, TSelection>,
 ): EditorOperationRuntimeOptions<TDocument, TSelection> {
   const options = operationRuntimeOptionsByState.get(state);
-  return (options ?? {}) as EditorOperationRuntimeOptions<TDocument, TSelection>;
+  if (!options) {
+    throw new Error(
+      "Editor operation runtime state must be created by createEditorOperationRuntime.",
+    );
+  }
+
+  return options as EditorOperationRuntimeOptions<TDocument, TSelection>;
 }

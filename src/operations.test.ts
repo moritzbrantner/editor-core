@@ -1,4 +1,4 @@
-import { describe, expect, test } from "vitest";
+import { describe, expect, test, vi } from "vitest";
 import {
   applyEditorInteractionOperation,
   applyEditorOperation,
@@ -18,6 +18,35 @@ type Document = {
 };
 
 describe("editor operations", () => {
+  test("rejects copied operation runtime state before running transitions", () => {
+    const preflight = vi.fn(() => []);
+    const apply = vi.fn((document: Document) => document);
+    const runtime = createEditorOperationRuntime<Document>({
+      initialDocument: { nodes: { a: { x: 0, y: 0 } } },
+      preflight,
+    });
+    const copiedRuntime = { ...runtime } as typeof runtime;
+
+    const operation = { apply, id: "forged" };
+    const transitions = [
+      () => applyEditorOperation(copiedRuntime, operation),
+      () => applyEditorInteractionOperation(copiedRuntime, operation),
+      () => applyEditorRemoteOperation(copiedRuntime, operation),
+      () => undoEditorOperationRuntime(copiedRuntime),
+      () => redoEditorOperationRuntime(copiedRuntime),
+    ];
+
+    for (const transition of transitions) {
+      expect(transition).toThrow(
+        "Editor operation runtime state must be created by createEditorOperationRuntime.",
+      );
+    }
+    expect(preflight).not.toHaveBeenCalled();
+    expect(apply).not.toHaveBeenCalled();
+    expect(runtime.operationHistory.undoStack).toEqual([]);
+    expect(runtime.operationHistory.redoStack).toEqual([]);
+  });
+
   test("applies, undoes, redoes, and restores selections", () => {
     let runtime = createEditorOperationRuntime<Document, string>({
       initialDocument: { nodes: { a: { x: 0, y: 0 } } },

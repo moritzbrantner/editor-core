@@ -39,6 +39,11 @@ const commands = createEditorRuntimeCommands({
 });
 ```
 
+Runtime state is opaque and readonly. Always start with `createEditorRuntime`, then use
+`commitEditorRuntime` or `resetEditorRuntime` for documents and `setEditorRuntimeSelection` for
+selection. Do not construct, deserialize, or copy Runtime state with object spread. To restore a
+saved editor, load its document and rebuild Runtime state through these transitions.
+
 Prefer snapshot history for small immutable documents where each undo step can store the full
 document. Prefer operation runtime when edits need semantic labels, merged drag transactions, or
 selection restoration.
@@ -141,7 +146,7 @@ If the runner does not support matcher objects such as `expect.any`, use
 ## Persistent Runtime
 
 Storage adapters only load and save documents. Runtime history, selection, and revisions are
-rebuilt around the loaded document.
+rebuilt around the loaded document. Storage must not serialize or reconstruct opaque Runtime state.
 
 ```ts
 import {
@@ -203,6 +208,27 @@ const controller = createEditorRuntimePersistenceController({
   storage,
 });
 ```
+
+## Operation Runtime
+
+Use `createEditorOperationRuntime` when semantic operations own undo and redo:
+
+```ts
+import {
+  applyEditorOperation,
+  createEditorOperationRuntime,
+} from "@moenarch/editor-core/operations";
+
+let editor = createEditorOperationRuntime({ initialDocument });
+editor = applyEditorOperation(editor, {
+  apply: (document) => ({ ...document, title: "Published" }),
+  id: "publish",
+});
+```
+
+Operation Runtime state has a separate opaque identity because it owns preflight, transaction
+merging, and history-limit policy. Use its apply, undo, and redo transitions; do not construct,
+deserialize, or copy the state with object spread.
 
 ## Operation Logs
 

@@ -195,10 +195,25 @@ async function smokeHeadlessConsumer(tarball) {
     join(consumerDir, "types.ts"),
     `
       import {
+        applyEditorInteractionOperation,
+        applyEditorOperation,
+        applyEditorRemoteOperation,
+        commitEditorRuntime,
+        createEditorRuntime,
         createEditorSnapshotHistory,
         createEditorOperationRuntime,
+        markEditorRuntimeSaved,
+        redoEditorOperationRuntime,
+        redoEditorRuntime,
+        resetEditorRuntime,
+        setEditorRuntimeSelection,
+        type EditorOperationRuntimeState,
+        type EditorRuntimeState,
         type EditorSnapshotHistory,
         type EditorGraphAdapter,
+        undoEditorOperationRuntime,
+        undoEditorRuntime,
+        validateEditorRuntime,
       } from "@moenarch/editor-core";
       import type {
         EditorCollaborationState,
@@ -212,13 +227,89 @@ async function smokeHeadlessConsumer(tarball) {
       import type { EditorTreeAdapter } from "@moenarch/editor-core/tree";
 
       type Document = { title: string };
+      type Selection = { focus: string };
       const history: EditorSnapshotHistory<Document> = createEditorSnapshotHistory({ title: "Draft" });
+      const editorRuntime = createEditorRuntime<Document, Selection>({
+        initialDocument: { title: "Draft" },
+        initialSelection: { focus: "title" },
+      });
+      // @ts-expect-error Runtime state is opaque and cannot be copied with object spread.
+      const copiedEditorRuntime: EditorRuntimeState<Document, Selection> = { ...editorRuntime };
+      // @ts-expect-error Runtime-owned fields are readonly.
+      editorRuntime.revision = 1;
+      // @ts-expect-error Runtime-owned history stacks are readonly.
+      editorRuntime.history.past.push(editorRuntime.document);
+      // @ts-expect-error Runtime-owned aspect maps are readonly.
+      editorRuntime.aspectSnapshot.aspects.manual = {
+        changed: true,
+        id: "manual",
+        value: 1,
+      };
+      // Generic documents remain caller-owned rather than recursively readonly.
+      editorRuntime.document.title = "Caller-owned";
+      // Generic selections also remain caller-owned rather than recursively readonly.
+      if (editorRuntime.selection) editorRuntime.selection.focus = "body";
+      const committedRuntime: EditorRuntimeState<Document, Selection> = commitEditorRuntime(editorRuntime, {
+        title: "Committed",
+      });
+      const resetRuntime: EditorRuntimeState<Document, Selection> = resetEditorRuntime(editorRuntime, {
+        title: "Reset",
+      });
+      const selectedRuntime: EditorRuntimeState<Document, Selection> = setEditorRuntimeSelection(
+        editorRuntime,
+        { focus: "title" },
+      );
+      const savedRuntime: EditorRuntimeState<Document, Selection> = markEditorRuntimeSaved(editorRuntime);
+      const validatedRuntime: EditorRuntimeState<Document, Selection> = validateEditorRuntime(editorRuntime);
+      const undoneRuntime: EditorRuntimeState<Document, Selection> = undoEditorRuntime(editorRuntime);
+      const redoneRuntime: EditorRuntimeState<Document, Selection> = redoEditorRuntime(editorRuntime);
+      // @ts-expect-error Runtime state cannot be manually constructed from public fields.
+      const manualEditorRuntime: EditorRuntimeState<Document, Selection> = {
+        aspectSnapshot: editorRuntime.aspectSnapshot,
+        canRedo: editorRuntime.canRedo,
+        canUndo: editorRuntime.canUndo,
+        document: editorRuntime.document,
+        history: editorRuntime.history,
+        issues: editorRuntime.issues,
+        revision: editorRuntime.revision,
+        savedRevision: editorRuntime.savedRevision,
+        selection: editorRuntime.selection,
+        status: editorRuntime.status,
+      };
       const adapter: EditorTreeAdapter<Document> = {
         getRoot(document) {
           return { id: "document", label: document.title };
         },
       };
       const runtime = createEditorOperationRuntime({ initialDocument: { title: "Draft" } });
+      // @ts-expect-error Operation Runtime state has its own opaque identity.
+      const copiedOperationRuntime: EditorOperationRuntimeState<Document> = { ...runtime };
+      // @ts-expect-error Operation Runtime-owned fields are readonly.
+      runtime.canUndo = true;
+      // @ts-expect-error Operation Runtime-owned history stacks are readonly.
+      runtime.operationHistory.undoStack.push(runtime.operationHistory.redoStack[0]!);
+      const noopOperation = { apply: (document: Document) => document, id: "noop" };
+      const appliedOperationRuntime: EditorOperationRuntimeState<Document> = applyEditorOperation(
+        runtime,
+        noopOperation,
+      );
+      const interactionOperationRuntime: EditorOperationRuntimeState<Document> =
+        applyEditorInteractionOperation(runtime, noopOperation);
+      const remoteOperationRuntime: EditorOperationRuntimeState<Document> =
+        applyEditorRemoteOperation(runtime, noopOperation);
+      const undoneOperationRuntime: EditorOperationRuntimeState<Document> =
+        undoEditorOperationRuntime(runtime);
+      const redoneOperationRuntime: EditorOperationRuntimeState<Document> =
+        redoEditorOperationRuntime(runtime);
+      // @ts-expect-error Operation Runtime state cannot be manually constructed from public fields.
+      const manualOperationRuntime: EditorOperationRuntimeState<Document> = {
+        canRedo: runtime.canRedo,
+        canUndo: runtime.canUndo,
+        issues: runtime.issues,
+        lastMergeKey: runtime.lastMergeKey,
+        operationHistory: runtime.operationHistory,
+        runtime: runtime.runtime,
+      };
       const graphAdapter: EditorGraphAdapter<
         { nodes: Array<{ id: string; type: "node" }>; edges: Array<{ id: string; sourceId: string; targetId: string }> },
         { id: string; type: "node" },
@@ -255,8 +346,24 @@ async function smokeHeadlessConsumer(tarball) {
       };
 
       void history;
+      void copiedEditorRuntime;
+      void committedRuntime;
+      void resetRuntime;
+      void selectedRuntime;
+      void savedRuntime;
+      void validatedRuntime;
+      void undoneRuntime;
+      void redoneRuntime;
+      void manualEditorRuntime;
       void adapter;
       void runtime;
+      void copiedOperationRuntime;
+      void appliedOperationRuntime;
+      void interactionOperationRuntime;
+      void remoteOperationRuntime;
+      void undoneOperationRuntime;
+      void redoneOperationRuntime;
+      void manualOperationRuntime;
       void graphAdapter;
       void adapterCase;
       void collaborationState;

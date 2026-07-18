@@ -4,6 +4,18 @@ All notable changes to `@moenarch/editor-core` are documented here.
 
 This package follows semver. While the package is in `0.x`, breaking changes may ship in minor releases, but every breaking change must be called out in this file.
 
+## 0.5.0
+
+- Breaking: `EditorRuntimeState` and `EditorOperationRuntimeState` are now nominally opaque,
+  readonly values. Manual construction and object-spread copies no longer type-check; create and
+  change state through the existing Runtime and Operation Runtime factories and transitions.
+- Runtime-owned history stacks, operation stacks, transition contexts, and aspect snapshots are
+  readonly. Generic documents, selections, origins, metadata, issues, and derived values remain
+  caller-owned.
+- Forged Operation Runtime state now fails before preflight or operation behavior runs instead of
+  silently losing its policy.
+- Existing valid factory-and-transition usage retains the same calling pattern.
+
 ## 0.4.1
 
 - Re-published the `@moenarch/editor-core` package through the GitHub Actions trusted publishing flow.

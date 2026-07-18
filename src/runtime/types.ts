@@ -11,9 +11,9 @@ export type EditorRuntimeStatus = "clean" | "dirty";
 export type EditorRuntimeSelection<TSelection = unknown> = TSelection | null;
 
 export type EditorRuntimeUpdateContext<TDocument, TSelection = unknown> = {
-  document: TDocument;
-  selection: EditorRuntimeSelection<TSelection>;
-  revision: number;
+  readonly document: TDocument;
+  readonly selection: EditorRuntimeSelection<TSelection>;
+  readonly revision: number;
 };
 
 export type EditorRuntimeUpdate<TDocument, TSelection = unknown> =
@@ -40,18 +40,28 @@ export type EditorRuntimeStateOptions<TDocument, TSelection = unknown> = Omit<
   "initialDocument" | "initialSelection"
 >;
 
-export type EditorRuntimeState<TDocument, TSelection = unknown> = {
-  document: TDocument;
-  selection: EditorRuntimeSelection<TSelection>;
-  history: EditorSnapshotHistory<TDocument>;
-  revision: number;
-  savedRevision: number;
-  status: EditorRuntimeStatus;
-  canUndo: boolean;
-  canRedo: boolean;
-  issues: readonly EditorRuntimeValidationIssue[];
-  aspectSnapshot: EditorAspectSnapshot<TDocument>;
-  origin?: EditorChangeOrigin;
+declare class EditorRuntimeStateIdentity {
+  private readonly __editorRuntimeStateIdentity: void;
+}
+
+/**
+ * Opaque Runtime state created and changed through the Runtime factory and transitions.
+ *
+ * Do not construct, copy with object spread, or deserialize Runtime state. Persistence restores
+ * documents through Runtime transitions instead of restoring this state value.
+ */
+export type EditorRuntimeState<TDocument, TSelection = unknown> = EditorRuntimeStateIdentity & {
+  readonly document: TDocument;
+  readonly selection: EditorRuntimeSelection<TSelection>;
+  readonly history: EditorSnapshotHistory<TDocument>;
+  readonly revision: number;
+  readonly savedRevision: number;
+  readonly status: EditorRuntimeStatus;
+  readonly canUndo: boolean;
+  readonly canRedo: boolean;
+  readonly issues: readonly EditorRuntimeValidationIssue[];
+  readonly aspectSnapshot: EditorAspectSnapshot<TDocument>;
+  readonly origin?: EditorChangeOrigin;
 };
 
 export type CommitEditorRuntimeOptions<TSelection = unknown> = {

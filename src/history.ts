@@ -1,11 +1,11 @@
 export const defaultEditorHistoryLimit = 100;
 
 export type EditorSnapshotHistory<TDocument> = {
-  past: TDocument[];
-  present: TDocument;
-  future: TDocument[];
-  canUndo: boolean;
-  canRedo: boolean;
+  readonly past: readonly TDocument[];
+  readonly present: TDocument;
+  readonly future: readonly TDocument[];
+  readonly canUndo: boolean;
+  readonly canRedo: boolean;
 };
 
 /**
@@ -103,13 +103,13 @@ export function canRedoEditorHistory<TDocument>(
 }
 
 export type EditorTransaction<TDocument, TSelection = unknown> = {
-  id: string;
-  label?: string;
-  mergeKey?: string;
-  before: TDocument;
-  after: TDocument;
-  selectionBefore?: TSelection;
-  selectionAfter?: TSelection;
+  readonly id: string;
+  readonly label?: string;
+  readonly mergeKey?: string;
+  readonly before: TDocument;
+  readonly after: TDocument;
+  readonly selectionBefore?: TSelection;
+  readonly selectionAfter?: TSelection;
 };
 
 /**
@@ -119,15 +119,15 @@ export type EditorTransaction<TDocument, TSelection = unknown> = {
  * optional selection restoration, and an id or label that can be exposed in UI.
  */
 export type EditorTransactionHistory<TDocument, TSelection = unknown> = {
-  undoStack: Array<EditorTransaction<TDocument, TSelection>>;
-  redoStack: Array<EditorTransaction<TDocument, TSelection>>;
+  readonly undoStack: readonly EditorTransaction<TDocument, TSelection>[];
+  readonly redoStack: readonly EditorTransaction<TDocument, TSelection>[];
 };
 
 export type EditorTransactionHistoryResult<TDocument, TSelection = unknown> = {
-  history: EditorTransactionHistory<TDocument, TSelection>;
-  document?: TDocument;
-  selection?: TSelection;
-  transaction?: EditorTransaction<TDocument, TSelection>;
+  readonly history: EditorTransactionHistory<TDocument, TSelection>;
+  readonly document?: TDocument;
+  readonly selection?: TSelection;
+  readonly transaction?: EditorTransaction<TDocument, TSelection>;
 };
 
 export function createEditorTransactionHistory<
@@ -205,11 +205,9 @@ function normalizeHistoryLimit(limit: number | undefined) {
   return Math.max(0, Math.trunc(limit ?? defaultEditorHistoryLimit));
 }
 
-function withSnapshotFlags<TDocument>(history: {
-  past: TDocument[];
-  present: TDocument;
-  future: TDocument[];
-}): EditorSnapshotHistory<TDocument> {
+function withSnapshotFlags<TDocument>(
+  history: Pick<EditorSnapshotHistory<TDocument>, "past" | "present" | "future">,
+): EditorSnapshotHistory<TDocument> {
   return {
     ...history,
     canUndo: history.past.length > 0,

@@ -95,7 +95,7 @@ export function withRuntimeFlags<TDocument, TSelection>(
     canRedo: state.history.canRedo,
     canUndo: state.history.canUndo,
     status,
-  };
+  } as EditorRuntimeState<TDocument, TSelection>;
   editorRuntimeOptionsByState.set(runtime, options as EditorRuntimeStateOptions<unknown>);
   return runtime;
 }

@@ -205,6 +205,11 @@ const commands = createEditorRuntimeCommands({
 });
 ```
 
+Runtime state is opaque and readonly. Create it with `createEditorRuntime` and change it with
+Runtime transitions such as `commitEditorRuntime`, `resetEditorRuntime`, and
+`setEditorRuntimeSelection`. Do not construct, deserialize, or copy Runtime state with object
+spread. Persistence stores documents and rebuilds Runtime state around a loaded document.
+
 ## Operations
 
 Use operation runtime for editors that need semantic undo/redo, merged drag transactions, and
@@ -250,6 +255,10 @@ const operations = readEditorOperationLog(log, {
   read: (input) => input,
 });
 ```
+
+Operation Runtime state has its own opaque identity because it owns operation preflight,
+transaction merging, and history-limit policy. Change it only through Operation Runtime
+transitions; object-spread copies and manually constructed state are unsupported.
 
 ## Collaboration
 

@@ -8,9 +8,9 @@ export type EditorChangeOrigin = {
 };
 
 export type EditorAspectContext<TDocument> = {
-  document: TDocument;
-  origin?: EditorChangeOrigin;
-  revision: number;
+  readonly document: TDocument;
+  readonly origin?: EditorChangeOrigin;
+  readonly revision: number;
 };
 
 /**
@@ -27,10 +27,10 @@ export type EditorAspectDefinition<TDocument, TValue> = {
 };
 
 export type EditorResolvedAspect<TValue> = {
-  id: string;
-  label?: string;
-  value: TValue;
-  changed: boolean;
+  readonly id: string;
+  readonly label?: string;
+  readonly value: TValue;
+  readonly changed: boolean;
 };
 
 export type ResolveEditorAspectsOptions<TDocument> = {
@@ -40,10 +40,10 @@ export type ResolveEditorAspectsOptions<TDocument> = {
 };
 
 export type EditorAspectSnapshot<TDocument> = {
-  document: TDocument;
-  origin?: EditorChangeOrigin;
-  revision: number;
-  aspects: Record<string, EditorResolvedAspect<unknown>>;
+  readonly document: TDocument;
+  readonly origin?: EditorChangeOrigin;
+  readonly revision: number;
+  readonly aspects: Readonly<Record<string, EditorResolvedAspect<unknown>>>;
 };
 
 export function createEditorAspect<TDocument, TValue>(

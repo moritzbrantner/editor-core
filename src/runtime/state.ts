@@ -52,8 +52,8 @@ export function commitEditorRuntime<TDocument, TSelection = unknown>(
   update: EditorRuntimeUpdate<TDocument, TSelection>,
   options: CommitEditorRuntimeOptions<TSelection> = {},
 ): EditorRuntimeState<TDocument, TSelection> {
-  const document = resolveRuntimeUpdate(state, update);
   const runtimeOptions = getRuntimeStateOptions(state);
+  const document = resolveRuntimeUpdate(state, update);
   const history = commitEditorSnapshotHistory(state.history, document, runtimeOptions.history);
   const documentChanged = !runtimeDocumentsEqual(
     state.history.present,
@@ -91,6 +91,7 @@ export function undoEditorRuntime<TDocument, TSelection = unknown>(
   state: EditorRuntimeState<TDocument, TSelection>,
   options: { origin?: EditorChangeOrigin } = {},
 ): EditorRuntimeState<TDocument, TSelection> {
+  const runtimeOptions = getRuntimeStateOptions(state);
   const history = undoEditorSnapshotHistory(state.history);
   if (history.present === state.history.present) {
     return withRuntimeFlags(
@@ -99,7 +100,7 @@ export function undoEditorRuntime<TDocument, TSelection = unknown>(
         history,
         origin: options.origin ?? state.origin,
       },
-      getRuntimeStateOptions(state),
+      runtimeOptions,
     );
   }
 
@@ -116,6 +117,7 @@ export function redoEditorRuntime<TDocument, TSelection = unknown>(
   state: EditorRuntimeState<TDocument, TSelection>,
   options: { origin?: EditorChangeOrigin } = {},
 ): EditorRuntimeState<TDocument, TSelection> {
+  const runtimeOptions = getRuntimeStateOptions(state);
   const history = redoEditorSnapshotHistory(state.history);
   if (history.present === state.history.present) {
     return withRuntimeFlags(
@@ -124,7 +126,7 @@ export function redoEditorRuntime<TDocument, TSelection = unknown>(
         history,
         origin: options.origin ?? state.origin,
       },
-      getRuntimeStateOptions(state),
+      runtimeOptions,
     );
   }
 
@@ -165,12 +167,13 @@ export function resetEditorRuntime<TDocument, TSelection = unknown>(
 export function markEditorRuntimeSaved<TDocument, TSelection = unknown>(
   state: EditorRuntimeState<TDocument, TSelection>,
 ): EditorRuntimeState<TDocument, TSelection> {
+  const runtimeOptions = getRuntimeStateOptions(state);
   return withRuntimeFlags(
     {
       ...state,
       savedRevision: state.revision,
     },
-    getRuntimeStateOptions(state),
+    runtimeOptions,
   );
 }
 
@@ -178,12 +181,13 @@ export function setEditorRuntimeSelection<TDocument, TSelection = unknown>(
   state: EditorRuntimeState<TDocument, TSelection>,
   selection: EditorRuntimeSelection<TSelection>,
 ): EditorRuntimeState<TDocument, TSelection> {
+  const runtimeOptions = getRuntimeStateOptions(state);
   return withRuntimeFlags(
     {
       ...state,
       selection,
     },
-    getRuntimeStateOptions(state),
+    runtimeOptions,
   );
 }
 

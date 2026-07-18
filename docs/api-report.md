@@ -16,9 +16,9 @@ type EditorChangeOrigin = {
   metadata?: Record<string, unknown>;
 };
 type EditorAspectContext<TDocument> = {
-  document: TDocument;
-  origin?: EditorChangeOrigin;
-  revision: number;
+  readonly document: TDocument;
+  readonly origin?: EditorChangeOrigin;
+  readonly revision: number;
 };
 /**
  * A derived value that can be recomputed from a document revision.
@@ -33,10 +33,10 @@ type EditorAspectDefinition<TDocument, TValue> = {
   equals?(left: TValue, right: TValue): boolean;
 };
 type EditorResolvedAspect<TValue> = {
-  id: string;
-  label?: string;
-  value: TValue;
-  changed: boolean;
+  readonly id: string;
+  readonly label?: string;
+  readonly value: TValue;
+  readonly changed: boolean;
 };
 type ResolveEditorAspectsOptions<TDocument> = {
   origin?: EditorChangeOrigin;
@@ -44,10 +44,10 @@ type ResolveEditorAspectsOptions<TDocument> = {
   revision?: number;
 };
 type EditorAspectSnapshot<TDocument> = {
-  document: TDocument;
-  origin?: EditorChangeOrigin;
-  revision: number;
-  aspects: Record<string, EditorResolvedAspect<unknown>>;
+  readonly document: TDocument;
+  readonly origin?: EditorChangeOrigin;
+  readonly revision: number;
+  readonly aspects: Readonly<Record<string, EditorResolvedAspect<unknown>>>;
 };
 declare function createEditorAspect<TDocument, TValue>(
   definition: EditorAspectDefinition<TDocument, TValue>,
@@ -530,11 +530,11 @@ export {
 };
 ```
 
-## controller-types-Cbb3X33W.d.ts
+## controller-types-Cdg7xsmg.d.ts
 
 ```ts
 import { EditorStorageAdapter } from "./browser.js";
-import { b as EditorRuntimeState } from "./types-BobBf3K-.js";
+import { b as EditorRuntimeState } from "./types-ue792Gw2.js";
 import { EditorRevisionToken } from "./collaboration.js";
 import {
   E as EditorPersistedDocument,
@@ -545,7 +545,7 @@ import {
   g as EditorPersistenceState,
   c as EditorPersistenceErrorContext,
   e as EditorPersistenceEventHandler,
-} from "./types-BZ2JcJCu.js";
+} from "./types-LWjkTXDV.js";
 
 type EditorConflictStorageAdapter<TDocument> = {
   load: () =>
@@ -799,11 +799,11 @@ export {
 ```ts
 declare const defaultEditorHistoryLimit = 100;
 type EditorSnapshotHistory<TDocument> = {
-  past: TDocument[];
-  present: TDocument;
-  future: TDocument[];
-  canUndo: boolean;
-  canRedo: boolean;
+  readonly past: readonly TDocument[];
+  readonly present: TDocument;
+  readonly future: readonly TDocument[];
+  readonly canUndo: boolean;
+  readonly canRedo: boolean;
 };
 /**
  * Options for whole-document snapshot history.
@@ -842,13 +842,13 @@ declare function canRedoEditorHistory<TDocument>(
   history: EditorSnapshotHistory<TDocument>,
 ): boolean;
 type EditorTransaction<TDocument, TSelection = unknown> = {
-  id: string;
-  label?: string;
-  mergeKey?: string;
-  before: TDocument;
-  after: TDocument;
-  selectionBefore?: TSelection;
-  selectionAfter?: TSelection;
+  readonly id: string;
+  readonly label?: string;
+  readonly mergeKey?: string;
+  readonly before: TDocument;
+  readonly after: TDocument;
+  readonly selectionBefore?: TSelection;
+  readonly selectionAfter?: TSelection;
 };
 /**
  * Undo/redo stacks for semantic editor transactions.
@@ -857,14 +857,14 @@ type EditorTransaction<TDocument, TSelection = unknown> = {
  * optional selection restoration, and an id or label that can be exposed in UI.
  */
 type EditorTransactionHistory<TDocument, TSelection = unknown> = {
-  undoStack: Array<EditorTransaction<TDocument, TSelection>>;
-  redoStack: Array<EditorTransaction<TDocument, TSelection>>;
+  readonly undoStack: readonly EditorTransaction<TDocument, TSelection>[];
+  readonly redoStack: readonly EditorTransaction<TDocument, TSelection>[];
 };
 type EditorTransactionHistoryResult<TDocument, TSelection = unknown> = {
-  history: EditorTransactionHistory<TDocument, TSelection>;
-  document?: TDocument;
-  selection?: TSelection;
-  transaction?: EditorTransaction<TDocument, TSelection>;
+  readonly history: EditorTransactionHistory<TDocument, TSelection>;
+  readonly document?: TDocument;
+  readonly selection?: TSelection;
+  readonly transaction?: EditorTransaction<TDocument, TSelection>;
 };
 declare function createEditorTransactionHistory<
   TDocument,
@@ -1169,7 +1169,7 @@ export {
   R as ReadEditorOperationLogOptions,
   S as SerializedEditorOperation,
   l as SerializedEditorOperationLog,
-} from "./types-CuBQTozL.js";
+} from "./types-C54SM1ke.js";
 export {
   applyEditorInteractionOperation,
   applyEditorOperation,
@@ -1198,7 +1198,7 @@ export {
   i as LoadEditorRuntimePersistenceResult,
   S as SaveEditorRuntimePersistenceOptions,
   j as SaveEditorRuntimePersistenceResult,
-} from "./types-BZ2JcJCu.js";
+} from "./types-LWjkTXDV.js";
 export {
   clearEditorPersistenceConflict,
   createEditorPersistenceState,
@@ -1226,7 +1226,7 @@ export {
   S as SaveEditorRuntimeConflictPersistenceOptions,
   k as SaveEditorRuntimeConflictPersistenceResult,
   n as normalizeEditorAutosaveOptions,
-} from "./controller-types-Cbb3X33W.js";
+} from "./controller-types-Cdg7xsmg.js";
 export {
   ApplyEditorPatchOptions,
   DiffEditorJsonOptions,
@@ -1258,7 +1258,7 @@ export {
   f as EditorRuntimeValidationIssue,
   g as EditorRuntimeValidator,
   R as ResetEditorRuntimeOptions,
-} from "./types-BobBf3K-.js";
+} from "./types-ue792Gw2.js";
 export {
   EditorDocumentIoCommandId,
   EditorDocumentIoCommandsOptions,
@@ -1431,11 +1431,11 @@ export {
 
 ```ts
 import { EditorEntityId, EditorPoint } from "./entities.js";
-import { k as EditorOperationRuntimeState, E as EditorOperation } from "./types-CuBQTozL.js";
+import { k as EditorOperationRuntimeState, E as EditorOperation } from "./types-C54SM1ke.js";
 import "./aspects.js";
 import "./hotkeys.js";
 import "./history.js";
-import "./types-BobBf3K-.js";
+import "./types-ue792Gw2.js";
 import "./serialization.js";
 
 type EditorInteractionState =
@@ -1552,17 +1552,17 @@ import {
   S as SerializedEditorOperation,
   l as SerializedEditorOperationLog,
   e as EditorOperationLogMigrations,
-} from "./types-CuBQTozL.js";
+} from "./types-C54SM1ke.js";
 export {
   b as EditorOperationApplyMode,
   d as EditorOperationLogMigration,
   f as EditorOperationPreflightContext,
   g as EditorOperationPreflightIssue,
-} from "./types-CuBQTozL.js";
+} from "./types-C54SM1ke.js";
 import { EditorChangeOrigin } from "./aspects.js";
 import { EditorCommandDefinition, EditorHotkeyMap } from "./hotkeys.js";
 import "./history.js";
-import "./types-BobBf3K-.js";
+import "./types-ue792Gw2.js";
 import "./serialization.js";
 
 declare function createEditorOperationRuntime<TDocument, TSelection = unknown>(
@@ -1723,7 +1723,7 @@ import {
   i as LoadEditorRuntimePersistenceResult,
   S as SaveEditorRuntimePersistenceOptions,
   j as SaveEditorRuntimePersistenceResult,
-} from "./types-BZ2JcJCu.js";
+} from "./types-LWjkTXDV.js";
 export {
   E as EditorPersistedDocument,
   a as EditorPersistenceClock,
@@ -1733,7 +1733,7 @@ export {
   e as EditorPersistenceEventHandler,
   f as EditorPersistenceOperation,
   h as EditorPersistenceStatus,
-} from "./types-BZ2JcJCu.js";
+} from "./types-LWjkTXDV.js";
 import {
   b as EditorConflictStorageAdapter,
   L as LoadEditorRuntimeConflictPersistenceOptions,
@@ -1743,7 +1743,7 @@ import {
   f as EditorRuntimeConflictPersistenceControllerOptions,
   g as EditorRuntimePersistenceController,
   h as EditorRuntimePersistenceControllerOptions,
-} from "./controller-types-Cbb3X33W.js";
+} from "./controller-types-Cdg7xsmg.js";
 export {
   E as EditorAutosaveOptions,
   a as EditorAutosaveRetryOptions,
@@ -1753,9 +1753,9 @@ export {
   i as EditorRuntimeStateUpdater,
   N as NormalizedEditorAutosaveOptions,
   n as normalizeEditorAutosaveOptions,
-} from "./controller-types-Cbb3X33W.js";
+} from "./controller-types-Cdg7xsmg.js";
 import { EditorStorageAdapter } from "./browser.js";
-import { b as EditorRuntimeState } from "./types-BobBf3K-.js";
+import { b as EditorRuntimeState } from "./types-ue792Gw2.js";
 import "./collaboration.js";
 import "./aspects.js";
 import "./history.js";
@@ -1833,8 +1833,8 @@ import {
 import {
   f as EditorOperationPreflightContext,
   g as EditorOperationPreflightIssue,
-} from "./types-CuBQTozL.js";
-import { g as EditorRuntimeValidator, E as EditorRuntimeOptions } from "./types-BobBf3K-.js";
+} from "./types-C54SM1ke.js";
+import { g as EditorRuntimeValidator, E as EditorRuntimeOptions } from "./types-ue792Gw2.js";
 import "./history.js";
 import "./hotkeys.js";
 import "./serialization.js";
@@ -1903,18 +1903,18 @@ import {
   C as CommitEditorRuntimeOptions,
   R as ResetEditorRuntimeOptions,
   a as EditorRuntimeSelection,
-} from "./types-BobBf3K-.js";
+} from "./types-ue792Gw2.js";
 import { EditorStorageAdapter } from "./browser.js";
 import {
   c as EditorPersistenceErrorContext,
   e as EditorPersistenceEventHandler,
   g as EditorPersistenceState,
-} from "./types-BZ2JcJCu.js";
+} from "./types-LWjkTXDV.js";
 import {
   E as EditorAutosaveOptions,
   b as EditorConflictStorageAdapter,
-} from "./controller-types-Cbb3X33W.js";
-export { a as EditorAutosaveRetryOptions } from "./controller-types-Cbb3X33W.js";
+} from "./controller-types-Cdg7xsmg.js";
+export { a as EditorAutosaveRetryOptions } from "./controller-types-Cdg7xsmg.js";
 import { EditorCommandDefinition } from "./hotkeys.js";
 import { EditorTreeState, EditorTreeNodeId } from "./tree.js";
 import "./aspects.js";
@@ -2053,13 +2053,13 @@ import {
   E as EditorRuntimeOptions,
   R as ResetEditorRuntimeOptions,
   a as EditorRuntimeSelection,
-} from "./types-BobBf3K-.js";
+} from "./types-ue792Gw2.js";
 export {
   c as EditorRuntimeStatus,
   e as EditorRuntimeUpdateContext,
   f as EditorRuntimeValidationIssue,
   g as EditorRuntimeValidator,
-} from "./types-BobBf3K-.js";
+} from "./types-ue792Gw2.js";
 import { EditorChangeOrigin } from "./aspects.js";
 import { EditorHotkeyMap, EditorCommandDefinition } from "./hotkeys.js";
 import "./history.js";
@@ -2408,9 +2408,9 @@ import {
   EditorRemoteOperation,
   EditorClientId,
 } from "./collaboration.js";
-import { E as EditorOperation, k as EditorOperationRuntimeState } from "./types-CuBQTozL.js";
-import { a as EditorPersistenceClock, g as EditorPersistenceState } from "./types-BZ2JcJCu.js";
-import { a as EditorRuntimeSelection, b as EditorRuntimeState } from "./types-BobBf3K-.js";
+import { E as EditorOperation, k as EditorOperationRuntimeState } from "./types-C54SM1ke.js";
+import { a as EditorPersistenceClock, g as EditorPersistenceState } from "./types-LWjkTXDV.js";
+import { a as EditorRuntimeSelection, b as EditorRuntimeState } from "./types-ue792Gw2.js";
 import "./hotkeys.js";
 import "./history.js";
 import "./serialization.js";
@@ -2559,7 +2559,7 @@ export {
 import {
   e as EditorOperationLogMigrations,
   c as EditorOperationLogAdapter,
-} from "./types-CuBQTozL.js";
+} from "./types-C54SM1ke.js";
 import {
   EditorDocumentMigrations,
   EditorParseIssue,
@@ -2568,7 +2568,7 @@ import {
 import "./aspects.js";
 import "./hotkeys.js";
 import "./history.js";
-import "./types-BobBf3K-.js";
+import "./types-ue792Gw2.js";
 
 type EditorAdapterCheckSeverity = "error" | "warning";
 type EditorAdapterCheckIssue = {
@@ -2755,78 +2755,155 @@ export {
 };
 ```
 
-## types-BobBf3K-.d.ts
+## types-C54SM1ke.d.ts
 
 ```ts
-import { EditorChangeOrigin, EditorAspectSnapshot, EditorAspectDefinition } from "./aspects.js";
-import { EditorSnapshotHistory, EditorSnapshotHistoryOptions } from "./history.js";
+import { EditorChangeOrigin } from "./aspects.js";
+import { EditorHotkeyMap } from "./hotkeys.js";
+import { EditorTransactionHistory } from "./history.js";
+import { b as EditorRuntimeState, E as EditorRuntimeOptions } from "./types-ue792Gw2.js";
 import { EditorParseIssue } from "./serialization.js";
 
-type EditorRuntimeStatus = "clean" | "dirty";
-type EditorRuntimeSelection<TSelection = unknown> = TSelection | null;
-type EditorRuntimeUpdateContext<TDocument, TSelection = unknown> = {
-  document: TDocument;
-  selection: EditorRuntimeSelection<TSelection>;
-  revision: number;
+type EditorOperation<TDocument, TSelection = unknown> = {
+  id: string;
+  label?: string;
+  apply: (document: TDocument) => TDocument;
+  invert?: (document: TDocument) => TDocument;
+  selectionBefore?: TSelection;
+  selectionAfter?: TSelection;
+  origin?: EditorChangeOrigin;
+  mergeKey?: string;
+  metadata?: Record<string, unknown>;
 };
-type EditorRuntimeUpdate<TDocument, TSelection = unknown> =
-  | TDocument
-  | ((context: EditorRuntimeUpdateContext<TDocument, TSelection>) => TDocument);
-type EditorRuntimeValidationIssue = EditorParseIssue;
-type EditorRuntimeValidator<TDocument> = (
-  document: TDocument,
-) => readonly EditorRuntimeValidationIssue[];
-type EditorRuntimeOptions<TDocument, TSelection = unknown> = {
-  initialDocument: TDocument;
-  initialSelection?: EditorRuntimeSelection<TSelection>;
-  history?: EditorSnapshotHistoryOptions<TDocument>;
-  validate?: EditorRuntimeValidator<TDocument>;
-  aspects?: readonly EditorAspectDefinition<TDocument, unknown>[];
+type EditorOperationPreflightContext<TDocument, TSelection = unknown> = {
+  readonly document: TDocument;
+  readonly operation: EditorOperation<TDocument, TSelection>;
+  readonly runtime: EditorRuntimeState<TDocument, TSelection>;
+};
+type EditorOperationPreflightIssue = {
+  path: string;
+  message: string;
+  severity?: "error" | "warning";
+};
+type EditorOperationRuntimeOptions<TDocument, TSelection = unknown> = EditorRuntimeOptions<
+  TDocument,
+  TSelection
+> & {
+  operationHistoryLimit?: number;
+  preflight?: (
+    context: EditorOperationPreflightContext<TDocument, TSelection>,
+  ) => readonly EditorOperationPreflightIssue[];
+};
+declare class EditorOperationRuntimeStateIdentity {
+  private readonly __editorOperationRuntimeStateIdentity;
+}
+/**
+ * Opaque Operation Runtime state created and changed through Operation Runtime transitions.
+ *
+ * Do not construct, copy with object spread, or deserialize this state. Its identity owns
+ * operation preflight, transaction merging, and history-limit policy.
+ */
+type EditorOperationRuntimeState<
+  TDocument,
+  TSelection = unknown,
+> = EditorOperationRuntimeStateIdentity & {
+  readonly runtime: EditorRuntimeState<TDocument, TSelection>;
+  readonly operationHistory: EditorTransactionHistory<TDocument, TSelection>;
+  readonly canUndo: boolean;
+  readonly canRedo: boolean;
+  readonly lastMergeKey: string | null;
+  readonly issues: readonly EditorOperationPreflightIssue[];
+};
+type ApplyEditorOperationOptions = {
+  merge?: boolean;
+};
+type EditorOperationApplyMode = "local" | "interaction" | "remote";
+type ApplyEditorOperationModeOptions = {
   origin?: EditorChangeOrigin;
 };
-type EditorRuntimeState<TDocument, TSelection = unknown> = {
-  document: TDocument;
-  selection: EditorRuntimeSelection<TSelection>;
-  history: EditorSnapshotHistory<TDocument>;
-  revision: number;
-  savedRevision: number;
-  status: EditorRuntimeStatus;
-  canUndo: boolean;
-  canRedo: boolean;
-  issues: readonly EditorRuntimeValidationIssue[];
-  aspectSnapshot: EditorAspectSnapshot<TDocument>;
+type SerializedEditorOperation<
+  TPayload = unknown,
+  TType extends string = string,
+  TVersion extends number | string = number,
+> = {
+  id: string;
+  type: TType;
+  schemaVersion: TVersion;
+  payload: TPayload;
+  label?: string;
   origin?: EditorChangeOrigin;
+  mergeKey?: string;
+  createdAt?: string;
+  metadata?: Record<string, unknown>;
 };
-type CommitEditorRuntimeOptions<TSelection = unknown> = {
-  selection?: EditorRuntimeSelection<TSelection>;
-  origin?: EditorChangeOrigin;
-  markSaved?: boolean;
+type SerializedEditorOperationLog<
+  TPayload = unknown,
+  TFormat extends string = string,
+  TVersion extends number | string = number,
+> = {
+  format: TFormat;
+  schemaVersion: TVersion;
+  operations: readonly SerializedEditorOperation<TPayload>[];
+  exportedAt?: string;
+  metadata?: Record<string, unknown>;
 };
-type ResetEditorRuntimeOptions<TSelection = unknown> = {
-  selection?: EditorRuntimeSelection<TSelection>;
-  origin?: EditorChangeOrigin;
-  markSaved?: boolean;
+type EditorOperationLogAdapter<TOperation> = {
+  format: string;
+  schemaVersion: number | string;
+  read: (input: unknown, path?: string) => TOperation;
+  normalize?: (operation: TOperation) => TOperation;
+  validate?: (operation: TOperation) => readonly EditorParseIssue[];
+};
+type EditorOperationLogMigration<TOperation> = (
+  input: SerializedEditorOperationLog<unknown>,
+  adapter: EditorOperationLogAdapter<TOperation>,
+) => SerializedEditorOperationLog<unknown> | unknown;
+type EditorOperationLogMigrations<TOperation> = Record<
+  string | number,
+  EditorOperationLogMigration<TOperation>
+>;
+type ReadEditorOperationLogOptions<TOperation> = {
+  migrations?: EditorOperationLogMigrations<TOperation>;
+  path?: string;
+};
+type EditorOperationRuntimeCommandId = "undo" | "redo";
+type EditorOperationRuntimeCommandsOptions<TDocument, TSelection = unknown> = {
+  editor: EditorOperationRuntimeState<TDocument, TSelection>;
+  setEditor: (
+    updater: (
+      editor: EditorOperationRuntimeState<TDocument, TSelection>,
+    ) => EditorOperationRuntimeState<TDocument, TSelection>,
+  ) => void;
+  hotkeys?: Partial<EditorHotkeyMap<EditorOperationRuntimeCommandId>>;
+  labels?: Partial<Record<EditorOperationRuntimeCommandId, string>>;
+  disabled?: Partial<Record<EditorOperationRuntimeCommandId, boolean>>;
 };
 
 export type {
-  CommitEditorRuntimeOptions as C,
-  EditorRuntimeOptions as E,
-  ResetEditorRuntimeOptions as R,
-  EditorRuntimeSelection as a,
-  EditorRuntimeState as b,
-  EditorRuntimeStatus as c,
-  EditorRuntimeUpdate as d,
-  EditorRuntimeUpdateContext as e,
-  EditorRuntimeValidationIssue as f,
-  EditorRuntimeValidator as g,
+  ApplyEditorOperationModeOptions as A,
+  EditorOperation as E,
+  ReadEditorOperationLogOptions as R,
+  SerializedEditorOperation as S,
+  ApplyEditorOperationOptions as a,
+  EditorOperationApplyMode as b,
+  EditorOperationLogAdapter as c,
+  EditorOperationLogMigration as d,
+  EditorOperationLogMigrations as e,
+  EditorOperationPreflightContext as f,
+  EditorOperationPreflightIssue as g,
+  EditorOperationRuntimeCommandId as h,
+  EditorOperationRuntimeCommandsOptions as i,
+  EditorOperationRuntimeOptions as j,
+  EditorOperationRuntimeState as k,
+  SerializedEditorOperationLog as l,
 };
 ```
 
-## types-BZ2JcJCu.d.ts
+## types-LWjkTXDV.d.ts
 
 ```ts
 import { EditorRevisionToken } from "./collaboration.js";
-import { a as EditorRuntimeSelection, b as EditorRuntimeState } from "./types-BobBf3K-.js";
+import { a as EditorRuntimeSelection, b as EditorRuntimeState } from "./types-ue792Gw2.js";
 
 type EditorPersistenceStatus = "idle" | "loading" | "loaded" | "saving" | "saved" | "error";
 type EditorPersistenceOperation = "load" | "save";
@@ -2946,135 +3023,79 @@ export {
 };
 ```
 
-## types-CuBQTozL.d.ts
+## types-ue792Gw2.d.ts
 
 ```ts
-import { EditorChangeOrigin } from "./aspects.js";
-import { EditorHotkeyMap } from "./hotkeys.js";
-import { EditorTransactionHistory } from "./history.js";
-import { b as EditorRuntimeState, E as EditorRuntimeOptions } from "./types-BobBf3K-.js";
+import { EditorChangeOrigin, EditorAspectSnapshot, EditorAspectDefinition } from "./aspects.js";
+import { EditorSnapshotHistory, EditorSnapshotHistoryOptions } from "./history.js";
 import { EditorParseIssue } from "./serialization.js";
 
-type EditorOperation<TDocument, TSelection = unknown> = {
-  id: string;
-  label?: string;
-  apply: (document: TDocument) => TDocument;
-  invert?: (document: TDocument) => TDocument;
-  selectionBefore?: TSelection;
-  selectionAfter?: TSelection;
-  origin?: EditorChangeOrigin;
-  mergeKey?: string;
-  metadata?: Record<string, unknown>;
+type EditorRuntimeStatus = "clean" | "dirty";
+type EditorRuntimeSelection<TSelection = unknown> = TSelection | null;
+type EditorRuntimeUpdateContext<TDocument, TSelection = unknown> = {
+  readonly document: TDocument;
+  readonly selection: EditorRuntimeSelection<TSelection>;
+  readonly revision: number;
 };
-type EditorOperationPreflightContext<TDocument, TSelection = unknown> = {
-  document: TDocument;
-  operation: EditorOperation<TDocument, TSelection>;
-  runtime: EditorRuntimeState<TDocument, TSelection>;
-};
-type EditorOperationPreflightIssue = {
-  path: string;
-  message: string;
-  severity?: "error" | "warning";
-};
-type EditorOperationRuntimeOptions<TDocument, TSelection = unknown> = EditorRuntimeOptions<
-  TDocument,
-  TSelection
-> & {
-  operationHistoryLimit?: number;
-  preflight?: (
-    context: EditorOperationPreflightContext<TDocument, TSelection>,
-  ) => readonly EditorOperationPreflightIssue[];
-};
-type EditorOperationRuntimeState<TDocument, TSelection = unknown> = {
-  runtime: EditorRuntimeState<TDocument, TSelection>;
-  operationHistory: EditorTransactionHistory<TDocument, TSelection>;
-  canUndo: boolean;
-  canRedo: boolean;
-  lastMergeKey: string | null;
-  issues: readonly EditorOperationPreflightIssue[];
-};
-type ApplyEditorOperationOptions = {
-  merge?: boolean;
-};
-type EditorOperationApplyMode = "local" | "interaction" | "remote";
-type ApplyEditorOperationModeOptions = {
+type EditorRuntimeUpdate<TDocument, TSelection = unknown> =
+  | TDocument
+  | ((context: EditorRuntimeUpdateContext<TDocument, TSelection>) => TDocument);
+type EditorRuntimeValidationIssue = EditorParseIssue;
+type EditorRuntimeValidator<TDocument> = (
+  document: TDocument,
+) => readonly EditorRuntimeValidationIssue[];
+type EditorRuntimeOptions<TDocument, TSelection = unknown> = {
+  initialDocument: TDocument;
+  initialSelection?: EditorRuntimeSelection<TSelection>;
+  history?: EditorSnapshotHistoryOptions<TDocument>;
+  validate?: EditorRuntimeValidator<TDocument>;
+  aspects?: readonly EditorAspectDefinition<TDocument, unknown>[];
   origin?: EditorChangeOrigin;
 };
-type SerializedEditorOperation<
-  TPayload = unknown,
-  TType extends string = string,
-  TVersion extends number | string = number,
-> = {
-  id: string;
-  type: TType;
-  schemaVersion: TVersion;
-  payload: TPayload;
-  label?: string;
+declare class EditorRuntimeStateIdentity {
+  private readonly __editorRuntimeStateIdentity;
+}
+/**
+ * Opaque Runtime state created and changed through the Runtime factory and transitions.
+ *
+ * Do not construct, copy with object spread, or deserialize Runtime state. Persistence restores
+ * documents through Runtime transitions instead of restoring this state value.
+ */
+type EditorRuntimeState<TDocument, TSelection = unknown> = EditorRuntimeStateIdentity & {
+  readonly document: TDocument;
+  readonly selection: EditorRuntimeSelection<TSelection>;
+  readonly history: EditorSnapshotHistory<TDocument>;
+  readonly revision: number;
+  readonly savedRevision: number;
+  readonly status: EditorRuntimeStatus;
+  readonly canUndo: boolean;
+  readonly canRedo: boolean;
+  readonly issues: readonly EditorRuntimeValidationIssue[];
+  readonly aspectSnapshot: EditorAspectSnapshot<TDocument>;
+  readonly origin?: EditorChangeOrigin;
+};
+type CommitEditorRuntimeOptions<TSelection = unknown> = {
+  selection?: EditorRuntimeSelection<TSelection>;
   origin?: EditorChangeOrigin;
-  mergeKey?: string;
-  createdAt?: string;
-  metadata?: Record<string, unknown>;
+  markSaved?: boolean;
 };
-type SerializedEditorOperationLog<
-  TPayload = unknown,
-  TFormat extends string = string,
-  TVersion extends number | string = number,
-> = {
-  format: TFormat;
-  schemaVersion: TVersion;
-  operations: readonly SerializedEditorOperation<TPayload>[];
-  exportedAt?: string;
-  metadata?: Record<string, unknown>;
-};
-type EditorOperationLogAdapter<TOperation> = {
-  format: string;
-  schemaVersion: number | string;
-  read: (input: unknown, path?: string) => TOperation;
-  normalize?: (operation: TOperation) => TOperation;
-  validate?: (operation: TOperation) => readonly EditorParseIssue[];
-};
-type EditorOperationLogMigration<TOperation> = (
-  input: SerializedEditorOperationLog<unknown>,
-  adapter: EditorOperationLogAdapter<TOperation>,
-) => SerializedEditorOperationLog<unknown> | unknown;
-type EditorOperationLogMigrations<TOperation> = Record<
-  string | number,
-  EditorOperationLogMigration<TOperation>
->;
-type ReadEditorOperationLogOptions<TOperation> = {
-  migrations?: EditorOperationLogMigrations<TOperation>;
-  path?: string;
-};
-type EditorOperationRuntimeCommandId = "undo" | "redo";
-type EditorOperationRuntimeCommandsOptions<TDocument, TSelection = unknown> = {
-  editor: EditorOperationRuntimeState<TDocument, TSelection>;
-  setEditor: (
-    updater: (
-      editor: EditorOperationRuntimeState<TDocument, TSelection>,
-    ) => EditorOperationRuntimeState<TDocument, TSelection>,
-  ) => void;
-  hotkeys?: Partial<EditorHotkeyMap<EditorOperationRuntimeCommandId>>;
-  labels?: Partial<Record<EditorOperationRuntimeCommandId, string>>;
-  disabled?: Partial<Record<EditorOperationRuntimeCommandId, boolean>>;
+type ResetEditorRuntimeOptions<TSelection = unknown> = {
+  selection?: EditorRuntimeSelection<TSelection>;
+  origin?: EditorChangeOrigin;
+  markSaved?: boolean;
 };
 
 export type {
-  ApplyEditorOperationModeOptions as A,
-  EditorOperation as E,
-  ReadEditorOperationLogOptions as R,
-  SerializedEditorOperation as S,
-  ApplyEditorOperationOptions as a,
-  EditorOperationApplyMode as b,
-  EditorOperationLogAdapter as c,
-  EditorOperationLogMigration as d,
-  EditorOperationLogMigrations as e,
-  EditorOperationPreflightContext as f,
-  EditorOperationPreflightIssue as g,
-  EditorOperationRuntimeCommandId as h,
-  EditorOperationRuntimeCommandsOptions as i,
-  EditorOperationRuntimeOptions as j,
-  EditorOperationRuntimeState as k,
-  SerializedEditorOperationLog as l,
+  CommitEditorRuntimeOptions as C,
+  EditorRuntimeOptions as E,
+  ResetEditorRuntimeOptions as R,
+  EditorRuntimeSelection as a,
+  EditorRuntimeState as b,
+  EditorRuntimeStatus as c,
+  EditorRuntimeUpdate as d,
+  EditorRuntimeUpdateContext as e,
+  EditorRuntimeValidationIssue as f,
+  EditorRuntimeValidator as g,
 };
 ```
 
