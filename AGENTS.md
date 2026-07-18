@@ -4,7 +4,7 @@ This repository contains headless shared infrastructure for Moritz Brantner edit
 
 ## Agent skills
 
-Use the repo-local agent workflow docs before planning or routing work:
+This repository is configured for the Matt Pocock workflow skills and the agent-loop control plane.
 
 - Issue tracker: `docs/agents/issue-tracker.md`
 - Triage labels: `docs/agents/triage-labels.md`
