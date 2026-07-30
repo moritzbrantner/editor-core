@@ -2,6 +2,31 @@
 
 Use this guide when adding `@moenarch/editor-core` to a downstream editor package.
 
+## Canonical Dependencies
+
+Install the sole supported Editor Core line and the editor-family UI dependency floor:
+
+```sh
+bun add @moenarch/editor-core@^0.4.1 @moritzbrantner/ui@^1.1.0
+```
+
+For npm consumers, use the same ranges:
+
+```sh
+npm install @moenarch/editor-core@^0.4.1 @moritzbrantner/ui@^1.1.0
+```
+
+Import public APIs from the canonical package root or its documented subpaths:
+
+```ts
+import type { EditorDocumentAdapter } from "@moenarch/editor-core";
+import { createEditorRuntime } from "@moenarch/editor-core/runtime";
+```
+
+Do not add `@moritzbrantner/editor-core`, a compatibility shim, a sibling `file:` dependency, or a
+moving Git dependency. Migrate legacy consumers by changing their dependency and import specifiers
+to `@moenarch/editor-core`.
+
 ## Minimal Runtime
 
 Use `createEditorRuntime` when whole-document snapshot history is enough:
@@ -420,6 +445,21 @@ if (diagnostics.some((diagnostic) => diagnostic.severity === "error")) {
 ```
 
 Disabled commands do not participate in hotkey conflict warnings.
+
+## Downstream Migration Ownership
+
+Graph, Workflow, and Timeline migrations are independently planned and implemented in their owning
+repositories:
+
+- [Graph Editor: canonical Core and UI 1.1](https://github.com/moritzbrantner/graph-editor/issues/2)
+  — owned by the `moritzbrantner/graph-editor` repository.
+- [Workflow Editor: aligned Graph and UI train](https://github.com/moritzbrantner/workflow-editor/issues/25)
+  — owned by the `moritzbrantner/workflow-editor` repository.
+- [Timeline Editor: canonical Core and UI 1.1](https://github.com/moritzbrantner/timeline-editor/issues/13)
+  — owned by the `moritzbrantner/timeline-editor` repository.
+
+Editor Core documents the shared adoption contract; each downstream repository owns its source
+changes, validation, and release.
 
 ## Downstream Release Checklist
 
