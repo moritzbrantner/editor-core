@@ -110,6 +110,140 @@ Use this version policy:
 - Minor: new public APIs, and breaking public API changes while the package is `0.x`.
 - Major: breaking public API changes after `1.0.0`.
 
+## Canonical Dependency Train
+
+The supported editor dependency contract is:
+
+- `@moenarch/editor-core: ^0.4.1`
+- `@moritzbrantner/ui: ^1.1.0`
+
+Do not use the legacy `@moritzbrantner/editor-core` package, a sibling `file:` dependency, or a
+moving Git dependency in a release manifest. Local `file:` references are permitted only inside
+the disposable consumers described below.
+
+### Inventory and Release Targets
+
+| Package                           | Published |     Train target | Release role                          |
+| --------------------------------- | --------: | ---------------: | ------------------------------------- |
+| `@moenarch/editor-core`           |   `0.4.1` |          `0.4.1` | Canonical Core; already published     |
+| `@moritzbrantner/editor-core`     |   `0.3.0` | Deprecation only | Legacy Core; no compatibility release |
+| `@moritzbrantner/ui`              |   `1.1.0` |          `1.1.0` | Supported UI compatibility floor      |
+| `@moritzbrantner/graph-editor`    |   `0.2.0` |          `0.2.1` | Direct canonical-Core consumer        |
+| `@moritzbrantner/workflow-editor` |   `0.1.1` |          `0.1.2` | Follows Graph `0.2.1`                 |
+| `@moritzbrantner/timeline-editor` |   `1.0.1` |          `1.0.2` | Direct canonical-Core consumer        |
+
+Implementation and release readiness are owned by the downstream PRDs:
+
+- [Graph Editor: canonical Core and UI 1.1](https://github.com/moritzbrantner/graph-editor/issues/2)
+- [Workflow Editor: aligned Graph and UI train](https://github.com/moritzbrantner/workflow-editor/issues/25)
+- [Timeline Editor: canonical Core and UI 1.1](https://github.com/moritzbrantner/timeline-editor/issues/13)
+
+### Clean-Consumer Contract
+
+Every downstream release must use its repository-owned package and release checks first. It must
+then pass the following clean consumers twice:
+
+1. **Before publication:** install exact `.tgz` artifacts, never workspace directories or
+   non-exact dependency ranges.
+2. **After publication:** recreate the same consumer from an empty directory and install the
+   published npm versions.
+
+Use a new temporary directory for every check and preserve the successful command output and
+tarball checksums in the release record. Generate each unpublished artifact from its exact release
+commit with `npm pack`; obtain already-published fixed inputs with `npm pack <name>@<version>`.
+
+```sh
+RELEASE_TARBALLS=$(mktemp -d)
+npm pack --pack-destination "$RELEASE_TARBALLS"
+sha256sum "$RELEASE_TARBALLS"/*.tgz
+```
+
+`RELEASE_TARBALLS` must be an absolute path outside every package repository. Never commit this
+directory or any temporary `file:` dependency.
+
+The consumer sets are:
+
+| Consumer | Exact-tarball inputs before publish                       | npm entry point after publish |
+| -------- | --------------------------------------------------------- | ----------------------------- |
+| Graph    | Core `0.4.1`, UI `1.1.0`, Graph `0.2.1`                   | Graph `0.2.1`                 |
+| Timeline | Core `0.4.1`, UI `1.1.0`, Timeline `1.0.2`                | Timeline `1.0.2`              |
+| Workflow | Core `0.4.1`, UI `1.1.0`, Graph `0.2.1`, Workflow `0.1.2` | Workflow `0.1.2`              |
+
+For the pre-publish check, create the consumer and install the absolute tarball paths:
+
+```sh
+consumer_dir=$(mktemp -d)
+cd "$consumer_dir"
+npm init -y
+npm install --save-exact \
+  "$RELEASE_TARBALLS/<core-tarball>.tgz" \
+  "$RELEASE_TARBALLS/<ui-tarball>.tgz" \
+  "$RELEASE_TARBALLS/<package-tarball>.tgz"
+npm ls --all
+```
+
+The Workflow consumer adds the exact Graph tarball as well. Run the downstream repository's
+clean-consumer import and dependency-tree assertion against this directory. It must prove that the
+package imports successfully, exactly one `@moenarch/editor-core` implementation is resolved,
+exactly one compatible `@moritzbrantner/ui` is resolved, and no
+`@moritzbrantner/editor-core` package is installed.
+
+After publishing, delete the first consumer and repeat the same assertion in another empty
+directory using npm:
+
+```sh
+consumer_dir=$(mktemp -d)
+cd "$consumer_dir"
+npm init -y
+npm install --save-exact "<package-name>@<target-version>"
+npm ls --all
+```
+
+Install only the released Graph, Workflow, or Timeline entry point in this phase so that npm
+resolves its declared dependency ranges. The resolved tree must satisfy the canonical Core, UI,
+and (for Workflow) Graph ranges. A publish is not complete until this npm-installed consumer
+passes the same import and dependency-tree assertion used for the tarballs.
+
+### Release Sequence and Gates
+
+1. Build the Graph `0.2.1` and Timeline `1.0.2` release commits. Each may validate independently
+   against exact Core `0.4.1` and UI `1.1.0` tarballs.
+2. Publish Graph `0.2.1` only after its exact-tarball consumer and repository release checks pass.
+   Recreate its clean consumer with npm-installed exact versions and require it to pass.
+3. Build and validate Workflow `0.1.2` only after Graph `0.2.1` is available as its exact packed or
+   published dependency. Publish Workflow only after its four-artifact consumer passes, then run
+   the npm-installed consumer.
+4. Publish Timeline `1.0.2` whenever its independent pre-publish gate passes, then run its
+   npm-installed consumer. Timeline does not wait for Graph or Workflow.
+5. Deprecate legacy Core only after both the Workflow and Timeline post-publish npm consumer checks
+   are recorded as passing:
+
+   ```sh
+   npm deprecate @moritzbrantner/editor-core \
+     "Package moved to @moenarch/editor-core. Install @moenarch/editor-core instead."
+   ```
+
+This gate is intentionally later than publication of Graph. Do not publish a compatibility shim
+or another legacy-Core version.
+
+### Dependency-Train Rollback
+
+Stop the train at the first failed repository, tarball-consumer, publish, or npm-consumer check.
+Do not deprecate legacy Core while any downstream post-publish gate is incomplete or failing.
+
+- **Before npm accepts a package:** fix the owning repository, regenerate every affected tarball
+  from a new clean release commit, rerun the exact-tarball consumer, and resume from that package.
+- **After npm accepts a package:** never overwrite or republish the version. Deprecate only the
+  broken downstream version with a reason, prepare the next patch version, and rerun both consumer
+  gates. Update dependent unpublished packages to the corrected exact version before continuing.
+- **If Graph fails or is replaced:** pause Workflow. Rebuild and revalidate Workflow against the
+  corrected Graph tarball/version; do not release Workflow against Graph `0.2.0`.
+- **If Workflow or Timeline fails post-publish:** leave `@moritzbrantner/editor-core` undeprecated,
+  fix forward with a patch, and repeat that package's npm-installed clean consumer.
+
+Rollback must preserve the canonical contract: one `@moenarch/editor-core` at `^0.4.1`, UI at
+`^1.1.0`, and no legacy-Core shim, sibling `file:` manifest entry, or moving Git dependency.
+
 ## Agent Release Procedure
 
 Run the release from `main`:
