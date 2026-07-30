@@ -14,3 +14,11 @@ This repository is configured for the Matt Pocock workflow skills and the agent-
 ### Planning workflow
 
 Substantial new work should be planned into GitHub PRD issues instead of implemented directly. See `docs/agents/planning-workflow.md`.
+
+<!-- prettier-ignore-start -->
+<!-- verification-harness:start -->
+## Verification harness
+Run `scripts/verification_harness.py audit` before changing verification surfaces.
+Early selection is advisory; `full` remains the handoff gate. See `.harness/README.md`.
+<!-- verification-harness:end -->
+<!-- prettier-ignore-end -->
