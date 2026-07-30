@@ -9,4 +9,5 @@ if not SCRIPT.exists():
     raise SystemExit(f"Missing agent-loop helper script: {SCRIPT}")
 
 sys.argv[0] = str(SCRIPT)
+sys.path.insert(0, str(SCRIPT.parent))
 runpy.run_path(str(SCRIPT), run_name="__main__")
