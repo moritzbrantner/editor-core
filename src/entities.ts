@@ -13,6 +13,10 @@ export type EditorEntityDocument<TEntity extends EditorEntityBase = EditorEntity
   rootIds: readonly EditorEntityId[];
 };
 
+/** @deprecated Use EditorEntityDocument. */
+export type EditorEntityCollection<TEntity extends EditorEntityBase = EditorEntityBase> =
+  EditorEntityDocument<TEntity>;
+
 export type EditorPoint = {
   x: number;
   y: number;
@@ -126,6 +130,14 @@ export function createEditorEntityDocument<TEntity extends EditorEntityBase>(
     entities: Object.fromEntries(entities.map((entity) => [entity.id, entity])),
     rootIds: [...rootIds],
   };
+}
+
+/** @deprecated Use createEditorEntityDocument. */
+export function createEditorEntityCollection<TEntity extends EditorEntityBase>(
+  entities: readonly TEntity[],
+  rootIds?: readonly EditorEntityId[],
+): EditorEntityCollection<TEntity> {
+  return createEditorEntityDocument(entities, rootIds);
 }
 
 export function getEditorEntity<TEntity extends EditorEntityBase>(
