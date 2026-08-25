@@ -1,10 +1,12 @@
 import { describe, expect, test } from "vitest";
 import {
+  createEditorEntityCollection,
   createEditorEntityDocument,
   createIncrementingEditorIdFactory,
   createUniqueEditorId,
   getEditorEntity,
   isEditorEntityId,
+  type EditorEntityCollection,
 } from "./entities.js";
 
 describe("editor entities", () => {
@@ -25,6 +27,13 @@ describe("editor entities", () => {
     expect(createEditorEntityDocument([root, orphan, child], ["orphan"]).rootIds).toEqual([
       "orphan",
     ]);
+  });
+
+  test("keeps the entity collection compatibility aliases equivalent to documents", () => {
+    const entity = { id: "layer-a", type: "layer" };
+    const collection: EditorEntityCollection<typeof entity> = createEditorEntityCollection([entity]);
+
+    expect(collection).toEqual(createEditorEntityDocument([entity]));
   });
 
   test("rejects duplicate entity ids", () => {
