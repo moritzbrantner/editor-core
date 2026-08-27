@@ -1,0 +1,420 @@
+schema_version = 1
+
+[[checks]]
+id = "format-full"
+command = ["bun", "run", "format:check"]
+scope = ["**"]
+tier = "full"
+blocking = true
+evidence_classes = ["static"]
+protected_properties = ["INV-006"]
+source_of_truth = ["invariant:INV-006", "repo:package.json", "repo:.github/workflows/validate.yml"]
+state_class = "deterministic"
+timeout_seconds = 120
+expected_runtime_seconds = 15
+tools = ["bun"]
+services = []
+generated_outputs = []
+cost_class = "low"
+success_exit_codes = [0]
+failure_semantics = "nonzero means tracked repository content violates the maintained formatting gate"
+independence_group = "oxfmt"
+
+[[checks]]
+id = "architecture-full"
+command = ["bun", "run", "architecture:check"]
+scope = ["**"]
+tier = "full"
+blocking = true
+evidence_classes = ["static"]
+protected_properties = ["INV-001"]
+source_of_truth = ["invariant:INV-001", "repo:scripts/architecture-rules.mjs", "repo:package.json"]
+state_class = "deterministic"
+timeout_seconds = 120
+expected_runtime_seconds = 10
+tools = ["bun", "node"]
+services = []
+generated_outputs = []
+cost_class = "low"
+success_exit_codes = [0]
+failure_semantics = "nonzero means a headless dependency, public entrypoint, cycle, or module-boundary rule regressed"
+independence_group = "architecture-rules"
+sensitivity = [
+  { property = "INV-001", status = "proven", method = "controlled-fault", reference = "repo:scripts/check-architecture.test.mjs" },
+]
+
+[[checks]]
+id = "lint-full"
+command = ["bun", "run", "lint"]
+scope = ["**"]
+tier = "full"
+blocking = true
+evidence_classes = ["static"]
+protected_properties = ["INV-006"]
+source_of_truth = ["invariant:INV-006", "repo:package.json", "repo:.github/workflows/validate.yml"]
+state_class = "deterministic"
+timeout_seconds = 180
+expected_runtime_seconds = 20
+tools = ["bun"]
+services = []
+generated_outputs = []
+cost_class = "low"
+success_exit_codes = [0]
+failure_semantics = "nonzero means maintained static-analysis rules fail"
+independence_group = "oxlint"
+
+[[checks]]
+id = "types-full"
+command = ["bun", "run", "check-types"]
+scope = ["**"]
+tier = "full"
+blocking = true
+evidence_classes = ["static"]
+protected_properties = ["INV-003"]
+source_of_truth = ["invariant:INV-003", "repo:tsconfig.json", "repo:package.json"]
+state_class = "deterministic"
+timeout_seconds = 240
+expected_runtime_seconds = 30
+tools = ["bun", "node"]
+services = []
+generated_outputs = []
+cost_class = "medium"
+success_exit_codes = [0]
+failure_semantics = "nonzero means the checked TypeScript public or internal contract is inconsistent"
+independence_group = "typescript-compiler"
+
+[[checks]]
+id = "unit-full"
+command = ["bun", "run", "test:unit"]
+scope = ["**"]
+tier = "full"
+blocking = true
+evidence_classes = ["behavioral"]
+protected_properties = ["INV-002"]
+source_of_truth = ["invariant:INV-002", "repo:CONTEXT.md", "repo:package.json"]
+state_class = "deterministic"
+timeout_seconds = 300
+expected_runtime_seconds = 60
+tools = ["bun", "node", "npm"]
+services = []
+generated_outputs = ["node_modules/.vite/**"]
+cost_class = "medium"
+success_exit_codes = [0]
+failure_semantics = "nonzero means a tested editor runtime, persistence, operation, command, or helper behavior regressed"
+independence_group = "vitest-and-node-tests"
+
+[[checks]]
+id = "build-full"
+command = ["bun", "run", "build"]
+scope = ["**"]
+tier = "full"
+blocking = true
+evidence_classes = ["integration"]
+protected_properties = ["INV-004", "INV-006"]
+source_of_truth = [
+  "invariant:INV-004",
+  "invariant:INV-006",
+  "repo:package.json",
+  "repo:.github/workflows/validate.yml",
+]
+state_class = "deterministic"
+timeout_seconds = 300
+expected_runtime_seconds = 60
+tools = ["bun", "node"]
+services = []
+generated_outputs = ["dist/**"]
+cost_class = "medium"
+success_exit_codes = [0]
+failure_semantics = "nonzero means the distributable package cannot be assembled"
+independence_group = "tsup-build"
+
+[[checks]]
+id = "api-contract-full"
+command = ["bun", "run", "api:check"]
+scope = ["**"]
+tier = "full"
+blocking = true
+evidence_classes = ["contract"]
+protected_properties = ["INV-003"]
+source_of_truth = ["invariant:INV-003", "repo:docs/api-report.md", "repo:package.json"]
+state_class = "deterministic"
+timeout_seconds = 300
+expected_runtime_seconds = 75
+tools = ["bun", "node"]
+services = []
+generated_outputs = ["dist/**"]
+cost_class = "medium"
+success_exit_codes = [0]
+failure_semantics = "nonzero means generated public declarations differ from the reviewed API report"
+independence_group = "declaration-snapshot"
+
+[[checks]]
+id = "package-smoke-full"
+command = ["bun", "run", "smoke:package"]
+scope = ["**"]
+tier = "full"
+blocking = true
+evidence_classes = ["contract", "integration"]
+protected_properties = ["INV-004"]
+source_of_truth = [
+  "invariant:INV-004",
+  "repo:scripts/smoke-package-exports.mjs",
+  "repo:package.json",
+]
+state_class = "deterministic"
+timeout_seconds = 600
+expected_runtime_seconds = 180
+tools = ["bun", "node", "npm"]
+services = []
+generated_outputs = []
+cost_class = "high"
+success_exit_codes = [0]
+failure_semantics = "nonzero means a clean packed consumer cannot install, typecheck, bundle, or execute supported exports"
+independence_group = "packed-consumer-smoke"
+
+[[checks]]
+id = "node24-package-smoke-full"
+command = ["node", "scripts/check-node24-package-smoke.mjs"]
+scope = ["**"]
+tier = "full"
+blocking = true
+evidence_classes = ["contract", "integration"]
+protected_properties = ["INV-004"]
+source_of_truth = [
+  "invariant:INV-004",
+  "repo:scripts/check-node24-package-smoke.mjs",
+  "repo:.github/workflows/validate.yml",
+]
+state_class = "deterministic"
+timeout_seconds = 600
+expected_runtime_seconds = 180
+tools = ["node", "npm"]
+services = []
+generated_outputs = []
+cost_class = "high"
+success_exit_codes = [0]
+failure_semantics = "nonzero means the Node 24 runtime condition is absent or a clean packed consumer fails under Node 24"
+independence_group = "node24-packed-consumer-smoke"
+sensitivity = [
+  { property = "INV-004", status = "proven", method = "controlled-fault", reference = "repo:scripts/check-node24-package-smoke.test.mjs" },
+]
+
+[[checks]]
+id = "pack-inventory-full"
+command = ["bun", "run", "pack:check"]
+scope = ["**"]
+tier = "full"
+blocking = true
+evidence_classes = ["contract"]
+protected_properties = ["INV-004"]
+source_of_truth = ["invariant:INV-004", "repo:package.json", "repo:.github/workflows/validate.yml"]
+state_class = "deterministic"
+timeout_seconds = 180
+expected_runtime_seconds = 30
+tools = ["bun"]
+services = []
+generated_outputs = []
+cost_class = "low"
+success_exit_codes = [0]
+failure_semantics = "nonzero means the package inventory cannot be produced from the reviewed manifest"
+independence_group = "bun-pack"
+
+[[checks]]
+id = "react-example-build-full"
+command = ["bun", "run", "example:build"]
+scope = ["**"]
+tier = "full"
+blocking = true
+evidence_classes = ["integration"]
+protected_properties = ["INV-005"]
+source_of_truth = [
+  "invariant:INV-005",
+  "repo:examples/react/vite.config.ts",
+  "repo:.github/workflows/validate.yml",
+]
+state_class = "deterministic"
+timeout_seconds = 300
+expected_runtime_seconds = 60
+tools = ["bun", "node"]
+services = []
+generated_outputs = ["examples/react/dist/**"]
+cost_class = "medium"
+success_exit_codes = [0]
+failure_semantics = "nonzero means the maintained React consumer example cannot be built"
+independence_group = "vite-example-build"
+
+[[checks]]
+id = "react-example-types-full"
+command = ["bun", "run", "example:check-types"]
+scope = ["**"]
+tier = "full"
+blocking = true
+evidence_classes = ["static"]
+protected_properties = ["INV-005"]
+source_of_truth = ["invariant:INV-005", "repo:examples/react/tsconfig.json", "repo:package.json"]
+state_class = "deterministic"
+timeout_seconds = 240
+expected_runtime_seconds = 30
+tools = ["bun", "node"]
+services = []
+generated_outputs = []
+cost_class = "medium"
+success_exit_codes = [0]
+failure_semantics = "nonzero means the maintained React consumer example violates its TypeScript contract"
+independence_group = "react-example-typescript"
+
+[[checks]]
+id = "browser-e2e-full"
+command = ["bun", "run", "test:e2e:run"]
+scope = ["**"]
+tier = "full"
+blocking = true
+evidence_classes = ["behavioral"]
+protected_properties = ["INV-005"]
+source_of_truth = [
+  "invariant:INV-005",
+  "repo:tests/e2e/react-example.spec.ts",
+  "repo:.github/workflows/validate.yml",
+]
+state_class = "stateful"
+timeout_seconds = 600
+expected_runtime_seconds = 180
+tools = ["bun", "node"]
+services = []
+generated_outputs = ["playwright-report/**", "test-results/**"]
+cost_class = "high"
+success_exit_codes = [0]
+failure_semantics = "nonzero means the maintained browser editor scenario regressed or could not execute"
+independence_group = "playwright-e2e"
+
+[[checks]]
+id = "storybook-build-full"
+command = ["bun", "run", "storybook:build"]
+scope = ["**"]
+tier = "full"
+blocking = true
+evidence_classes = ["integration"]
+protected_properties = ["INV-005"]
+source_of_truth = [
+  "invariant:INV-005",
+  "repo:.storybook/main.ts",
+  "repo:.github/workflows/validate.yml",
+  "repo:.github/workflows/pages.yml",
+]
+state_class = "deterministic"
+timeout_seconds = 600
+expected_runtime_seconds = 120
+tools = ["bun", "node"]
+services = []
+generated_outputs = ["node_modules/.cache/storybook/**", "storybook-static/**"]
+cost_class = "high"
+success_exit_codes = [0]
+failure_semantics = "nonzero means the maintained component documentation cannot be built"
+independence_group = "storybook-build"
+
+[[checks]]
+id = "storybook-behavior-full"
+command = ["bun", "run", "test:storybook:ci"]
+scope = ["**"]
+tier = "full"
+blocking = true
+evidence_classes = ["behavioral"]
+protected_properties = ["INV-005"]
+source_of_truth = [
+  "invariant:INV-005",
+  "repo:vitest.storybook.config.ts",
+  "repo:.github/workflows/validate.yml",
+]
+state_class = "stateful"
+timeout_seconds = 600
+expected_runtime_seconds = 180
+tools = ["bun", "node"]
+services = []
+generated_outputs = [
+  "node_modules/.cache/storybook/**",
+  "node_modules/.vite/**",
+  "playwright-report/**",
+  "test-results/**",
+]
+cost_class = "high"
+success_exit_codes = [0]
+failure_semantics = "nonzero means a maintained Storybook interaction or browser component behavior regressed"
+independence_group = "storybook-vitest-browser"
+
+[[checks]]
+id = "lighthouse-full"
+command = ["bun", "run", "unlighthouse"]
+scope = ["**"]
+tier = "full"
+blocking = true
+evidence_classes = ["performance"]
+protected_properties = ["INV-006"]
+source_of_truth = [
+  "invariant:INV-006",
+  "repo:unlighthouse.config.ts",
+  "repo:.github/workflows/validate.yml",
+]
+state_class = "stateful"
+timeout_seconds = 900
+expected_runtime_seconds = 300
+tools = ["bun", "node"]
+services = []
+generated_outputs = [".unlighthouse/**", "examples/react/dist/**"]
+cost_class = "very-high"
+success_exit_codes = [0]
+failure_semantics = "nonzero means the maintained web-performance gate regressed or could not execute"
+independence_group = "unlighthouse-browser"
+
+[[checks]]
+id = "benchmark-full"
+command = ["bun", "run", "bench:check"]
+scope = ["**"]
+tier = "full"
+blocking = true
+evidence_classes = ["performance"]
+protected_properties = ["INV-006"]
+source_of_truth = [
+  "invariant:INV-006",
+  "repo:scripts/run-benchmark-baseline-check.mjs",
+  "repo:docs/performance-baselines.json",
+  "repo:.github/workflows/validate.yml",
+]
+state_class = "stateful"
+timeout_seconds = 600
+expected_runtime_seconds = 180
+tools = ["bun", "node", "npm"]
+services = []
+generated_outputs = ["benchmark-results/**"]
+cost_class = "high"
+success_exit_codes = [0]
+failure_semantics = "nonzero means a maintained benchmark exceeded its reviewed regression policy"
+independence_group = "benchmark-baseline"
+sensitivity = [
+  { property = "INV-006", status = "proven", method = "controlled-fault", reference = "repo:scripts/check-benchmark-baselines.test.mjs" },
+]
+
+[[checks]]
+id = "release-package-full"
+command = ["bun", "run", "size:check"]
+scope = ["**"]
+tier = "full"
+blocking = true
+evidence_classes = ["integration"]
+protected_properties = ["INV-004", "INV-006"]
+source_of_truth = [
+  "invariant:INV-004",
+  "invariant:INV-006",
+  "repo:package.json",
+  "repo:.github/workflows/validate.yml",
+  "repo:.github/workflows/publish.yml",
+]
+state_class = "deterministic"
+timeout_seconds = 360
+expected_runtime_seconds = 90
+tools = ["bun", "node"]
+services = []
+generated_outputs = ["dist/**"]
+cost_class = "medium"
+success_exit_codes = [0]
+failure_semantics = "nonzero means the distributable package cannot be built or its packed inventory cannot be produced"
+independence_group = "release-package-assembly"

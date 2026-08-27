@@ -1,0 +1,48 @@
+schema_version = 1
+profile_status = "active"
+project_id = "moritzbrantner/editor-core"
+default_base_ref = "origin/main"
+maturity = "maintained"
+project_kinds = ["library"]
+verification_surface_globs = [
+  ".oxlintrc.json",
+  ".harness/**",
+  ".github/workflows/**",
+  ".storybook/**",
+  "benchmarks/**",
+  "bun.lock",
+  "docs/api-report.md",
+  "docs/performance-baselines.json",
+  "examples/**",
+  "package.json",
+  "playwright.config.ts",
+  "scripts/**",
+  "src/**/*.test.ts",
+  "src/**/*.test.tsx",
+  "stories/**",
+  "tests/**",
+  "tsconfig.base.json",
+  "tsconfig.json",
+  "unlighthouse.config.ts",
+  "vitest.config.ts",
+  "vitest.storybook.config.ts",
+]
+generated_path_globs = [
+  ".unlighthouse/**",
+  "benchmark-results/**",
+  "coverage/**",
+  "dist/**",
+  "examples/react/dist/**",
+  "node_modules/.cache/storybook/**",
+  "node_modules/.vite/**",
+  "playwright-report/**",
+  "storybook-static/**",
+  "test-results/**",
+]
+selection_fallback_ids = []
+
+[required_risk_categories]
+api = ["INV-003"]
+consumer = ["INV-004"]
+exports = ["INV-001", "INV-004"]
+semver = ["INV-003"]

@@ -14,4 +14,5 @@ PRD issues use `prd`.
 
 Agent-loop operational state is tracked with `agent-loop:*` labels.
 
-Use `ready-for-agent` for work that is fully specified for automated implementation; do not introduce obsolete aliases.
+Use `ready-for-agent` for work that is fully specified for automated implementation; do not
+introduce obsolete aliases.

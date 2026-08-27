@@ -9,3 +9,6 @@ storybook-static/
 unlighthouse-reports/
 benchmark-results/
 performance-results/
+/.agent-loop/
+/.agent-loop/verification/
+__pycache__/
