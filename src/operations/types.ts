@@ -64,9 +64,7 @@ export type ApplyEditorOperationOptions = {
   merge?: boolean;
 };
 
-export type EditorOperationApplyMode = "local" | "interaction" | "remote";
-
-export type ApplyEditorOperationModeOptions = {
+export type ApplyEditorInteractionOperationOptions = {
   origin?: EditorChangeOrigin;
 };
 
