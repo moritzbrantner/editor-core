@@ -1,7 +1,6 @@
 import { bench, describe } from "vitest";
 import { createEditorAspect } from "../src/aspects.js";
 import { createEditorEntityDocument } from "../src/entities.js";
-import { createEditorGraphIndexes, createEditorTimelineIndexes } from "../src/indexes.js";
 import {
   applyEditorOperation,
   createEditorOperationRuntime,
@@ -23,7 +22,7 @@ type RuntimeBenchmarkDocument = {
 };
 
 type OperationBenchmarkDocument = {
-  nodes: Record<string, { x: number; y: number }>;
+  items: Record<string, { x: number; y: number }>;
 };
 
 const runtimeBenchmarkDocument: RuntimeBenchmarkDocument = {
@@ -48,22 +47,6 @@ const firstBlockAspect = createEditorAspect<RuntimeBenchmarkDocument, string>({
   },
 });
 
-const graphEdges = Array.from({ length: 2_000 }, (_, index) => ({
-  id: `edge-${index}`,
-  sourceId: `node-${index % 500}`,
-  targetId: `node-${(index + 1) % 500}`,
-}));
-
-const timelineItems = Array.from({ length: 2_000 }, (_, index) => ({
-  id: `clip-${index}`,
-  range: {
-    end: (index % 200) + 5,
-    start: index % 200,
-  },
-  trackId: `track-${index % 50}`,
-  type: "clip",
-}));
-
 const viewport: EditorViewportState = { x: 320, y: -120, zoom: 1.75 };
 const viewportPoints = Array.from({ length: 1_000 }, (_, index) => ({
   x: index * 3,
@@ -74,7 +57,7 @@ const selectionEntityDocument = createEditorEntityDocument(
   Array.from({ length: 2_000 }, (_, index) => ({
     id: `entity-${index}`,
     order: index,
-    type: "layer",
+    type: "item",
   })),
 );
 const selection = createEditorEntitySelection([
@@ -113,17 +96,17 @@ const operationUndoRedoRuntime = Array.from({ length: 100 }, (_, index) => index
   (runtime, index) =>
     applyEditorOperation(runtime, {
       apply: (document) => ({
-        nodes: {
+        items: {
           a: {
             x: index,
-            y: document.nodes.a.y,
+            y: document.items.a.y,
           },
         },
       }),
       id: `move-${index}`,
     }),
   createEditorOperationRuntime<OperationBenchmarkDocument>({
-    initialDocument: { nodes: { a: { x: 0, y: 0 } } },
+    initialDocument: { items: { a: { x: 0, y: 0 } } },
   }),
 );
 
@@ -159,9 +142,9 @@ describe("editor-core critical path benchmarks", () => {
     consumeBenchmarkResult(runtime.revision);
   });
 
-  bench("operation runtime merged drag sequence", () => {
+  bench("operation runtime merged interaction sequence", () => {
     let runtime = createEditorOperationRuntime<OperationBenchmarkDocument>({
-      initialDocument: { nodes: { a: { x: 0, y: 0 } } },
+      initialDocument: { items: { a: { x: 0, y: 0 } } },
     });
 
     for (let index = 0; index < 100; index += 1) {
@@ -169,15 +152,15 @@ describe("editor-core critical path benchmarks", () => {
         runtime,
         {
           apply: (document) => ({
-            nodes: {
+            items: {
               a: {
                 x: index,
-                y: document.nodes.a.y,
+                y: document.items.a.y,
               },
             },
           }),
-          id: "drag-node",
-          mergeKey: "drag:a",
+          id: "move-item",
+          mergeKey: "move:a",
         },
         { merge: true },
       );
@@ -189,17 +172,9 @@ describe("editor-core critical path benchmarks", () => {
     let total = 0;
     for (let index = 0; index < 100; index += 1) {
       const undone = undoEditorOperationRuntime(operationUndoRedoRuntime);
-      total += redoEditorOperationRuntime(undone).runtime.document.nodes.a.x;
+      total += redoEditorOperationRuntime(undone).runtime.document.items.a.x;
     }
     consumeBenchmarkResult(total);
-  });
-
-  bench("graph indexes", () => {
-    consumeBenchmarkResult(createEditorGraphIndexes(graphEdges).edgesById.size);
-  });
-
-  bench("timeline indexes", () => {
-    consumeBenchmarkResult(createEditorTimelineIndexes(timelineItems).trackItemsByTrackId.size);
   });
 
   bench("viewport bulk coordinate transforms", () => {
@@ -214,10 +189,7 @@ describe("editor-core critical path benchmarks", () => {
 
   bench("selection normalize large entity set", () => {
     consumeBenchmarkResult(
-      normalizeEditorSelection(
-        selection,
-        (id) => selectionEntityDocument.entities[id] !== undefined,
-      ),
+      normalizeEditorSelection(selection, (id) => selectionEntityDocument.entities[id] !== undefined),
     );
   });
 
@@ -234,10 +206,7 @@ describe("editor-core critical path benchmarks", () => {
               },
               schemaVersion: 2,
             }),
-            2: (input) => ({
-              ...input,
-              schemaVersion: 3,
-            }),
+            2: (input) => ({ ...input, schemaVersion: 3 }),
           },
         }),
       );
