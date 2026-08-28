@@ -1,48 +1,33 @@
 # Editor Core
 
-Editor Core provides headless editor state, persistence, synchronization, and React integration
-vocabulary for downstream editor packages.
+Editor Core is a headless, domain-neutral editing kernel for downstream editor packages.
+
+It owns mechanics that are useful regardless of whether a consumer edits a graph, timeline, layer tree, document, or another domain. It must not define those domains itself.
 
 ## Language
 
 **Runtime**:
-The current editor document with its selection, revision, save status, validation issues, and undo
-capability. A runtime is the state a user is actively editing.
-_Avoid_: Store, model, editor instance
+The current arbitrary document plus caller-owned selection, revision, dirty/save status, validation issues, and undo capability.
 
 **Operation Runtime**:
-A runtime that applies semantic editor operations and tracks undoable operation transactions.
-_Avoid_: Operation store, editor operation service
-
-**Remote Apply**:
-Applying operations received from another client without adding them to the local undo history.
-_Avoid_: Remote patch, server replay
+A runtime that applies caller-defined semantic operations and tracks undoable operation transactions.
 
 **Command Runtime**:
-A runtime that resolves, diagnoses, and executes editor commands from hotkey events under shared
-disabled, read-only, scope, and editable-target policy.
-_Avoid_: Shortcut handler, keydown service
+A runtime that resolves, diagnoses, and executes editor commands under shared disabled, read-only, scope, and editable-target policy.
 
 **Persistence State**:
-The load/save status that describes how a runtime relates to stored data. It records operation,
-error, timestamps, saved revision, in-flight revision, and optional conflict information.
-_Avoid_: Save status, storage state
+The load/save status that describes how a runtime relates to stored data, including optional revision tokens and save conflicts.
 
 **Persistent Runtime**:
-A runtime coordinated with persistence state and storage so it can load, save, skip clean saves, and
-recover from save failures.
-_Avoid_: Saved editor, persisted editor
+A runtime coordinated with persistence state and storage so it can load, save, skip clean saves, and recover from save failures.
 
 **Autosave**:
-Automatic persistence of a dirty runtime after a delay, with optional retry and latest-revision
-follow-up behavior.
-_Avoid_: Auto persistence, background save
+Automatic persistence of a dirty runtime after a delay, with optional retry and latest-revision follow-up behavior.
 
-**Revision Token**:
-A storage-provided version marker used to detect stale saves in conflict-aware persistence.
-_Avoid_: ETag, version, cursor
+## Boundary
 
-**Conflict-Aware Persistence**:
-Persistence that uses revision tokens and exposes stale-save conflicts without marking the local
-runtime clean.
-_Avoid_: Server persistence, optimistic save
+Editor Core may know about generic documents, operations, history, commands, persistence, entity identities, tree projections, generic 2D viewport math, and generic React bindings.
+
+Editor Core must not know about graph nodes/edges/ports, workflows/DAGs, timeline tracks/clips/time ranges, media processing, or collaboration protocols. Those semantics belong to the specialization or product that owns them.
+
+A useful check for new core APIs: they should still make sense for an editor whose document is `{ text: string }` and whose selection is `{ start: number; end: number }`.
