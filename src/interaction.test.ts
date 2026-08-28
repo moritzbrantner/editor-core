@@ -11,7 +11,7 @@ import {
 import { createEditorOperationRuntime, undoEditorOperationRuntime } from "./operations.js";
 
 describe("editor interactions", () => {
-  test("begins, previews, commits, and cancels sessions", () => {
+  test("begins, previews, commits, and cancels caller-owned sessions", () => {
     const session = createEditorInteractionSession({ x: 0 });
     const dragging = beginEditorInteraction(session, {
       ids: ["a"],
@@ -23,26 +23,24 @@ describe("editor interactions", () => {
     expect(commitEditorInteraction({ ...dragging, previewDocument: { x: 10 } })).toEqual({
       committedDocument: { x: 10 },
       previewDocument: { x: 10 },
-      state: { kind: "idle" },
+      state: null,
     });
     expect(cancelEditorInteraction({ ...dragging, previewDocument: { x: 10 } })).toEqual(session);
   });
 
-  test("updates previews without mutating the committed document or interaction state", () => {
-    const session = beginEditorInteraction(createEditorInteractionSession({ x: 0 }), {
-      ids: ["a"],
-      kind: "dragging" as const,
-      origin: { x: 0, y: 0 },
-    });
+  test("updates previews without mutating the committed document or caller state", () => {
+    const state = { kind: "domain-interaction" as const, payload: { id: "a" } };
+    const session = beginEditorInteraction(createEditorInteractionSession({ x: 0 }), state);
 
     const preview = updateEditorInteractionPreview(session, { x: 10 });
 
     expect(preview).toEqual({
       committedDocument: { x: 0 },
       previewDocument: { x: 10 },
-      state: session.state,
+      state,
     });
     expect(session.previewDocument).toEqual({ x: 0 });
+    expect(isEditorInteractionActive(null)).toBe(false);
   });
 
   test("commits interaction operations as mergeable transactions", () => {
