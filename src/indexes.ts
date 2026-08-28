@@ -1,10 +1,4 @@
-import type {
-  EditorEntityBase,
-  EditorEntityDocument,
-  EditorEntityId,
-  EditorGraphEdge,
-  EditorTimelineItem,
-} from "./entities.js";
+import type { EditorEntityBase, EditorEntityDocument, EditorEntityId } from "./entities.js";
 import type { EditorParseIssue } from "./serialization.js";
 
 export type EditorEntityIndexes<TEntity extends EditorEntityBase = EditorEntityBase> = {
@@ -12,16 +6,6 @@ export type EditorEntityIndexes<TEntity extends EditorEntityBase = EditorEntityB
   childrenByParentId: ReadonlyMap<EditorEntityId | null, readonly TEntity[]>;
   parentByChildId: ReadonlyMap<EditorEntityId, EditorEntityId | null>;
   orderedRootIds: readonly EditorEntityId[];
-};
-
-export type EditorGraphIndexes<TEdge extends EditorGraphEdge = EditorGraphEdge> = {
-  edgesById: ReadonlyMap<EditorEntityId, TEdge>;
-  incomingEdgesByNodeId: ReadonlyMap<EditorEntityId, readonly TEdge[]>;
-  outgoingEdgesByNodeId: ReadonlyMap<EditorEntityId, readonly TEdge[]>;
-};
-
-export type EditorTimelineIndexes<TItem extends EditorTimelineItem = EditorTimelineItem> = {
-  trackItemsByTrackId: ReadonlyMap<EditorEntityId, readonly TItem[]>;
 };
 
 export function createEditorEntityIndexes<TEntity extends EditorEntityBase>(
@@ -58,41 +42,6 @@ export function createEditorEntityIndexes<TEntity extends EditorEntityBase>(
     orderedRootIds,
     parentByChildId,
   };
-}
-
-export function createEditorGraphIndexes<TEdge extends EditorGraphEdge>(
-  edges: readonly TEdge[],
-): EditorGraphIndexes<TEdge> {
-  const edgesById = new Map<EditorEntityId, TEdge>();
-  const incomingEdgesByNodeId = new Map<EditorEntityId, TEdge[]>();
-  const outgoingEdgesByNodeId = new Map<EditorEntityId, TEdge[]>();
-
-  for (const edge of edges) {
-    edgesById.set(edge.id, edge);
-    pushMapArray(incomingEdgesByNodeId, edge.targetId, edge);
-    pushMapArray(outgoingEdgesByNodeId, edge.sourceId, edge);
-  }
-
-  return {
-    edgesById,
-    incomingEdgesByNodeId,
-    outgoingEdgesByNodeId,
-  };
-}
-
-export function createEditorTimelineIndexes<TItem extends EditorTimelineItem>(
-  items: readonly TItem[],
-): EditorTimelineIndexes<TItem> {
-  const trackItemsByTrackId = new Map<EditorEntityId, TItem[]>();
-  for (const item of items) {
-    pushMapArray(trackItemsByTrackId, item.trackId, item);
-  }
-
-  for (const trackItems of trackItemsByTrackId.values()) {
-    trackItems.sort((left, right) => left.range.start - right.range.start);
-  }
-
-  return { trackItemsByTrackId };
 }
 
 export function groupEditorValidationIssuesByEntityId(
