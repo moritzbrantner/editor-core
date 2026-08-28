@@ -6,12 +6,6 @@ export type EditorViewportState = {
   zoom: number;
 };
 
-export type EditorTimelineViewportState = {
-  start: number;
-  end: number;
-  pixelsPerUnit: number;
-};
-
 export type EditorViewportClamp = {
   minZoom?: number;
   maxZoom?: number;
@@ -190,50 +184,6 @@ export function revealEditorBounds(
 ): EditorViewportState | null {
   const union = unionEditorBounds(bounds);
   return union ? fitEditorBoundsInViewport(union, options) : null;
-}
-
-export function createEditorTimelineViewportState(
-  state: Partial<EditorTimelineViewportState> = {},
-): EditorTimelineViewportState {
-  const start = state.start ?? 0;
-  const end = Math.max(start, state.end ?? start + 1);
-  const pixelsPerUnit = state.pixelsPerUnit ?? 1;
-  return { end, pixelsPerUnit, start };
-}
-
-export function editorTimeToPixel(time: number, viewport: EditorTimelineViewportState): number {
-  return (time - viewport.start) * viewport.pixelsPerUnit;
-}
-
-export function editorPixelToTime(pixel: number, viewport: EditorTimelineViewportState): number {
-  return viewport.start + pixel / viewport.pixelsPerUnit;
-}
-
-export function panEditorTimelineViewport(
-  viewport: EditorTimelineViewportState,
-  deltaUnits: number,
-): EditorTimelineViewportState {
-  return {
-    ...viewport,
-    end: viewport.end + deltaUnits,
-    start: viewport.start + deltaUnits,
-  };
-}
-
-export function zoomEditorTimelineViewportAtPixel(
-  viewport: EditorTimelineViewportState,
-  pixelsPerUnit: number,
-  pixel: number,
-): EditorTimelineViewportState {
-  const anchorTime = editorPixelToTime(pixel, viewport);
-  const nextPixelsPerUnit = Math.max(Number.EPSILON, pixelsPerUnit);
-  const start = anchorTime - pixel / nextPixelsPerUnit;
-  const duration = (viewport.end - viewport.start) * (viewport.pixelsPerUnit / nextPixelsPerUnit);
-  return {
-    end: start + duration,
-    pixelsPerUnit: nextPixelsPerUnit,
-    start,
-  };
 }
 
 function clampZoom(zoom: number, clamp: EditorViewportClamp = {}): number {
