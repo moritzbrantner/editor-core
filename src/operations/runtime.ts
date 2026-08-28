@@ -13,8 +13,8 @@ import {
   type EditorRuntimeSelection,
 } from "../runtime.js";
 import type {
+  ApplyEditorInteractionOperationOptions,
   ApplyEditorOperationOptions,
-  ApplyEditorOperationModeOptions,
   EditorOperation,
   EditorOperationPreflightIssue,
   EditorOperationRuntimeOptions,
@@ -116,32 +116,9 @@ export function applyEditorOperation<TDocument, TSelection = unknown>(
 export function applyEditorInteractionOperation<TDocument, TSelection = unknown>(
   state: EditorOperationRuntimeState<TDocument, TSelection>,
   operation: EditorOperation<TDocument, TSelection>,
-  options: ApplyEditorOperationModeOptions = {},
+  options: ApplyEditorInteractionOperationOptions = {},
 ): EditorOperationRuntimeState<TDocument, TSelection> {
-  return applyEditorOperation(state, withOperationModeOrigin(operation, options), { merge: true });
-}
-
-export function applyEditorRemoteOperation<TDocument, TSelection = unknown>(
-  state: EditorOperationRuntimeState<TDocument, TSelection>,
-  operation: EditorOperation<TDocument, TSelection>,
-  options: ApplyEditorOperationModeOptions = {},
-): EditorOperationRuntimeState<TDocument, TSelection> {
-  const nextState = applyEditorOperation(state, withOperationModeOrigin(operation, options), {
-    merge: false,
-  });
-
-  if (nextState.issues.some((issue) => issue.severity !== "warning")) {
-    return nextState;
-  }
-
-  return withOperationRuntimeFlags(
-    {
-      ...nextState,
-      lastMergeKey: null,
-      operationHistory: state.operationHistory,
-    },
-    getOperationRuntimeOptions(state),
-  );
+  return applyEditorOperation(state, withOperationOrigin(operation, options.origin), { merge: true });
 }
 
 export function undoEditorOperationRuntime<TDocument, TSelection = unknown>(
@@ -198,18 +175,11 @@ export function redoEditorOperationRuntime<TDocument, TSelection = unknown>(
   );
 }
 
-function withOperationModeOrigin<TDocument, TSelection>(
+function withOperationOrigin<TDocument, TSelection>(
   operation: EditorOperation<TDocument, TSelection>,
-  options: ApplyEditorOperationModeOptions,
+  origin: EditorChangeOrigin | undefined,
 ): EditorOperation<TDocument, TSelection> {
-  if (options.origin === undefined) {
-    return operation;
-  }
-
-  return {
-    ...operation,
-    origin: options.origin,
-  };
+  return origin === undefined ? operation : { ...operation, origin };
 }
 
 function pushOrMergeOperationTransaction<TDocument, TSelection>(
@@ -259,8 +229,7 @@ function preflightEditorOperation<TDocument, TSelection>(
 ): readonly EditorOperationPreflightIssue[] {
   const options = getOperationRuntimeOptions(state);
   return (
-    options.preflight?.({ document: state.runtime.document, operation, runtime: state.runtime }) ??
-    []
+    options.preflight?.({ document: state.runtime.document, operation, runtime: state.runtime }) ?? []
   );
 }
 
@@ -282,10 +251,7 @@ function getOperationRuntimeOptions<TDocument, TSelection>(
 ): EditorOperationRuntimeOptions<TDocument, TSelection> {
   const options = operationRuntimeOptionsByState.get(state);
   if (!options) {
-    throw new Error(
-      "Editor operation runtime state must be created by createEditorOperationRuntime.",
-    );
+    throw new Error("Editor operation runtime state must be created by createEditorOperationRuntime.");
   }
-
   return options as EditorOperationRuntimeOptions<TDocument, TSelection>;
 }
