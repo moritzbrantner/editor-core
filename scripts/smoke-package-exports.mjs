@@ -1,6 +1,5 @@
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
-import { existsSync } from "node:fs";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
@@ -11,7 +10,6 @@ const execFileAsync = promisify(execFile);
 const rootDir = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const tempDir = await mkdtemp(join(tmpdir(), "editor-core-smoke-"));
 const node = process.execPath;
-const compatNode = process.env.EDITOR_CORE_COMPAT_NODE_BIN ?? node;
 const npmSmokeEnv = { ...process.env, npm_config_dry_run: "false" };
 
 try {
@@ -28,8 +26,8 @@ try {
   await rm(tempDir, { force: true, recursive: true });
 }
 
-async function smokeHeadlessConsumer(tarball) {
-  const consumerDir = join(tempDir, "headless-consumer");
+async function createConsumer(name, tarball) {
+  const consumerDir = join(tempDir, name);
   await mkdir(consumerDir, { recursive: true });
   await writeJson(join(consumerDir, "package.json"), {
     dependencies: {
@@ -42,8 +40,11 @@ async function smokeHeadlessConsumer(tarball) {
     cwd: consumerDir,
     env: npmSmokeEnv,
   });
+  return consumerDir;
+}
 
-  assert.equal(existsSync(join(consumerDir, "node_modules", "react")), false);
+async function smokeHeadlessConsumer(tarball) {
+  const consumerDir = await createConsumer("headless-consumer", tarball);
 
   await writeFile(
     join(consumerDir, "node-esm.mjs"),
@@ -53,46 +54,47 @@ async function smokeHeadlessConsumer(tarball) {
       import { stableEditorJsonStringify } from "@moenarch/editor-core/json";
       import { serializeEditorDocument } from "@moenarch/editor-core/serialization";
       import { checkEditorDocumentAdapter } from "@moenarch/editor-core/testing";
-      import { matchesEditorHotkey } from "@moenarch/editor-core/hotkeys";
       import { projectEditorTree } from "@moenarch/editor-core/tree";
-      import { createEditorAspect } from "@moenarch/editor-core/aspects";
-      import { editorShareUrl } from "@moenarch/editor-core/share";
-      import { ensureEditorJsonFilename } from "@moenarch/editor-core/browser";
-      import { createEditorSnapshotHistoryCommands } from "@moenarch/editor-core/commands";
-      import { validateEditorGraphConnection } from "@moenarch/editor-core/constraints";
       import { createEditorEntityDocument, createUniqueEditorId } from "@moenarch/editor-core/entities";
       import { createEditorEntityIndexes } from "@moenarch/editor-core/indexes";
-      import { createEditorInteractionSession } from "@moenarch/editor-core/interaction";
-      import { createEditorOperationRuntime } from "@moenarch/editor-core/operations";
+      import { createEditorOperationRuntime, applyEditorInteractionOperation } from "@moenarch/editor-core/operations";
       import { createEditorEntitySelection } from "@moenarch/editor-core/selection";
-      import { createEditorViewportState } from "@moenarch/editor-core/viewport";
-      import { createEditorCollaborationState } from "@moenarch/editor-core/collaboration";
+      import { createEditorViewportState, snapEditorValue } from "@moenarch/editor-core/viewport";
       import { applyEditorPatch, diffEditorJson } from "@moenarch/editor-core/patches";
       import { createEditorPluginRegistry } from "@moenarch/editor-core/plugins";
-      import { applyEditorRemoteOperations } from "@moenarch/editor-core/sync";
-      import {
-        EditorPersistenceConflictError,
-        saveEditorRuntimeConflictPersistence,
-      } from "@moenarch/editor-core/persistence";
+      import { EditorPersistenceConflictError } from "@moenarch/editor-core/persistence";
 
       if ("useEditorHotkeys" in core || "useEditorTreeState" in core) {
         throw new Error("React hooks leaked from the root entrypoint");
       }
       if (
-        typeof core.createEditorCollaborationState !== "function" ||
-        typeof core.createUniqueEditorId !== "function" ||
-        typeof core.diffEditorJson !== "function" ||
-        typeof core.createEditorPluginRegistry !== "function" ||
-        typeof core.saveEditorRuntimeConflictPersistence !== "function"
+        "createEditorCollaborationState" in core ||
+        "applyEditorRemoteOperation" in core ||
+        "applyEditorRemoteOperations" in core ||
+        "editorShareUrl" in core ||
+        "validateEditorGraphConnection" in core ||
+        "validateEditorTimelineRange" in core ||
+        "createEditorGraphIndexes" in core ||
+        "createEditorTimelineIndexes" in core ||
+        "editorTimeToPixel" in core
       ) {
-        throw new Error("New headless helpers are missing from the root entrypoint");
+        throw new Error("Domain or collaboration semantics leaked into the generic root entrypoint");
       }
-      if ("applyEditorRemoteOperations" in core) {
-        throw new Error("Sync helpers leaked from the root entrypoint");
+
+      for (const removedSubpath of ["collaboration", "sync", "share"]) {
+        let rejected = false;
+        try {
+          await import("@moenarch/editor-core/" + removedSubpath);
+        } catch (error) {
+          rejected = error?.code === "ERR_PACKAGE_PATH_NOT_EXPORTED" || error?.code === "ERR_MODULE_NOT_FOUND";
+        }
+        if (!rejected) {
+          throw new Error("Removed subpath is still importable: " + removedSubpath);
+        }
       }
 
       const history = createEditorSnapshotHistory({ title: "Draft" });
-      const tree = projectEditorTree({ title: "Draft" }, {
+      const tree = projectEditorTree(history.present, {
         getRoot(document) {
           return { id: "document", label: document.title };
         },
@@ -103,93 +105,52 @@ async function smokeHeadlessConsumer(tarball) {
         normalize: (document) => document,
         read: (input) => input,
       };
-
-      stableEditorJsonStringify({ b: 2, a: 1 });
-      serializeEditorDocument({ title: "Draft" }, adapter, { exportedAt: false });
       const adapterCheck = checkEditorDocumentAdapter(adapter, {
         expected: { title: "Draft" },
         id: "smoke",
         input: { title: "Draft" },
         roundtrip: true,
       });
-      matchesEditorHotkey({ altKey: false, ctrlKey: true, key: "z", metaKey: false, shiftKey: false, target: null }, "Mod+Z");
-      createEditorAspect({ id: "title", derive: ({ document }) => document.title });
-      editorShareUrl("https://example.com", "/editor", "plain.token");
-      ensureEditorJsonFilename("document");
-      createEditorSnapshotHistoryCommands({
-        getResetDocument: () => history.present,
-        history,
-        setHistory() {},
-      });
-      const entityDocument = createEditorEntityDocument([{ id: "node", type: "node" }]);
-      const uniqueEntityId = createUniqueEditorId("node", []);
+
+      stableEditorJsonStringify({ b: 2, a: 1 });
+      serializeEditorDocument(history.present, adapter, { exportedAt: false });
+      const entityDocument = createEditorEntityDocument([{ id: "item", type: "item" }]);
       const indexes = createEditorEntityIndexes(entityDocument);
-      const interaction = createEditorInteractionSession(history.present);
-      const operationRuntime = createEditorOperationRuntime({ initialDocument: history.present });
-      const selection = createEditorEntitySelection(["node"]);
+      const uniqueEntityId = createUniqueEditorId("item", []);
+      const selection = createEditorEntitySelection(["item"]);
       const viewport = createEditorViewportState({ zoom: 2 });
-      const graphIssues = validateEditorGraphConnection({ sourceId: "node", targetId: "node" });
-      const collaboration = createEditorCollaborationState({ clientId: "client-a" });
+      const snap = snapEditorValue(9, [{ value: 10 }], 2);
+      let runtime = createEditorOperationRuntime({ initialDocument: { value: 0 } });
+      runtime = applyEditorInteractionOperation(runtime, {
+        id: "set-value",
+        mergeKey: "value",
+        apply: () => ({ value: 1 }),
+      });
       const patch = diffEditorJson({ title: "Draft" }, { title: "Published" });
       const patched = applyEditorPatch({ title: "Draft" }, patch);
       const registry = createEditorPluginRegistry([{ id: "smoke-plugin" }]);
-      const remoteApplied = applyEditorRemoteOperations(
-        history.present,
-        collaboration,
-        [{ clientId: "client-b", id: "remote-op", operation: { title: "Remote" } }],
-        {
-          decode: (envelope) => envelope.operation,
-          apply: (_state, operation) => operation,
-        },
-      );
-      const dirtyRuntime = core.commitEditorRuntime(
-        core.createEditorRuntime({ initialDocument: { title: "Draft" } }),
-        { title: "Saved" },
-      );
-      let savedRevisionToken;
-      const conflictStorage = {
-        load: () => ({ document: { title: "Draft" }, revisionToken: "server-1" }),
-        save(value) {
-          savedRevisionToken = value.revisionToken;
-          return { document: value.document, revisionToken: "server-2" };
-        },
-      };
-      const conflictSaved = await saveEditorRuntimeConflictPersistence(dirtyRuntime, conflictStorage, {
-        revisionToken: "server-1",
-      });
       const conflict = new EditorPersistenceConflictError("stale revision", {
-        local: { document: dirtyRuntime.document, revisionToken: "server-1" },
+        local: { document: history.present, revisionToken: "server-1" },
       });
 
-      if (tree.root.id !== "document") {
-        throw new Error("Tree projection failed");
-      }
-      if (!adapterCheck.ok || uniqueEntityId !== "node" || !indexes.entitiesById.has("node") || interaction.state.kind !== "idle" || operationRuntime.canUndo || selection.kind !== "entity" || viewport.zoom !== 2 || graphIssues.length === 0) {
-        throw new Error("New foundation subpaths failed");
-      }
-      if (collaboration.clientId !== "client-a" || patched.title !== "Published" || registry.plugins.length !== 1 || remoteApplied.state.title !== "Remote" || !conflictSaved.saved || conflictSaved.persistence.revisionToken !== "server-2" || savedRevisionToken !== "server-1" || conflict.name !== "EditorPersistenceConflictError") {
-        throw new Error("New release subpaths failed");
+      if (
+        tree.root.id !== "document" ||
+        !adapterCheck.ok ||
+        uniqueEntityId !== "item" ||
+        !indexes.entitiesById.has("item") ||
+        selection.kind !== "entity" ||
+        viewport.zoom !== 2 ||
+        snap.value !== 10 ||
+        runtime.runtime.document.value !== 1 ||
+        patched.title !== "Published" ||
+        registry.plugins.length !== 1 ||
+        conflict.name !== "EditorPersistenceConflictError"
+      ) {
+        throw new Error("Generic editor-kernel package smoke failed");
       }
     `,
   );
   await execFileAsync(node, [join(consumerDir, "node-esm.mjs")], { cwd: consumerDir });
-
-  await writeFile(
-    join(consumerDir, "node-compat.mjs"),
-    `
-      import { decodeEditorSharePayload, encodeEditorSharePayload } from "@moenarch/editor-core/share";
-
-      delete globalThis.atob;
-      delete globalThis.btoa;
-
-      const token = await encodeEditorSharePayload({ value: "compat" });
-      const decoded = await decodeEditorSharePayload(token);
-      if (decoded.value !== "compat") {
-        throw new Error("Share token compatibility round-trip failed");
-      }
-    `,
-  );
-  await execFileAsync(compatNode, [join(consumerDir, "node-compat.mjs")], { cwd: consumerDir });
 
   await writeFile(
     join(consumerDir, "types.ts"),
@@ -197,181 +158,61 @@ async function smokeHeadlessConsumer(tarball) {
       import {
         applyEditorInteractionOperation,
         applyEditorOperation,
-        applyEditorRemoteOperation,
         commitEditorRuntime,
-        createEditorRuntime,
-        createEditorSnapshotHistory,
         createEditorOperationRuntime,
-        markEditorRuntimeSaved,
+        createEditorRuntime,
         redoEditorOperationRuntime,
-        redoEditorRuntime,
         resetEditorRuntime,
         setEditorRuntimeSelection,
+        undoEditorOperationRuntime,
         type EditorOperationRuntimeState,
         type EditorRuntimeState,
-        type EditorSnapshotHistory,
-        type EditorGraphAdapter,
-        undoEditorOperationRuntime,
-        undoEditorRuntime,
-        validateEditorRuntime,
       } from "@moenarch/editor-core";
-      import type {
-        EditorCollaborationState,
-        EditorRemoteOperation,
-      } from "@moenarch/editor-core/collaboration";
-      import type { EditorPatch } from "@moenarch/editor-core/patches";
-      import type { EditorPlugin } from "@moenarch/editor-core/plugins";
-      import type { EditorConflictStorageAdapter } from "@moenarch/editor-core/persistence";
-      import type { EditorRemoteApplyAdapter } from "@moenarch/editor-core/sync";
-      import type { EditorDocumentAdapterCheckCase } from "@moenarch/editor-core/testing";
-      import type { EditorTreeAdapter } from "@moenarch/editor-core/tree";
 
       type Document = { title: string };
-      type Selection = { focus: string };
-      const history: EditorSnapshotHistory<Document> = createEditorSnapshotHistory({ title: "Draft" });
-      const editorRuntime = createEditorRuntime<Document, Selection>({
+      type Selection = { start: number; end: number };
+
+      const runtime = createEditorRuntime<Document, Selection>({
         initialDocument: { title: "Draft" },
-        initialSelection: { focus: "title" },
+        initialSelection: { start: 0, end: 0 },
       });
-      // @ts-expect-error Runtime state is opaque and cannot be copied with object spread.
-      const copiedEditorRuntime: EditorRuntimeState<Document, Selection> = { ...editorRuntime };
+      // @ts-expect-error Runtime state is opaque and cannot be copied into a fresh runtime value.
+      const copiedRuntime: EditorRuntimeState<Document, Selection> = { ...runtime };
       // @ts-expect-error Runtime-owned fields are readonly.
-      editorRuntime.revision = 1;
-      // @ts-expect-error Runtime-owned history stacks are readonly.
-      editorRuntime.history.past.push(editorRuntime.document);
-      // @ts-expect-error Runtime-owned aspect maps are readonly.
-      editorRuntime.aspectSnapshot.aspects.manual = {
-        changed: true,
-        id: "manual",
-        value: 1,
-      };
-      // Generic documents remain caller-owned rather than recursively readonly.
-      editorRuntime.document.title = "Caller-owned";
-      // Generic selections also remain caller-owned rather than recursively readonly.
-      if (editorRuntime.selection) editorRuntime.selection.focus = "body";
-      const committedRuntime: EditorRuntimeState<Document, Selection> = commitEditorRuntime(editorRuntime, {
+      runtime.revision = 1;
+      const committed: EditorRuntimeState<Document, Selection> = commitEditorRuntime(runtime, {
         title: "Committed",
       });
-      const resetRuntime: EditorRuntimeState<Document, Selection> = resetEditorRuntime(editorRuntime, {
+      const reset: EditorRuntimeState<Document, Selection> = resetEditorRuntime(runtime, {
         title: "Reset",
       });
-      const selectedRuntime: EditorRuntimeState<Document, Selection> = setEditorRuntimeSelection(
-        editorRuntime,
-        { focus: "title" },
-      );
-      const savedRuntime: EditorRuntimeState<Document, Selection> = markEditorRuntimeSaved(editorRuntime);
-      const validatedRuntime: EditorRuntimeState<Document, Selection> = validateEditorRuntime(editorRuntime);
-      const undoneRuntime: EditorRuntimeState<Document, Selection> = undoEditorRuntime(editorRuntime);
-      const redoneRuntime: EditorRuntimeState<Document, Selection> = redoEditorRuntime(editorRuntime);
-      // @ts-expect-error Runtime state cannot be manually constructed from public fields.
-      const manualEditorRuntime: EditorRuntimeState<Document, Selection> = {
-        aspectSnapshot: editorRuntime.aspectSnapshot,
-        canRedo: editorRuntime.canRedo,
-        canUndo: editorRuntime.canUndo,
-        document: editorRuntime.document,
-        history: editorRuntime.history,
-        issues: editorRuntime.issues,
-        revision: editorRuntime.revision,
-        savedRevision: editorRuntime.savedRevision,
-        selection: editorRuntime.selection,
-        status: editorRuntime.status,
-      };
-      const adapter: EditorTreeAdapter<Document> = {
-        getRoot(document) {
-          return { id: "document", label: document.title };
-        },
-      };
-      const runtime = createEditorOperationRuntime({ initialDocument: { title: "Draft" } });
-      // @ts-expect-error Operation Runtime state has its own opaque identity.
-      const copiedOperationRuntime: EditorOperationRuntimeState<Document> = { ...runtime };
-      // @ts-expect-error Operation Runtime-owned fields are readonly.
-      runtime.canUndo = true;
-      // @ts-expect-error Operation Runtime-owned history stacks are readonly.
-      runtime.operationHistory.undoStack.push(runtime.operationHistory.redoStack[0]!);
-      const noopOperation = { apply: (document: Document) => document, id: "noop" };
-      const appliedOperationRuntime: EditorOperationRuntimeState<Document> = applyEditorOperation(
-        runtime,
-        noopOperation,
-      );
-      const interactionOperationRuntime: EditorOperationRuntimeState<Document> =
-        applyEditorInteractionOperation(runtime, noopOperation);
-      const remoteOperationRuntime: EditorOperationRuntimeState<Document> =
-        applyEditorRemoteOperation(runtime, noopOperation);
-      const undoneOperationRuntime: EditorOperationRuntimeState<Document> =
-        undoEditorOperationRuntime(runtime);
-      const redoneOperationRuntime: EditorOperationRuntimeState<Document> =
-        redoEditorOperationRuntime(runtime);
-      // @ts-expect-error Operation Runtime state cannot be manually constructed from public fields.
-      const manualOperationRuntime: EditorOperationRuntimeState<Document> = {
-        canRedo: runtime.canRedo,
-        canUndo: runtime.canUndo,
-        issues: runtime.issues,
-        lastMergeKey: runtime.lastMergeKey,
-        operationHistory: runtime.operationHistory,
-        runtime: runtime.runtime,
-      };
-      const graphAdapter: EditorGraphAdapter<
-        { nodes: Array<{ id: string; type: "node" }>; edges: Array<{ id: string; sourceId: string; targetId: string }> },
-        { id: string; type: "node" },
-        { id: string; sourceId: string; targetId: string }
-      > = {
-        getEdges: (document) => document.edges,
-        getNodes: (document) => document.nodes,
-      };
-      const adapterCase: EditorDocumentAdapterCheckCase<Document> = {
-        expected: { title: "Draft" },
-        id: "document",
-        input: { title: "Draft" },
-      };
-      const collaborationState: EditorCollaborationState<string> = {
-        clientId: "client-a",
-        presence: {},
-        revision: null,
-        seenOperationIds: [],
-      };
-      const remoteOperation: EditorRemoteOperation<{ type: "rename" }> = {
-        clientId: "client-b",
-        id: "op-1",
-        operation: { type: "rename" },
-      };
-      const patch: EditorPatch = [{ op: "replace", path: ["title"], value: "Published" }];
-      const plugin: EditorPlugin<Document, string> = { id: "metadata" };
-      const conflictStorage: EditorConflictStorageAdapter<Document> = {
-        load: () => ({ document: { title: "Draft" }, revisionToken: "server-1" }),
-        save: (value) => value,
-      };
-      const remoteAdapter: EditorRemoteApplyAdapter<Document, { title: string }, { title: string }> = {
-        decode: (envelope) => envelope.operation,
-        apply: (_state, operation) => operation,
-      };
+      const selected: EditorRuntimeState<Document, Selection> = setEditorRuntimeSelection(runtime, {
+        start: 1,
+        end: 2,
+      });
 
-      void history;
-      void copiedEditorRuntime;
-      void committedRuntime;
-      void resetRuntime;
-      void selectedRuntime;
-      void savedRuntime;
-      void validatedRuntime;
-      void undoneRuntime;
-      void redoneRuntime;
-      void manualEditorRuntime;
-      void adapter;
-      void runtime;
-      void copiedOperationRuntime;
-      void appliedOperationRuntime;
-      void interactionOperationRuntime;
-      void remoteOperationRuntime;
-      void undoneOperationRuntime;
-      void redoneOperationRuntime;
-      void manualOperationRuntime;
-      void graphAdapter;
-      void adapterCase;
-      void collaborationState;
-      void remoteOperation;
-      void patch;
-      void plugin;
-      void conflictStorage;
-      void remoteAdapter;
+      const editor = createEditorOperationRuntime<Document, Selection>({
+        initialDocument: { title: "Draft" },
+      });
+      const operation = { id: "rename", apply: () => ({ title: "Published" }) };
+      const applied: EditorOperationRuntimeState<Document, Selection> = applyEditorOperation(
+        editor,
+        operation,
+      );
+      const interacted: EditorOperationRuntimeState<Document, Selection> =
+        applyEditorInteractionOperation(editor, operation);
+      const undone: EditorOperationRuntimeState<Document, Selection> =
+        undoEditorOperationRuntime(applied);
+      const redone: EditorOperationRuntimeState<Document, Selection> =
+        redoEditorOperationRuntime(undone);
+
+      void copiedRuntime;
+      void committed;
+      void reset;
+      void selected;
+      void applied;
+      void interacted;
+      void redone;
     `,
   );
   await writeJson(join(consumerDir, "tsconfig.json"), {
@@ -386,26 +227,12 @@ async function smokeHeadlessConsumer(tarball) {
   await execFileAsync(
     node,
     [join(rootDir, "node_modules", "typescript", "bin", "tsc"), "-p", "tsconfig.json"],
-    {
-      cwd: consumerDir,
-    },
+    { cwd: consumerDir },
   );
 }
 
 async function smokeReactSubpath(tarball) {
-  const consumerDir = join(tempDir, "react-consumer");
-  await mkdir(consumerDir, { recursive: true });
-  await writeJson(join(consumerDir, "package.json"), {
-    dependencies: {
-      "@moenarch/editor-core": `file:${tarball}`,
-    },
-    private: true,
-    type: "module",
-  });
-  await execFileAsync("npm", ["install", "--ignore-scripts", "--no-audit", "--no-fund"], {
-    cwd: consumerDir,
-    env: npmSmokeEnv,
-  });
+  const consumerDir = await createConsumer("react-consumer", tarball);
   await mkdir(join(consumerDir, "node_modules", "react"), { recursive: true });
   await writeJson(join(consumerDir, "node_modules", "react", "package.json"), {
     exports: "./index.js",
@@ -418,14 +245,16 @@ async function smokeReactSubpath(tarball) {
     `
       export function useCallback(value) { return value; }
       export function useEffect() {}
+      export function useMemo(value) { return value(); }
+      export function useRef(value) { return { current: value }; }
       export function useState(value) { return [typeof value === "function" ? value() : value, () => {}]; }
     `,
   );
   await writeFile(
     join(consumerDir, "react-subpath.mjs"),
     `
-      import { useConflictAwareEditorRuntime, useEditorHotkeys, useEditorTreeState } from "@moenarch/editor-core/react";
-      if (typeof useEditorHotkeys !== "function" || typeof useEditorTreeState !== "function" || typeof useConflictAwareEditorRuntime !== "function") {
+      import { useEditorHotkeys, useEditorTreeState } from "@moenarch/editor-core/react";
+      if (typeof useEditorHotkeys !== "function" || typeof useEditorTreeState !== "function") {
         throw new Error("React subpath did not load");
       }
     `,
@@ -434,19 +263,8 @@ async function smokeReactSubpath(tarball) {
 }
 
 async function smokeBrowserBundle(tarball) {
-  const consumerDir = join(tempDir, "browser-consumer");
+  const consumerDir = await createConsumer("browser-consumer", tarball);
   await mkdir(join(consumerDir, "src"), { recursive: true });
-  await writeJson(join(consumerDir, "package.json"), {
-    dependencies: {
-      "@moenarch/editor-core": `file:${tarball}`,
-    },
-    private: true,
-    type: "module",
-  });
-  await execFileAsync("npm", ["install", "--ignore-scripts", "--no-audit", "--no-fund"], {
-    cwd: consumerDir,
-    env: npmSmokeEnv,
-  });
   await writeFile(
     join(consumerDir, "index.html"),
     '<div id="app"></div><script type="module" src="/src/main.ts"></script>',
@@ -455,8 +273,8 @@ async function smokeBrowserBundle(tarball) {
     join(consumerDir, "src", "main.ts"),
     `
       import { createEditorSnapshotHistory } from "@moenarch/editor-core";
-      import { encodeEditorSharePayload } from "@moenarch/editor-core/share";
       import { projectEditorTree } from "@moenarch/editor-core/tree";
+      import { snapEditorValue } from "@moenarch/editor-core/viewport";
 
       const history = createEditorSnapshotHistory({ title: "Draft" });
       const tree = projectEditorTree(history.present, {
@@ -464,8 +282,7 @@ async function smokeBrowserBundle(tarball) {
           return { id: "document", label: document.title };
         },
       });
-      document.querySelector("#app")!.textContent = tree.root.label;
-      void encodeEditorSharePayload(history.present);
+      document.querySelector("#app")!.textContent = tree.root.label + snapEditorValue(9, [{ value: 10 }], 2).value;
     `,
   );
   await writeFile(
@@ -477,15 +294,8 @@ async function smokeBrowserBundle(tarball) {
   );
   await execFileAsync(
     node,
-    [
-      join(rootDir, "node_modules", "vite", "bin", "vite.js"),
-      "build",
-      "--config",
-      "vite.config.mjs",
-    ],
-    {
-      cwd: consumerDir,
-    },
+    [join(rootDir, "node_modules", "vite", "bin", "vite.js"), "build", "--config", "vite.config.mjs"],
+    { cwd: consumerDir },
   );
 }
 
