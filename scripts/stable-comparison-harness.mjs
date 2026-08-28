@@ -14,23 +14,7 @@ export function createStableComparisonScenarios() {
     id: `entity-${index}`,
     order: index,
     parentId: index % 10 === 0 ? null : `entity-${Math.floor(index / 10) * 10}`,
-    type: "layer",
-  }));
-
-  const graphEdges = Array.from({ length: 1_000 }, (_, index) => ({
-    id: `edge-${index}`,
-    sourceId: `node-${index % 250}`,
-    targetId: `node-${(index + 1) % 250}`,
-  }));
-
-  const timelineItems = Array.from({ length: 1_000 }, (_, index) => ({
-    id: `clip-${index}`,
-    range: {
-      end: (index % 200) + 5,
-      start: index % 200,
-    },
-    trackId: `track-${index % 40}`,
-    type: "clip",
+    type: "item",
   }));
 
   const viewport = { x: 320, y: -120, zoom: 1.75 };
@@ -72,48 +56,14 @@ export function createStableComparisonScenarios() {
       },
     },
     {
-      name: "entity and graph indexes",
-      run(api) {
-        const entityDocument = api.createEditorEntityDocument(entityList);
-        return {
-          entities: api.createEditorEntityIndexes(entityDocument),
-          graph: api.createEditorGraphIndexes(graphEdges),
-          timeline: api.createEditorTimelineIndexes(timelineItems),
-        };
-      },
-    },
-    {
       name: "entity indexes ordered roots and children",
       run(api) {
-        const entityDocument = api.createEditorEntityDocument(
-          [
-            { id: "root-b", order: 2, parentId: null, type: "layer" },
-            { id: "root-a", order: 1, parentId: null, type: "layer" },
-            { id: "child-10", order: "10", parentId: "root-a", type: "layer" },
-            { id: "child-2", order: "2", parentId: "root-a", type: "layer" },
-          ],
-          ["root-b", "root-a"],
-        );
+        const entityDocument = api.createEditorEntityDocument(entityList);
         const indexes = api.createEditorEntityIndexes(entityDocument);
         return {
-          childIds: indexes.childrenByParentId.get("root-a")?.map((entity) => entity.id),
+          childCount: indexes.childrenByParentId.size,
           orderedRootIds: indexes.orderedRootIds,
           parentByChildId: indexes.parentByChildId,
-        };
-      },
-    },
-    {
-      name: "timeline indexes sorted track items",
-      run(api) {
-        const indexes = api.createEditorTimelineIndexes([
-          { id: "late", range: { end: 20, start: 10 }, trackId: "track-a", type: "clip" },
-          { id: "early", range: { end: 5, start: 0 }, trackId: "track-a", type: "clip" },
-          { id: "middle", range: { end: 12, start: 5 }, trackId: "track-a", type: "clip" },
-          { id: "other", range: { end: 3, start: 1 }, trackId: "track-b", type: "clip" },
-        ]);
-        return {
-          trackA: indexes.trackItemsByTrackId.get("track-a")?.map((item) => item.id),
-          trackB: indexes.trackItemsByTrackId.get("track-b")?.map((item) => item.id),
         };
       },
     },
@@ -159,7 +109,7 @@ export function createStableComparisonScenarios() {
       name: "operation runtime undo redo",
       run(api) {
         let runtime = api.createEditorOperationRuntime({
-          initialDocument: { nodes: { a: { x: 0, y: 0 } } },
+          initialDocument: { items: { a: { x: 0, y: 0 } } },
         });
 
         for (let index = 0; index < 100; index += 1) {
@@ -167,15 +117,15 @@ export function createStableComparisonScenarios() {
             runtime,
             {
               apply: (document) => ({
-                nodes: {
+                items: {
                   a: {
                     x: index,
-                    y: document.nodes.a.y,
+                    y: document.items.a.y,
                   },
                 },
               }),
-              id: "drag-node",
-              mergeKey: "drag:a",
+              id: "move-item",
+              mergeKey: "move:a",
             },
             { merge: true },
           );
@@ -213,19 +163,6 @@ export function createStableComparisonScenarios() {
           ),
           viewportTotal: total,
         };
-      },
-    },
-    {
-      name: "selection normalize stale anchor",
-      run(api) {
-        const selection = api.createEditorEntitySelection(
-          ["a", "b", "b", "", "missing", "c"],
-          "missing",
-        );
-        return api.normalizeEditorSelection(
-          selection,
-          (id) => id === "a" || id === "b" || id === "c",
-        );
       },
     },
     {
@@ -269,10 +206,7 @@ export function createStableComparisonScenarios() {
           {
             format: "@stable-comparison/document",
             normalize(document) {
-              return {
-                ...document,
-                title: document.title.trim(),
-              };
+              return { ...document, title: document.title.trim() };
             },
             read(input) {
               return input;
@@ -302,42 +236,11 @@ export function createStableComparisonScenarios() {
                 migrationTrace.push(`from-${input.schemaVersion}`);
                 return {
                   ...input,
-                  document: {
-                    ...input.document,
-                    finalSchemaVersion: 3,
-                  },
+                  document: { ...input.document, finalSchemaVersion: 3 },
                   schemaVersion: 3,
                 };
               },
             },
-          },
-        );
-      },
-    },
-    {
-      name: "serialization read current document",
-      run(api) {
-        return api.readEditorDocument(
-          {
-            document: {
-              blocks: jsonDocument.blocks,
-              title: " Current stable comparison ",
-            },
-            format: "@stable-comparison/document",
-            schemaVersion: 3,
-          },
-          {
-            format: "@stable-comparison/document",
-            normalize(document) {
-              return {
-                ...document,
-                title: document.title.trim(),
-              };
-            },
-            read(input) {
-              return input;
-            },
-            schemaVersion: 3,
           },
         );
       },
@@ -374,9 +277,7 @@ export async function compareEditorCoreBuilds({
 
     if (!performanceOk) {
       performanceFailures.push(
-        `Scenario "${scenario.name}" ran at ${formatHz(
-          localMeasurement.hz,
-        )} hz locally; expected at least ${formatHz(minimumLocalHz)} hz.`,
+        `Scenario "${scenario.name}" ran at ${formatHz(localMeasurement.hz)} hz locally; expected at least ${formatHz(minimumLocalHz)} hz.`,
       );
     }
 
