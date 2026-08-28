@@ -1,27 +1,14 @@
-import type { EditorEntityId, EditorPoint } from "./entities.js";
 import {
   applyEditorInteractionOperation,
   type EditorOperation,
   type EditorOperationRuntimeState,
 } from "./operations.js";
 
-export type EditorInteractionState =
-  | { kind: "idle" }
-  | { kind: "dragging"; ids: readonly EditorEntityId[]; origin: EditorPoint }
-  | { kind: "resizing"; id: EditorEntityId; handle: string }
-  | { kind: "connecting"; fromId: EditorEntityId; fromPortId?: string }
-  | { kind: "scrubbing"; time: number };
-
-export type EditorInteractionSession<
-  TDocument,
-  TInteraction extends EditorInteractionState = EditorInteractionState,
-> = {
+export type EditorInteractionSession<TDocument, TInteraction = unknown> = {
   committedDocument: TDocument;
   previewDocument: TDocument;
-  state: TInteraction;
+  state: TInteraction | null;
 };
-
-export const idleEditorInteraction: EditorInteractionState = { kind: "idle" };
 
 export function createEditorInteractionSession<TDocument>(
   document: TDocument,
@@ -29,12 +16,12 @@ export function createEditorInteractionSession<TDocument>(
   return {
     committedDocument: document,
     previewDocument: document,
-    state: idleEditorInteraction,
+    state: null,
   };
 }
 
-export function beginEditorInteraction<TDocument, TInteraction extends EditorInteractionState>(
-  session: EditorInteractionSession<TDocument>,
+export function beginEditorInteraction<TDocument, TInteraction>(
+  session: EditorInteractionSession<TDocument, unknown>,
   state: TInteraction,
 ): EditorInteractionSession<TDocument, TInteraction> {
   return {
@@ -44,10 +31,7 @@ export function beginEditorInteraction<TDocument, TInteraction extends EditorInt
   };
 }
 
-export function updateEditorInteractionPreview<
-  TDocument,
-  TInteraction extends EditorInteractionState,
->(
+export function updateEditorInteractionPreview<TDocument, TInteraction>(
   session: EditorInteractionSession<TDocument, TInteraction>,
   previewDocument: TDocument,
 ): EditorInteractionSession<TDocument, TInteraction> {
@@ -58,13 +42,13 @@ export function updateEditorInteractionPreview<
 }
 
 export function cancelEditorInteraction<TDocument>(
-  session: EditorInteractionSession<TDocument>,
+  session: EditorInteractionSession<TDocument, unknown>,
 ): EditorInteractionSession<TDocument> {
   return createEditorInteractionSession(session.committedDocument);
 }
 
 export function commitEditorInteraction<TDocument>(
-  session: EditorInteractionSession<TDocument>,
+  session: EditorInteractionSession<TDocument, unknown>,
 ): EditorInteractionSession<TDocument> {
   return createEditorInteractionSession(session.previewDocument);
 }
@@ -76,6 +60,6 @@ export function commitEditorInteractionOperation<TDocument, TSelection = unknown
   return applyEditorInteractionOperation(runtime, operation);
 }
 
-export function isEditorInteractionActive(state: EditorInteractionState): boolean {
-  return state.kind !== "idle";
+export function isEditorInteractionActive(state: unknown | null): boolean {
+  return state !== null;
 }
