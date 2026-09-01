@@ -75,9 +75,90 @@ export {
 };
 ```
 
-## browser.d.ts
+## browser-M_MV8A2W.d.ts
 
 ```ts
+import { EditorRevisionToken } from "./collaboration.js";
+
+type EditorSessionErrorCode =
+  | "quota"
+  | "permission"
+  | "migration"
+  | "validation"
+  | "serialization"
+  | "conflict"
+  | "storage"
+  | "recovery"
+  | "unknown";
+type EditorSessionOperation = "load" | "save" | "journal" | "recovery";
+declare class EditorSessionError extends Error {
+  readonly code: EditorSessionErrorCode;
+  readonly operation: EditorSessionOperation;
+  readonly cause: unknown;
+  constructor(
+    message: string,
+    options: {
+      code: EditorSessionErrorCode;
+      operation: EditorSessionOperation;
+      cause?: unknown;
+    },
+  );
+}
+declare class EditorSessionConflictError extends EditorSessionError {
+  readonly expectedRevisionToken: EditorRevisionToken | null;
+  readonly actualRevisionToken: EditorRevisionToken | null;
+  readonly remotePayload: unknown;
+  constructor(options: {
+    expectedRevisionToken: EditorRevisionToken | null;
+    actualRevisionToken: EditorRevisionToken | null;
+    remotePayload?: unknown;
+  });
+}
+type EditorSessionStorageSnapshot<TPayload> = {
+  payload: TPayload;
+  revisionToken: EditorRevisionToken;
+};
+type EditorSessionStorageSave<TPayload> = {
+  payload: TPayload;
+  revisionToken: EditorRevisionToken | null;
+};
+type EditorSessionStorageAdapter<TPayload> = {
+  load: () =>
+    | EditorSessionStorageSnapshot<TPayload>
+    | null
+    | Promise<EditorSessionStorageSnapshot<TPayload> | null>;
+  save: (
+    value: EditorSessionStorageSave<TPayload>,
+  ) => EditorSessionStorageSnapshot<TPayload> | Promise<EditorSessionStorageSnapshot<TPayload>>;
+  clear?: () => void | Promise<void>;
+};
+type EditorSessionTimer = unknown;
+type EditorSessionScheduler = {
+  setTimeout: (callback: () => void, delayMs: number) => EditorSessionTimer;
+  clearTimeout: (timer: EditorSessionTimer) => void;
+};
+
+type LocalStorageEditorSessionStorageOptions = {
+  key: string;
+  storage?: Storage;
+};
+type IndexedDbEditorSessionStorageOptions = {
+  databaseName: string;
+  key: string;
+  storeName?: string;
+  indexedDB?: IDBFactory;
+};
+declare function createLocalStorageEditorSessionStorage<TPayload>(
+  options: LocalStorageEditorSessionStorageOptions,
+): EditorSessionStorageAdapter<TPayload>;
+declare function createIndexedDbEditorSessionStorage<TPayload>(
+  options: IndexedDbEditorSessionStorageOptions,
+): EditorSessionStorageAdapter<TPayload>;
+declare function classifyBrowserSessionStorageError(
+  error: unknown,
+  operation: Extract<EditorSessionOperation, "load" | "save">,
+): EditorSessionError;
+
 type DownloadEditorJsonOptions = {
   adapter?: EditorDownloadAdapter;
   filename?: string;
@@ -165,29 +246,80 @@ declare function createBrowserClipboardAdapter(
 ): EditorClipboardAdapter;
 
 export {
-  type DownloadEditorJsonOptions,
-  type EditorBrowserErrorContext,
-  type EditorBrowserErrorHandler,
-  type EditorClipboardAdapter,
-  type EditorClipboardFallback,
-  type EditorClipboardJsonOptions,
-  type EditorDownloadAdapter,
-  type EditorStorageAdapter,
-  type LoadEditorStorageOptions,
-  type LocalStorageEditorStorageOptions,
-  type ReadEditorJsonFileOptions,
-  type SaveEditorStorageOptions,
-  createBrowserClipboardAdapter,
-  createBrowserDownloadAdapter,
-  createLocalStorageEditorStorage,
-  downloadEditorJson,
-  ensureEditorJsonFilename,
-  loadEditorStorage,
-  readEditorClipboardJson,
-  readEditorJsonFile,
-  saveEditorStorage,
-  writeEditorClipboardJson,
+  readEditorClipboardJson as A,
+  readEditorJsonFile as B,
+  saveEditorStorage as C,
+  type DownloadEditorJsonOptions as D,
+  type EditorBrowserErrorContext as E,
+  writeEditorClipboardJson as F,
+  type IndexedDbEditorSessionStorageOptions as I,
+  type LoadEditorStorageOptions as L,
+  type ReadEditorJsonFileOptions as R,
+  type SaveEditorStorageOptions as S,
+  type EditorBrowserErrorHandler as a,
+  type EditorClipboardAdapter as b,
+  type EditorClipboardFallback as c,
+  type EditorClipboardJsonOptions as d,
+  type EditorDownloadAdapter as e,
+  EditorSessionConflictError as f,
+  EditorSessionError as g,
+  type EditorSessionErrorCode as h,
+  type EditorSessionOperation as i,
+  type EditorSessionScheduler as j,
+  type EditorSessionStorageAdapter as k,
+  type EditorSessionStorageSave as l,
+  type EditorSessionStorageSnapshot as m,
+  type EditorSessionTimer as n,
+  type EditorStorageAdapter as o,
+  type LocalStorageEditorSessionStorageOptions as p,
+  type LocalStorageEditorStorageOptions as q,
+  classifyBrowserSessionStorageError as r,
+  createBrowserClipboardAdapter as s,
+  createBrowserDownloadAdapter as t,
+  createIndexedDbEditorSessionStorage as u,
+  createLocalStorageEditorSessionStorage as v,
+  createLocalStorageEditorStorage as w,
+  downloadEditorJson as x,
+  ensureEditorJsonFilename as y,
+  loadEditorStorage as z,
 };
+```
+
+## browser.d.ts
+
+```ts
+export {
+  D as DownloadEditorJsonOptions,
+  E as EditorBrowserErrorContext,
+  a as EditorBrowserErrorHandler,
+  b as EditorClipboardAdapter,
+  c as EditorClipboardFallback,
+  d as EditorClipboardJsonOptions,
+  e as EditorDownloadAdapter,
+  f as EditorSessionConflictError,
+  g as EditorSessionError,
+  o as EditorStorageAdapter,
+  I as IndexedDbEditorSessionStorageOptions,
+  L as LoadEditorStorageOptions,
+  p as LocalStorageEditorSessionStorageOptions,
+  q as LocalStorageEditorStorageOptions,
+  R as ReadEditorJsonFileOptions,
+  S as SaveEditorStorageOptions,
+  r as classifyBrowserSessionStorageError,
+  s as createBrowserClipboardAdapter,
+  t as createBrowserDownloadAdapter,
+  u as createIndexedDbEditorSessionStorage,
+  v as createLocalStorageEditorSessionStorage,
+  w as createLocalStorageEditorStorage,
+  x as downloadEditorJson,
+  y as ensureEditorJsonFilename,
+  z as loadEditorStorage,
+  A as readEditorClipboardJson,
+  B as readEditorJsonFile,
+  C as saveEditorStorage,
+  F as writeEditorClipboardJson,
+} from "./browser-M_MV8A2W.js";
+import "./collaboration.js";
 ```
 
 ## collaboration.d.ts
@@ -530,132 +662,6 @@ export {
 };
 ```
 
-## controller-types-Cdg7xsmg.d.ts
-
-```ts
-import { EditorStorageAdapter } from "./browser.js";
-import { b as EditorRuntimeState } from "./types-ue792Gw2.js";
-import { EditorRevisionToken } from "./collaboration.js";
-import {
-  E as EditorPersistedDocument,
-  L as LoadEditorRuntimePersistenceOptions,
-  i as LoadEditorRuntimePersistenceResult,
-  S as SaveEditorRuntimePersistenceOptions,
-  j as SaveEditorRuntimePersistenceResult,
-  g as EditorPersistenceState,
-  c as EditorPersistenceErrorContext,
-  e as EditorPersistenceEventHandler,
-} from "./types-LWjkTXDV.js";
-
-type EditorConflictStorageAdapter<TDocument> = {
-  load: () =>
-    | EditorPersistedDocument<TDocument>
-    | null
-    | Promise<EditorPersistedDocument<TDocument> | null>;
-  save: (
-    value: EditorPersistedDocument<TDocument>,
-  ) => EditorPersistedDocument<TDocument> | Promise<EditorPersistedDocument<TDocument>>;
-};
-type LoadEditorRuntimeConflictPersistenceOptions<
-  TDocument,
-  TSelection = unknown,
-> = LoadEditorRuntimePersistenceOptions<TDocument, TSelection>;
-type LoadEditorRuntimeConflictPersistenceResult<
-  TDocument,
-  TSelection = unknown,
-> = LoadEditorRuntimePersistenceResult<TDocument, TSelection>;
-type SaveEditorRuntimeConflictPersistenceOptions = SaveEditorRuntimePersistenceOptions & {
-  revisionToken?: EditorRevisionToken | null;
-};
-type SaveEditorRuntimeConflictPersistenceResult<
-  TDocument,
-  TSelection = unknown,
-> = SaveEditorRuntimePersistenceResult<TDocument, TSelection>;
-
-type EditorAutosaveRetryOptions = {
-  attempts?: number;
-  delayMs?: number;
-};
-type EditorAutosaveOptions = {
-  delayMs?: number;
-  retry?: EditorAutosaveRetryOptions;
-  saveLatest?: boolean;
-};
-type NormalizedEditorAutosaveOptions = {
-  delayMs: number;
-  enabled: boolean;
-  retryAttempts: number;
-  retryDelayMs: number;
-  saveLatest: boolean;
-};
-type EditorPersistenceTimer = unknown;
-type EditorPersistenceScheduler = {
-  setTimeout: (callback: () => void, delayMs: number) => EditorPersistenceTimer;
-  clearTimeout: (timer: EditorPersistenceTimer) => void;
-};
-type EditorRuntimeStateUpdater<TDocument, TSelection = unknown> =
-  | EditorRuntimeState<TDocument, TSelection>
-  | ((
-      runtime: EditorRuntimeState<TDocument, TSelection>,
-    ) => EditorRuntimeState<TDocument, TSelection>);
-type EditorPersistenceStateUpdater =
-  | EditorPersistenceState
-  | ((persistence: EditorPersistenceState) => EditorPersistenceState);
-type EditorRuntimePersistenceControllerOptions<TDocument, TSelection = unknown> = {
-  getRuntime: () => EditorRuntimeState<TDocument, TSelection>;
-  setRuntime: (updater: EditorRuntimeStateUpdater<TDocument, TSelection>) => void;
-  getPersistence: () => EditorPersistenceState;
-  setPersistence: (updater: EditorPersistenceStateUpdater) => void;
-  storage: EditorStorageAdapter<TDocument>;
-  autosave?: boolean | EditorAutosaveOptions;
-  canSave?: (runtime: EditorRuntimeState<TDocument, TSelection>) => boolean;
-  now?: () => string;
-  onError?: (error: unknown, context: EditorPersistenceErrorContext) => void;
-  onEvent?: EditorPersistenceEventHandler;
-  scheduler?: EditorPersistenceScheduler;
-};
-type EditorRuntimeConflictPersistenceControllerOptions<TDocument, TSelection = unknown> = Omit<
-  EditorRuntimePersistenceControllerOptions<TDocument, TSelection>,
-  "storage"
-> & {
-  storage: EditorConflictStorageAdapter<TDocument>;
-};
-type EditorRuntimePersistenceController<TDocument, TSelection = unknown> = {
-  load: () => Promise<void>;
-  save: (options?: { force?: boolean }) => Promise<boolean>;
-  notifyRuntimeChanged: () => void;
-  updateOptions: (
-    options: Partial<
-      | EditorRuntimePersistenceControllerOptions<TDocument, TSelection>
-      | EditorRuntimeConflictPersistenceControllerOptions<TDocument, TSelection>
-    >,
-  ) => void;
-  dispose: () => void;
-};
-declare function normalizeEditorAutosaveOptions(
-  autosave: boolean | EditorAutosaveOptions | undefined,
-): NormalizedEditorAutosaveOptions;
-
-export {
-  type EditorAutosaveOptions as E,
-  type LoadEditorRuntimeConflictPersistenceOptions as L,
-  type NormalizedEditorAutosaveOptions as N,
-  type SaveEditorRuntimeConflictPersistenceOptions as S,
-  type EditorAutosaveRetryOptions as a,
-  type EditorConflictStorageAdapter as b,
-  type EditorPersistenceScheduler as c,
-  type EditorPersistenceStateUpdater as d,
-  type EditorPersistenceTimer as e,
-  type EditorRuntimeConflictPersistenceControllerOptions as f,
-  type EditorRuntimePersistenceController as g,
-  type EditorRuntimePersistenceControllerOptions as h,
-  type EditorRuntimeStateUpdater as i,
-  type LoadEditorRuntimeConflictPersistenceResult as j,
-  type SaveEditorRuntimeConflictPersistenceResult as k,
-  normalizeEditorAutosaveOptions as n,
-};
-```
-
 ## entities.d.ts
 
 ```ts
@@ -984,29 +990,43 @@ export {
   resolveEditorAspects,
 } from "./aspects.js";
 export {
-  DownloadEditorJsonOptions,
-  EditorBrowserErrorContext,
-  EditorBrowserErrorHandler,
-  EditorClipboardAdapter,
-  EditorClipboardFallback,
-  EditorClipboardJsonOptions,
-  EditorDownloadAdapter,
-  EditorStorageAdapter,
-  LoadEditorStorageOptions,
-  LocalStorageEditorStorageOptions,
-  ReadEditorJsonFileOptions,
-  SaveEditorStorageOptions,
-  createBrowserClipboardAdapter,
-  createBrowserDownloadAdapter,
-  createLocalStorageEditorStorage,
-  downloadEditorJson,
-  ensureEditorJsonFilename,
-  loadEditorStorage,
-  readEditorClipboardJson,
-  readEditorJsonFile,
-  saveEditorStorage,
-  writeEditorClipboardJson,
-} from "./browser.js";
+  D as DownloadEditorJsonOptions,
+  E as EditorBrowserErrorContext,
+  a as EditorBrowserErrorHandler,
+  b as EditorClipboardAdapter,
+  c as EditorClipboardFallback,
+  d as EditorClipboardJsonOptions,
+  e as EditorDownloadAdapter,
+  f as EditorSessionConflictError,
+  g as EditorSessionError,
+  h as EditorSessionErrorCode,
+  i as EditorSessionOperation,
+  j as EditorSessionScheduler,
+  k as EditorSessionStorageAdapter,
+  l as EditorSessionStorageSave,
+  m as EditorSessionStorageSnapshot,
+  n as EditorSessionTimer,
+  o as EditorStorageAdapter,
+  I as IndexedDbEditorSessionStorageOptions,
+  L as LoadEditorStorageOptions,
+  p as LocalStorageEditorSessionStorageOptions,
+  q as LocalStorageEditorStorageOptions,
+  R as ReadEditorJsonFileOptions,
+  S as SaveEditorStorageOptions,
+  r as classifyBrowserSessionStorageError,
+  s as createBrowserClipboardAdapter,
+  t as createBrowserDownloadAdapter,
+  u as createIndexedDbEditorSessionStorage,
+  v as createLocalStorageEditorSessionStorage,
+  w as createLocalStorageEditorStorage,
+  x as downloadEditorJson,
+  y as ensureEditorJsonFilename,
+  z as loadEditorStorage,
+  A as readEditorClipboardJson,
+  B as readEditorJsonFile,
+  C as saveEditorStorage,
+  F as writeEditorClipboardJson,
+} from "./browser-M_MV8A2W.js";
 export {
   CreateEditorCommandsOptions,
   EditorCommandContext,
@@ -1204,6 +1224,9 @@ export {
   createEditorPersistenceState,
   createEditorRuntimeConflictPersistenceController,
   createEditorRuntimePersistenceController,
+  createEditorSession,
+  createMemoryEditorSessionJournal,
+  createMemoryEditorSessionStorage,
   loadEditorRuntimeConflictPersistence,
   loadEditorRuntimePersistence,
   saveEditorRuntimeConflictPersistence,
@@ -1220,13 +1243,20 @@ export {
   g as EditorRuntimePersistenceController,
   h as EditorRuntimePersistenceControllerOptions,
   i as EditorRuntimeStateUpdater,
+  j as EditorSession,
+  k as EditorSessionAutosaveOptions,
+  l as EditorSessionDocumentAdapter,
+  m as EditorSessionJournalAdapter,
+  n as EditorSessionOptions,
+  o as EditorSessionSnapshot,
+  p as EditorSessionState,
   L as LoadEditorRuntimeConflictPersistenceOptions,
-  j as LoadEditorRuntimeConflictPersistenceResult,
+  q as LoadEditorRuntimeConflictPersistenceResult,
   N as NormalizedEditorAutosaveOptions,
   S as SaveEditorRuntimeConflictPersistenceOptions,
-  k as SaveEditorRuntimeConflictPersistenceResult,
-  n as normalizeEditorAutosaveOptions,
-} from "./controller-types-Cdg7xsmg.js";
+  r as SaveEditorRuntimeConflictPersistenceResult,
+  s as normalizeEditorAutosaveOptions,
+} from "./session-types-EetRU0Fy.js";
 export {
   ApplyEditorPatchOptions,
   DiffEditorJsonOptions,
@@ -1322,11 +1352,21 @@ export {
   EditorAdapterCheckSeverity,
   EditorAdapterContractError,
   EditorDocumentAdapterCheckCase,
+  EditorFamilyConformanceAdapter,
+  EditorFamilyConformanceCaseId,
+  EditorFamilyConformanceCaseResult,
+  EditorFamilyConformanceDiagnostic,
+  EditorFamilyConformanceError,
+  EditorFamilyConformanceInteractionKind,
+  EditorFamilyConformanceParseResult,
+  EditorFamilyConformanceReport,
   EditorOperationLogAdapterCheckCase,
   assertEditorDocumentAdapter,
+  assertEditorFamilyConformance,
   assertEditorOperationLogAdapter,
   checkEditorDocumentAdapter,
   checkEditorOperationLogAdapter,
+  runEditorFamilyConformance,
 } from "./testing.js";
 export {
   EditorTreeAdapter,
@@ -1737,13 +1777,16 @@ export {
 import {
   b as EditorConflictStorageAdapter,
   L as LoadEditorRuntimeConflictPersistenceOptions,
-  j as LoadEditorRuntimeConflictPersistenceResult,
+  q as LoadEditorRuntimeConflictPersistenceResult,
   S as SaveEditorRuntimeConflictPersistenceOptions,
-  k as SaveEditorRuntimeConflictPersistenceResult,
+  r as SaveEditorRuntimeConflictPersistenceResult,
   f as EditorRuntimeConflictPersistenceControllerOptions,
   g as EditorRuntimePersistenceController,
   h as EditorRuntimePersistenceControllerOptions,
-} from "./controller-types-Cdg7xsmg.js";
+  n as EditorSessionOptions,
+  j as EditorSession,
+  m as EditorSessionJournalAdapter,
+} from "./session-types-EetRU0Fy.js";
 export {
   E as EditorAutosaveOptions,
   a as EditorAutosaveRetryOptions,
@@ -1751,10 +1794,27 @@ export {
   d as EditorPersistenceStateUpdater,
   e as EditorPersistenceTimer,
   i as EditorRuntimeStateUpdater,
+  k as EditorSessionAutosaveOptions,
+  l as EditorSessionDocumentAdapter,
+  o as EditorSessionSnapshot,
+  p as EditorSessionState,
   N as NormalizedEditorAutosaveOptions,
-  n as normalizeEditorAutosaveOptions,
-} from "./controller-types-Cdg7xsmg.js";
-import { EditorStorageAdapter } from "./browser.js";
+  s as normalizeEditorAutosaveOptions,
+} from "./session-types-EetRU0Fy.js";
+import {
+  o as EditorStorageAdapter,
+  m as EditorSessionStorageSnapshot,
+  k as EditorSessionStorageAdapter,
+} from "./browser-M_MV8A2W.js";
+export {
+  f as EditorSessionConflictError,
+  g as EditorSessionError,
+  h as EditorSessionErrorCode,
+  i as EditorSessionOperation,
+  j as EditorSessionScheduler,
+  l as EditorSessionStorageSave,
+  n as EditorSessionTimer,
+} from "./browser-M_MV8A2W.js";
 import { b as EditorRuntimeState } from "./types-ue792Gw2.js";
 import "./collaboration.js";
 import "./aspects.js";
@@ -1795,12 +1855,28 @@ declare function createEditorRuntimeConflictPersistenceController<TDocument, TSe
   options: EditorRuntimeConflictPersistenceControllerOptions<TDocument, TSelection>,
 ): EditorRuntimePersistenceController<TDocument, TSelection>;
 
+declare function createEditorSession<TDocument, TPayload>(
+  options: EditorSessionOptions<TDocument, TPayload>,
+): EditorSession<TDocument, TPayload>;
+
+declare function createMemoryEditorSessionStorage<TPayload>(
+  initial?: EditorSessionStorageSnapshot<TPayload> | null,
+): EditorSessionStorageAdapter<TPayload>;
+declare function createMemoryEditorSessionJournal<TDocument>(
+  initial?: TDocument | null,
+): EditorSessionJournalAdapter<TDocument>;
+
 export {
   EditorConflictStorageAdapter,
   EditorPersistenceState,
   EditorRuntimeConflictPersistenceControllerOptions,
   EditorRuntimePersistenceController,
   EditorRuntimePersistenceControllerOptions,
+  EditorSession,
+  EditorSessionJournalAdapter,
+  EditorSessionOptions,
+  EditorSessionStorageAdapter,
+  EditorSessionStorageSnapshot,
   LoadEditorRuntimeConflictPersistenceOptions,
   LoadEditorRuntimeConflictPersistenceResult,
   LoadEditorRuntimePersistenceOptions,
@@ -1813,6 +1889,9 @@ export {
   createEditorPersistenceState,
   createEditorRuntimeConflictPersistenceController,
   createEditorRuntimePersistenceController,
+  createEditorSession,
+  createMemoryEditorSessionJournal,
+  createMemoryEditorSessionStorage,
   loadEditorRuntimeConflictPersistence,
   loadEditorRuntimePersistence,
   saveEditorRuntimeConflictPersistence,
@@ -1904,7 +1983,7 @@ import {
   R as ResetEditorRuntimeOptions,
   a as EditorRuntimeSelection,
 } from "./types-ue792Gw2.js";
-import { EditorStorageAdapter } from "./browser.js";
+import { o as EditorStorageAdapter } from "./browser-M_MV8A2W.js";
 import {
   c as EditorPersistenceErrorContext,
   e as EditorPersistenceEventHandler,
@@ -1913,8 +1992,10 @@ import {
 import {
   E as EditorAutosaveOptions,
   b as EditorConflictStorageAdapter,
-} from "./controller-types-Cdg7xsmg.js";
-export { a as EditorAutosaveRetryOptions } from "./controller-types-Cdg7xsmg.js";
+  j as EditorSession,
+  p as EditorSessionState,
+} from "./session-types-EetRU0Fy.js";
+export { a as EditorAutosaveRetryOptions } from "./session-types-EetRU0Fy.js";
 import { EditorCommandDefinition } from "./hotkeys.js";
 import { EditorTreeState, EditorTreeNodeId } from "./tree.js";
 import "./aspects.js";
@@ -2023,6 +2104,10 @@ declare function useEditorTreeState(
   initialState?: Partial<EditorTreeState>,
 ): UseEditorTreeStateResult;
 
+declare function useEditorSession<TDocument, TPayload>(
+  session: EditorSession<TDocument, TPayload>,
+): EditorSessionState<TDocument, TPayload>;
+
 export {
   type ControllableEditorStateOptions,
   EditorAutosaveOptions,
@@ -2038,6 +2123,7 @@ export {
   useControllableEditorState,
   useEditorHotkeys,
   useEditorRuntime,
+  useEditorSession,
   useEditorTreeState,
   usePersistentEditorRuntime,
 };
@@ -2364,6 +2450,216 @@ export {
 };
 ```
 
+## session-types-EetRU0Fy.d.ts
+
+```ts
+import {
+  o as EditorStorageAdapter,
+  g as EditorSessionError,
+  k as EditorSessionStorageAdapter,
+  j as EditorSessionScheduler,
+} from "./browser-M_MV8A2W.js";
+import { b as EditorRuntimeState } from "./types-ue792Gw2.js";
+import { EditorRevisionToken } from "./collaboration.js";
+import {
+  E as EditorPersistedDocument,
+  L as LoadEditorRuntimePersistenceOptions,
+  i as LoadEditorRuntimePersistenceResult,
+  S as SaveEditorRuntimePersistenceOptions,
+  j as SaveEditorRuntimePersistenceResult,
+  g as EditorPersistenceState,
+  c as EditorPersistenceErrorContext,
+  e as EditorPersistenceEventHandler,
+} from "./types-LWjkTXDV.js";
+
+type EditorConflictStorageAdapter<TDocument> = {
+  load: () =>
+    | EditorPersistedDocument<TDocument>
+    | null
+    | Promise<EditorPersistedDocument<TDocument> | null>;
+  save: (
+    value: EditorPersistedDocument<TDocument>,
+  ) => EditorPersistedDocument<TDocument> | Promise<EditorPersistedDocument<TDocument>>;
+};
+type LoadEditorRuntimeConflictPersistenceOptions<
+  TDocument,
+  TSelection = unknown,
+> = LoadEditorRuntimePersistenceOptions<TDocument, TSelection>;
+type LoadEditorRuntimeConflictPersistenceResult<
+  TDocument,
+  TSelection = unknown,
+> = LoadEditorRuntimePersistenceResult<TDocument, TSelection>;
+type SaveEditorRuntimeConflictPersistenceOptions = SaveEditorRuntimePersistenceOptions & {
+  revisionToken?: EditorRevisionToken | null;
+};
+type SaveEditorRuntimeConflictPersistenceResult<
+  TDocument,
+  TSelection = unknown,
+> = SaveEditorRuntimePersistenceResult<TDocument, TSelection>;
+
+type EditorAutosaveRetryOptions = {
+  attempts?: number;
+  delayMs?: number;
+};
+type EditorAutosaveOptions = {
+  delayMs?: number;
+  retry?: EditorAutosaveRetryOptions;
+  saveLatest?: boolean;
+};
+type NormalizedEditorAutosaveOptions = {
+  delayMs: number;
+  enabled: boolean;
+  retryAttempts: number;
+  retryDelayMs: number;
+  saveLatest: boolean;
+};
+type EditorPersistenceTimer = unknown;
+type EditorPersistenceScheduler = {
+  setTimeout: (callback: () => void, delayMs: number) => EditorPersistenceTimer;
+  clearTimeout: (timer: EditorPersistenceTimer) => void;
+};
+type EditorRuntimeStateUpdater<TDocument, TSelection = unknown> =
+  | EditorRuntimeState<TDocument, TSelection>
+  | ((
+      runtime: EditorRuntimeState<TDocument, TSelection>,
+    ) => EditorRuntimeState<TDocument, TSelection>);
+type EditorPersistenceStateUpdater =
+  | EditorPersistenceState
+  | ((persistence: EditorPersistenceState) => EditorPersistenceState);
+type EditorRuntimePersistenceControllerOptions<TDocument, TSelection = unknown> = {
+  getRuntime: () => EditorRuntimeState<TDocument, TSelection>;
+  setRuntime: (updater: EditorRuntimeStateUpdater<TDocument, TSelection>) => void;
+  getPersistence: () => EditorPersistenceState;
+  setPersistence: (updater: EditorPersistenceStateUpdater) => void;
+  storage: EditorStorageAdapter<TDocument>;
+  autosave?: boolean | EditorAutosaveOptions;
+  canSave?: (runtime: EditorRuntimeState<TDocument, TSelection>) => boolean;
+  now?: () => string;
+  onError?: (error: unknown, context: EditorPersistenceErrorContext) => void;
+  onEvent?: EditorPersistenceEventHandler;
+  scheduler?: EditorPersistenceScheduler;
+};
+type EditorRuntimeConflictPersistenceControllerOptions<TDocument, TSelection = unknown> = Omit<
+  EditorRuntimePersistenceControllerOptions<TDocument, TSelection>,
+  "storage"
+> & {
+  storage: EditorConflictStorageAdapter<TDocument>;
+};
+type EditorRuntimePersistenceController<TDocument, TSelection = unknown> = {
+  load: () => Promise<void>;
+  save: (options?: { force?: boolean }) => Promise<boolean>;
+  notifyRuntimeChanged: () => void;
+  updateOptions: (
+    options: Partial<
+      | EditorRuntimePersistenceControllerOptions<TDocument, TSelection>
+      | EditorRuntimeConflictPersistenceControllerOptions<TDocument, TSelection>
+    >,
+  ) => void;
+  dispose: () => void;
+};
+declare function normalizeEditorAutosaveOptions(
+  autosave: boolean | EditorAutosaveOptions | undefined,
+): NormalizedEditorAutosaveOptions;
+
+type EditorSessionDocumentAdapter<TDocument, TPayload> = {
+  parse: (payload: TPayload) => TDocument | Promise<TDocument>;
+  serialize: (document: TDocument) => TPayload | Promise<TPayload>;
+};
+type EditorSessionJournalAdapter<TDocument> = {
+  load: () => TDocument | null | Promise<TDocument | null>;
+  save: (document: TDocument) => void | Promise<void>;
+  clear: () => void | Promise<void>;
+};
+type EditorSessionSnapshot<TDocument, TPayload> = {
+  document: TDocument;
+  payload: TPayload;
+  revisionToken: EditorRevisionToken;
+};
+type EditorSessionStateBase<TDocument, TPayload> = {
+  document: TDocument;
+  lastKnownGood: EditorSessionSnapshot<TDocument, TPayload> | null;
+  revisionToken: EditorRevisionToken | null;
+};
+type EditorSessionState<TDocument, TPayload> = EditorSessionStateBase<TDocument, TPayload> &
+  (
+    | {
+        status: "idle";
+      }
+    | {
+        status: "dirty";
+      }
+    | {
+        status: "saving";
+      }
+    | {
+        status: "saved";
+      }
+    | {
+        status: "failed";
+        error: EditorSessionError;
+      }
+    | {
+        status: "conflicted";
+        error: EditorSessionError;
+      }
+    | {
+        status: "recoverable";
+        error: EditorSessionError;
+        recoveryPayload: unknown;
+      }
+  );
+type EditorSessionAutosaveOptions = {
+  delayMs?: number;
+};
+type EditorSessionOptions<TDocument, TPayload> = {
+  initialDocument: TDocument;
+  document: EditorSessionDocumentAdapter<TDocument, TPayload>;
+  storage: EditorSessionStorageAdapter<TPayload>;
+  equals: (left: TDocument, right: TDocument) => boolean;
+  autosave?: false | EditorSessionAutosaveOptions;
+  journal?: EditorSessionJournalAdapter<TDocument>;
+  scheduler?: EditorSessionScheduler;
+};
+type EditorSession<TDocument, TPayload> = {
+  getState: () => EditorSessionState<TDocument, TPayload>;
+  exportRecoveryPayload: () => unknown | null;
+  subscribe: (listener: () => void) => () => void;
+  load: () => Promise<boolean>;
+  recover: (document: TDocument) => Promise<void>;
+  updateDocument: (document: TDocument) => Promise<void>;
+  save: (options?: { force?: boolean }) => Promise<boolean>;
+  flush: () => Promise<boolean>;
+  cancelAutosave: () => void;
+  dispose: () => Promise<void>;
+};
+
+export {
+  type EditorAutosaveOptions as E,
+  type LoadEditorRuntimeConflictPersistenceOptions as L,
+  type NormalizedEditorAutosaveOptions as N,
+  type SaveEditorRuntimeConflictPersistenceOptions as S,
+  type EditorAutosaveRetryOptions as a,
+  type EditorConflictStorageAdapter as b,
+  type EditorPersistenceScheduler as c,
+  type EditorPersistenceStateUpdater as d,
+  type EditorPersistenceTimer as e,
+  type EditorRuntimeConflictPersistenceControllerOptions as f,
+  type EditorRuntimePersistenceController as g,
+  type EditorRuntimePersistenceControllerOptions as h,
+  type EditorRuntimeStateUpdater as i,
+  type EditorSession as j,
+  type EditorSessionAutosaveOptions as k,
+  type EditorSessionDocumentAdapter as l,
+  type EditorSessionJournalAdapter as m,
+  type EditorSessionOptions as n,
+  type EditorSessionSnapshot as o,
+  type EditorSessionState as p,
+  type LoadEditorRuntimeConflictPersistenceResult as q,
+  type SaveEditorRuntimeConflictPersistenceResult as r,
+  normalizeEditorAutosaveOptions as s,
+};
+```
+
 ## share.d.ts
 
 ```ts
@@ -2598,7 +2894,7 @@ type EditorOperationLogAdapterCheckCase<TOperation> = {
   expectIssues?: readonly EditorParseIssue[];
 };
 declare class EditorAdapterContractError extends Error {
-  issues: readonly EditorAdapterCheckIssue[];
+  readonly issues: readonly EditorAdapterCheckIssue[];
   constructor(issues: readonly EditorAdapterCheckIssue[]);
 }
 declare function checkEditorDocumentAdapter<TDocument>(
@@ -2618,17 +2914,128 @@ declare function assertEditorOperationLogAdapter<TOperation>(
   cases: readonly EditorOperationLogAdapterCheckCase<TOperation>[],
 ): void;
 
+type EditorFamilyConformanceDiagnostic = {
+  path: string;
+  message: string;
+};
+type EditorFamilyConformanceParseResult<TDocument> =
+  | {
+      status: "success";
+      document: TDocument;
+    }
+  | {
+      status: "failure";
+      diagnostics: readonly EditorFamilyConformanceDiagnostic[];
+    };
+type EditorFamilyConformanceInteractionKind = "drag" | "resize";
+type EditorFamilyConformanceAdapter<TDocument, TSelection, TRuntime> = {
+  id: string;
+  fixtures: {
+    initialDocument: TDocument;
+    equivalentDocument: TDocument;
+    editedDocument: TDocument;
+    customDataDocument: TDocument;
+    initialSelection: TSelection;
+    editedSelection: TSelection;
+    invalidImport: unknown;
+    migration: {
+      input: unknown;
+      expectedDocument: TDocument;
+    };
+  };
+  normalize: (document: TDocument) => TDocument | Promise<TDocument>;
+  serialize: (document: TDocument) => unknown | Promise<unknown>;
+  parseAndMigrate: (
+    input: unknown,
+  ) =>
+    | EditorFamilyConformanceParseResult<TDocument>
+    | Promise<EditorFamilyConformanceParseResult<TDocument>>;
+  documentsEqual: (left: TDocument, right: TDocument) => boolean;
+  selectionsEqual: (left: TSelection | null, right: TSelection | null) => boolean;
+  createRuntime: (document: TDocument, selection: TSelection) => TRuntime | Promise<TRuntime>;
+  getDocument: (runtime: TRuntime) => TDocument;
+  getSelection: (runtime: TRuntime) => TSelection | null;
+  edit: (
+    runtime: TRuntime,
+    document: TDocument,
+    selection: TSelection,
+  ) => TRuntime | Promise<TRuntime>;
+  setSelection: (runtime: TRuntime, selection: TSelection) => TRuntime | Promise<TRuntime>;
+  undo: (runtime: TRuntime) => TRuntime | Promise<TRuntime>;
+  redo: (runtime: TRuntime) => TRuntime | Promise<TRuntime>;
+  markSaved: (runtime: TRuntime) => TRuntime | Promise<TRuntime>;
+  isDirty: (runtime: TRuntime) => boolean;
+  canUndo: (runtime: TRuntime) => boolean;
+  runMutationCommand: (
+    runtime: TRuntime,
+    options: {
+      readOnly: boolean;
+    },
+  ) => TRuntime | Promise<TRuntime>;
+  cancelInteraction: (
+    runtime: TRuntime,
+    kind: EditorFamilyConformanceInteractionKind,
+  ) => TRuntime | Promise<TRuntime>;
+};
+type EditorFamilyConformanceCaseId =
+  | "normalization-idempotent"
+  | "serialization-roundtrip"
+  | "migration-roundtrip"
+  | "invalid-import-diagnostics"
+  | "custom-data-preserved"
+  | "history-restores-document-and-selection"
+  | "read-only-command-does-not-mutate"
+  | "dirty-state-follows-semantic-edits"
+  | "cancelled-drag-does-not-enter-history"
+  | "cancelled-resize-does-not-enter-history";
+type EditorFamilyConformanceCaseResult =
+  | {
+      id: EditorFamilyConformanceCaseId;
+      status: "passed";
+    }
+  | {
+      id: EditorFamilyConformanceCaseId;
+      status: "failed";
+      message: string;
+    };
+type EditorFamilyConformanceReport = {
+  adapterId: string;
+  ok: boolean;
+  cases: readonly EditorFamilyConformanceCaseResult[];
+};
+
+declare class EditorFamilyConformanceError extends Error {
+  readonly report: EditorFamilyConformanceReport;
+  constructor(report: EditorFamilyConformanceReport);
+}
+declare function runEditorFamilyConformance<TDocument, TSelection, TRuntime>(
+  adapter: EditorFamilyConformanceAdapter<TDocument, TSelection, TRuntime>,
+): Promise<EditorFamilyConformanceReport>;
+declare function assertEditorFamilyConformance<TDocument, TSelection, TRuntime>(
+  adapter: EditorFamilyConformanceAdapter<TDocument, TSelection, TRuntime>,
+): Promise<void>;
+
 export {
   type EditorAdapterCheckIssue,
   type EditorAdapterCheckResult,
   type EditorAdapterCheckSeverity,
   EditorAdapterContractError,
   type EditorDocumentAdapterCheckCase,
+  type EditorFamilyConformanceAdapter,
+  type EditorFamilyConformanceCaseId,
+  type EditorFamilyConformanceCaseResult,
+  type EditorFamilyConformanceDiagnostic,
+  EditorFamilyConformanceError,
+  type EditorFamilyConformanceInteractionKind,
+  type EditorFamilyConformanceParseResult,
+  type EditorFamilyConformanceReport,
   type EditorOperationLogAdapterCheckCase,
   assertEditorDocumentAdapter,
+  assertEditorFamilyConformance,
   assertEditorOperationLogAdapter,
   checkEditorDocumentAdapter,
   checkEditorOperationLogAdapter,
+  runEditorFamilyConformance,
 };
 ```
 

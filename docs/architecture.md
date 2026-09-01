@@ -44,7 +44,8 @@ should import from `src/index.ts`.
 ## Dependency Direction
 
 Foundation domains should stay dependency-light: `json`, `entities`, `history`, `hotkeys`,
-`aspects`, `tree`, `collaboration`, `share`, and `browser`.
+`aspects`, `tree`, `collaboration`, `share`, and the neutral `session` contracts. Browser adapters
+depend only on those neutral session contracts.
 
 Value imports must follow the graph encoded in `scripts/architecture-rules.mjs`. Type-only imports
 may be broader when they do not create cycles or leak React into the headless package.

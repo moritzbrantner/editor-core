@@ -16,6 +16,7 @@ export default defineConfig({
       },
     },
     environment: "jsdom",
+    exclude: ["src/**/*.browser.test.ts"],
     globals: false,
     include: ["src/**/*.test.ts", "src/**/*.test.tsx"],
   },

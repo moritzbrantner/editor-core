@@ -9,7 +9,7 @@
 
 ## INV-002 — Editor runtime semantics remain compatible with the domain contracts
 
-- Source of truth: repo:CONTEXT.md, repo:docs/adr/0001-headless-persistence-controller.md, repo:docs/adr/0002-operation-apply-modes.md, repo:docs/adr/0003-command-runtime.md
+- Source of truth: repo:CONTEXT.md, repo:docs/adr/0001-headless-persistence-controller.md, repo:docs/adr/0002-operation-apply-modes.md, repo:docs/adr/0003-command-runtime.md, repo:docs/adr/0005-editor-session-persistence.md
 - Required evidence: behavioral
 - Sensitivity: optional
 - Risk dimensions: security=not-applicable:headless-editor-state; recovery=covered:persistence-and-history-tests; persistence=covered:persistence-controller-tests; concurrency=covered:in-flight-save-and-remote-apply-tests; migration=covered:serialization-and-operation-migration-tests; partial-failure=covered:typed-failure-and-conflict-tests; operational=covered:runtime-command-and-persistence-tests
@@ -30,7 +30,7 @@
 
 ## INV-005 — React and browser integrations remain buildable and usable
 
-- Source of truth: repo:examples/react/vite.config.ts, repo:tests/e2e/react-example.spec.ts, repo:.github/workflows/validate.yml
+- Source of truth: repo:examples/react/vite.config.ts, repo:tests/e2e/react-example.spec.ts, repo:src/browser-session.browser.test.ts, repo:.github/workflows/validate.yml
 - Required evidence: behavioral, integration
 - Sensitivity: optional
 - Risk dimensions: security=not-applicable:local-example-and-component-tests; recovery=covered:browser-persistence-behavior; persistence=covered:react-persistence-adapter-tests; concurrency=covered:browser-interaction-tests; migration=not-applicable:no-fixture-schema-promise; partial-failure=covered:e2e-and-storybook-fail-closed; operational=covered:browser-build-and-render

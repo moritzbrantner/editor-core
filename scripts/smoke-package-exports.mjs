@@ -52,7 +52,10 @@ async function smokeHeadlessConsumer(tarball) {
       import { createEditorSnapshotHistory } from "@moenarch/editor-core/history";
       import { stableEditorJsonStringify } from "@moenarch/editor-core/json";
       import { serializeEditorDocument } from "@moenarch/editor-core/serialization";
-      import { checkEditorDocumentAdapter } from "@moenarch/editor-core/testing";
+      import {
+        checkEditorDocumentAdapter,
+        runEditorFamilyConformance,
+      } from "@moenarch/editor-core/testing";
       import { matchesEditorHotkey } from "@moenarch/editor-core/hotkeys";
       import { projectEditorTree } from "@moenarch/editor-core/tree";
       import { createEditorAspect } from "@moenarch/editor-core/aspects";
@@ -71,6 +74,8 @@ async function smokeHeadlessConsumer(tarball) {
       import { createEditorPluginRegistry } from "@moenarch/editor-core/plugins";
       import { applyEditorRemoteOperations } from "@moenarch/editor-core/sync";
       import {
+        createEditorSession,
+        createMemoryEditorSessionStorage,
         EditorPersistenceConflictError,
         saveEditorRuntimeConflictPersistence,
       } from "@moenarch/editor-core/persistence";
@@ -112,6 +117,103 @@ async function smokeHeadlessConsumer(tarball) {
         input: { title: "Draft" },
         roundtrip: true,
       });
+      const conformanceDocumentsEqual = (left, right) =>
+        stableEditorJsonStringify(left) === stableEditorJsonStringify(right);
+      const conformanceAdapter = {
+        id: "packed-consumer",
+        fixtures: {
+          customDataDocument: { custom: { plugin: ["preserved", 1] }, title: "Custom" },
+          editedDocument: { custom: {}, title: "Published" },
+          editedSelection: { focus: "canvas" },
+          equivalentDocument: { custom: {}, title: " Draft " },
+          initialDocument: { custom: {}, title: "Draft" },
+          initialSelection: { focus: "title" },
+          invalidImport: { title: 42 },
+          migration: {
+            expectedDocument: { custom: {}, title: "Draft" },
+            input: { custom: {}, heading: "Draft", version: 0 },
+          },
+        },
+        canUndo: (runtime) => runtime.operation.canUndo,
+        cancelInteraction: (runtime) => runtime,
+        createRuntime(document, selection) {
+          return {
+            operation: createEditorOperationRuntime({
+              history: {
+                equals: conformanceDocumentsEqual,
+                normalize: conformanceAdapter.normalize,
+              },
+              initialDocument: document,
+              initialSelection: selection,
+            }),
+            savedDocument: conformanceAdapter.normalize(document),
+          };
+        },
+        documentsEqual: conformanceDocumentsEqual,
+        edit(runtime, document, selection) {
+          return {
+            ...runtime,
+            operation: core.applyEditorOperation(runtime.operation, {
+              apply: () => document,
+              id: "edit",
+              selectionAfter: selection,
+              selectionBefore: runtime.operation.runtime.selection,
+            }),
+          };
+        },
+        getDocument: (runtime) => runtime.operation.runtime.document,
+        getSelection: (runtime) => runtime.operation.runtime.selection,
+        isDirty: (runtime) =>
+          !conformanceDocumentsEqual(runtime.operation.runtime.document, runtime.savedDocument),
+        markSaved: (runtime) => ({
+          ...runtime,
+          savedDocument: runtime.operation.runtime.document,
+        }),
+        normalize: (document) => ({ ...document, title: document.title.trim() }),
+        parseAndMigrate(input) {
+          const title = input?.version === 0 ? input.heading : input?.title;
+          if (typeof title !== "string") {
+            return {
+              diagnostics: [{ message: "Expected string.", path: "title" }],
+              status: "failure",
+            };
+          }
+          return {
+            document: conformanceAdapter.normalize({ custom: input.custom ?? {}, title }),
+            status: "success",
+          };
+        },
+        redo: (runtime) => ({
+          ...runtime,
+          operation: core.redoEditorOperationRuntime(runtime.operation),
+        }),
+        runMutationCommand: (runtime, options) =>
+          options.readOnly
+            ? runtime
+            : conformanceAdapter.edit(
+                runtime,
+                conformanceAdapter.fixtures.editedDocument,
+                conformanceAdapter.fixtures.editedSelection,
+              ),
+        selectionsEqual: conformanceDocumentsEqual,
+        serialize: (document) => conformanceAdapter.normalize(document),
+        setSelection(runtime, selection) {
+          return {
+            ...runtime,
+            operation: core.applyEditorOperation(runtime.operation, {
+              apply: (document) => document,
+              id: "selection",
+              selectionAfter: selection,
+              selectionBefore: runtime.operation.runtime.selection,
+            }),
+          };
+        },
+        undo: (runtime) => ({
+          ...runtime,
+          operation: core.undoEditorOperationRuntime(runtime.operation),
+        }),
+      };
+      const conformance = await runEditorFamilyConformance(conformanceAdapter);
       matchesEditorHotkey({ altKey: false, ctrlKey: true, key: "z", metaKey: false, shiftKey: false, target: null }, "Mod+Z");
       createEditorAspect({ id: "title", derive: ({ document }) => document.title });
       editorShareUrl("https://example.com", "/editor", "plain.token");
@@ -160,16 +262,29 @@ async function smokeHeadlessConsumer(tarball) {
       const conflict = new EditorPersistenceConflictError("stale revision", {
         local: { document: dirtyRuntime.document, revisionToken: "server-1" },
       });
+      const session = createEditorSession({
+        autosave: false,
+        document: {
+          parse: (payload) => payload,
+          serialize: (document) => document,
+        },
+        equals: (left, right) => left.title === right.title,
+        initialDocument: { title: "Draft" },
+        storage: createMemoryEditorSessionStorage(),
+      });
+      await session.updateDocument({ title: "Session saved" });
+      const sessionSaved = await session.save();
 
       if (tree.root.id !== "document") {
         throw new Error("Tree projection failed");
       }
-      if (!adapterCheck.ok || uniqueEntityId !== "node" || !indexes.entitiesById.has("node") || interaction.state.kind !== "idle" || operationRuntime.canUndo || selection.kind !== "entity" || viewport.zoom !== 2 || graphIssues.length === 0) {
+      if (!adapterCheck.ok || !conformance.ok || uniqueEntityId !== "node" || !indexes.entitiesById.has("node") || interaction.state.kind !== "idle" || operationRuntime.canUndo || selection.kind !== "entity" || viewport.zoom !== 2 || graphIssues.length === 0) {
         throw new Error("New foundation subpaths failed");
       }
-      if (collaboration.clientId !== "client-a" || patched.title !== "Published" || registry.plugins.length !== 1 || remoteApplied.state.title !== "Remote" || !conflictSaved.saved || conflictSaved.persistence.revisionToken !== "server-2" || savedRevisionToken !== "server-1" || conflict.name !== "EditorPersistenceConflictError") {
+      if (collaboration.clientId !== "client-a" || patched.title !== "Published" || registry.plugins.length !== 1 || remoteApplied.state.title !== "Remote" || !conflictSaved.saved || conflictSaved.persistence.revisionToken !== "server-2" || savedRevisionToken !== "server-1" || conflict.name !== "EditorPersistenceConflictError" || !sessionSaved || session.getState().status !== "saved") {
         throw new Error("New release subpaths failed");
       }
+      await session.dispose();
     `,
   );
   await execFileAsync(node, [join(consumerDir, "node-esm.mjs")], { cwd: consumerDir });
@@ -222,6 +337,7 @@ async function smokeHeadlessConsumer(tarball) {
       import type { EditorPatch } from "@moenarch/editor-core/patches";
       import type { EditorPlugin } from "@moenarch/editor-core/plugins";
       import type { EditorConflictStorageAdapter } from "@moenarch/editor-core/persistence";
+      import type { EditorSession, EditorSessionState } from "@moenarch/editor-core/persistence";
       import type { EditorRemoteApplyAdapter } from "@moenarch/editor-core/sync";
       import type { EditorDocumentAdapterCheckCase } from "@moenarch/editor-core/testing";
       import type { EditorTreeAdapter } from "@moenarch/editor-core/tree";
@@ -344,6 +460,8 @@ async function smokeHeadlessConsumer(tarball) {
         decode: (envelope) => envelope.operation,
         apply: (_state, operation) => operation,
       };
+      let editorSession!: EditorSession<Document, Document>;
+      let editorSessionState!: EditorSessionState<Document, Document>;
 
       void history;
       void copiedEditorRuntime;
@@ -372,6 +490,8 @@ async function smokeHeadlessConsumer(tarball) {
       void plugin;
       void conflictStorage;
       void remoteAdapter;
+      void editorSession;
+      void editorSessionState;
     `,
   );
   await writeJson(join(consumerDir, "tsconfig.json"), {
@@ -419,13 +539,14 @@ async function smokeReactSubpath(tarball) {
       export function useCallback(value) { return value; }
       export function useEffect() {}
       export function useState(value) { return [typeof value === "function" ? value() : value, () => {}]; }
+      export function useSyncExternalStore(_subscribe, getSnapshot) { return getSnapshot(); }
     `,
   );
   await writeFile(
     join(consumerDir, "react-subpath.mjs"),
     `
-      import { useConflictAwareEditorRuntime, useEditorHotkeys, useEditorTreeState } from "@moenarch/editor-core/react";
-      if (typeof useEditorHotkeys !== "function" || typeof useEditorTreeState !== "function" || typeof useConflictAwareEditorRuntime !== "function") {
+      import { useConflictAwareEditorRuntime, useEditorHotkeys, useEditorSession, useEditorTreeState } from "@moenarch/editor-core/react";
+      if (typeof useEditorHotkeys !== "function" || typeof useEditorTreeState !== "function" || typeof useConflictAwareEditorRuntime !== "function" || typeof useEditorSession !== "function") {
         throw new Error("React subpath did not load");
       }
     `,
@@ -457,6 +578,10 @@ async function smokeBrowserBundle(tarball) {
       import { createEditorSnapshotHistory } from "@moenarch/editor-core";
       import { encodeEditorSharePayload } from "@moenarch/editor-core/share";
       import { projectEditorTree } from "@moenarch/editor-core/tree";
+      import {
+        createIndexedDbEditorSessionStorage,
+        createLocalStorageEditorSessionStorage,
+      } from "@moenarch/editor-core/browser";
 
       const history = createEditorSnapshotHistory({ title: "Draft" });
       const tree = projectEditorTree(history.present, {
@@ -465,6 +590,8 @@ async function smokeBrowserBundle(tarball) {
         },
       });
       document.querySelector("#app")!.textContent = tree.root.label;
+      void createIndexedDbEditorSessionStorage;
+      void createLocalStorageEditorSessionStorage;
       void encodeEditorSharePayload(history.present);
     `,
   );

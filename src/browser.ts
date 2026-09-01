@@ -274,3 +274,12 @@ function resolveStorage(storage: Storage | undefined): Storage | null {
 
   return window.localStorage;
 }
+
+export {
+  classifyBrowserSessionStorageError,
+  createIndexedDbEditorSessionStorage,
+  createLocalStorageEditorSessionStorage,
+  type IndexedDbEditorSessionStorageOptions,
+  type LocalStorageEditorSessionStorageOptions,
+} from "./browser/session-storage.js";
+export { EditorSessionConflictError, EditorSessionError } from "./session.js";

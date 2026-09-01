@@ -46,3 +46,13 @@ _Avoid_: ETag, version, cursor
 Persistence that uses revision tokens and exposes stale-save conflicts without marking the local
 runtime clean.
 _Avoid_: Server persistence, optimistic save
+
+**Editor Session**:
+A framework-neutral document persistence lifecycle with autosave, revisioned storage,
+last-known-good recovery, typed diagnostics, and optional interruption journaling.
+_Avoid_: Backend session, collaboration session
+
+**Last-Known-Good Snapshot**:
+The most recent document and serialized payload accepted by storage with its revision token. It is
+retained when later saves fail or conflict.
+_Avoid_: Backup, autosave copy

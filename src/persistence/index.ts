@@ -39,3 +39,28 @@ export {
   type EditorPersistenceStateUpdater,
   type NormalizedEditorAutosaveOptions,
 } from "./controller-types.js";
+export { createEditorSession } from "./session.js";
+export {
+  createMemoryEditorSessionJournal,
+  createMemoryEditorSessionStorage,
+} from "./session-memory.js";
+export {
+  EditorSessionConflictError,
+  EditorSessionError,
+  type EditorSessionErrorCode,
+  type EditorSessionOperation,
+  type EditorSessionScheduler,
+  type EditorSessionStorageAdapter,
+  type EditorSessionStorageSave,
+  type EditorSessionStorageSnapshot,
+  type EditorSessionTimer,
+} from "../session.js";
+export type {
+  EditorSession,
+  EditorSessionAutosaveOptions,
+  EditorSessionDocumentAdapter,
+  EditorSessionJournalAdapter,
+  EditorSessionOptions,
+  EditorSessionSnapshot,
+  EditorSessionState,
+} from "./session-types.js";

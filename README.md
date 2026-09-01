@@ -43,7 +43,7 @@ bun add react @moenarch/editor-core
 | `@moenarch/editor-core/indexes`       | Entity, graph, timeline, and validation index helpers.           |
 | `@moenarch/editor-core/interaction`   | Transient interaction session helpers.                           |
 | `@moenarch/editor-core/operations`    | Semantic operation runtime and operation-log helpers.            |
-| `@moenarch/editor-core/persistence`   | Runtime document load/save and autosave orchestration.           |
+| `@moenarch/editor-core/persistence`   | Runtime persistence and recoverable editor sessions.             |
 | `@moenarch/editor-core/patches`       | Immutable JSON diff, patch application, and patch inversion.     |
 | `@moenarch/editor-core/plugins`       | Plugin registry composition for commands, validators, aspects.   |
 | `@moenarch/editor-core/runtime`       | Document runtime state, validation, aspects, and dirty tracking. |
@@ -54,7 +54,7 @@ bun add react @moenarch/editor-core
 | `@moenarch/editor-core/viewport`      | Canvas and timeline viewport math.                               |
 | `@moenarch/editor-core/serialization` | Versioned JSON document envelopes and migrations.                |
 | `@moenarch/editor-core/json`          | Stable JSON sorting, stringifying, and equality helpers.         |
-| `@moenarch/editor-core/browser`       | Browser file, clipboard, download, and storage helpers.          |
+| `@moenarch/editor-core/browser`       | Browser file, clipboard, and revisioned storage adapters.        |
 | `@moenarch/editor-core/share`         | URL-safe share token encode/decode helpers.                      |
 | `@moenarch/editor-core/testing`       | Test-runner-agnostic adapter contract checks.                    |
 | `@moenarch/editor-core/aspects`       | Derived document aspect snapshots.                               |
@@ -490,6 +490,8 @@ assertEditorDocumentAdapter(adapter, [
 ```
 
 The helpers also support operation-log adapters through `assertEditorOperationLogAdapter`.
+For cross-family behavior, implement `EditorFamilyConformanceAdapter` and run
+`runEditorFamilyConformance`; see [`docs/conformance.md`](docs/conformance.md).
 
 ## JSON
 
@@ -526,6 +528,8 @@ downloadEditorJson(document, { filename: "document" });
 
 Browser helpers are defensive in SSR or non-browser environments. Download and local storage
 helpers no-op or return fallbacks when `document`, `window`, or `localStorage` are unavailable.
+Revisioned session storage is available through `createLocalStorageEditorSessionStorage` and
+`createIndexedDbEditorSessionStorage`.
 
 ## Persistence
 
@@ -622,6 +626,11 @@ const useMerged = acceptMergedEditorPersistenceConflict(runtime, persistence, me
 Accepting local or merged documents leaves the runtime dirty so callers can save the chosen
 document. Accepting remote resets the runtime to the remote document and marks it clean.
 
+For production lifecycle state, recovery payloads, last-known-good snapshots, and optional
+journaling, use `createEditorSession`. Memory storage is headless; local-storage and IndexedDB
+adapters live under the browser entrypoint. See
+[`docs/session-persistence.md`](docs/session-persistence.md).
+
 ## Share
 
 Encode JSON payloads into URL-safe tokens. Large payloads use gzip when the runtime supports
@@ -664,6 +673,7 @@ React APIs are opt-in through the `/react` subpath:
 import {
   useEditorHotkeys,
   useEditorRuntime,
+  useEditorSession,
   useEditorTreeState,
 } from "@moenarch/editor-core/react";
 

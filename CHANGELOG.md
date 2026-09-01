@@ -4,6 +4,12 @@ All notable changes to `@moenarch/editor-core` are documented here.
 
 This package follows semver. While the package is in `0.x`, breaking changes may ship in minor releases, but every breaking change must be called out in this file.
 
+## Unreleased
+
+- Added the test-runner-neutral editor-family conformance suite under the testing entrypoint.
+- Added framework-neutral Editor Session lifecycle, recovery, typed diagnostic, revision-token,
+  memory/local-storage/IndexedDB, optional journal, and React subscription primitives.
+
 ## 0.5.0
 
 - Breaking: `EditorRuntimeState` and `EditorOperationRuntimeState` are now nominally opaque,
