@@ -5,9 +5,7 @@ import {
   createEditorEntitySelection,
   createEditorOperationRuntime,
   createEditorViewportState,
-  editorPixelToTime,
   editorPointToScreenPoint,
-  editorTimeToPixel,
   panEditorViewport,
   screenPointToEditorPoint,
   type EditorSelection,
@@ -124,16 +122,10 @@ function FoundationPrimitivesFixture() {
   const windowedTree = windowEditorTreeItems(largeTree.items, { count: 6, start: 3 });
   const documentPoint = screenPointToEditorPoint({ x: 30, y: 40 }, viewport);
   const screenPoint = editorPointToScreenPoint(documentPoint, viewport);
-  const timelinePixel = editorTimeToPixel(4, { end: 12, pixelsPerUnit: 16, start: 0 });
-  const timelineTime = editorPixelToTime(timelinePixel, {
-    end: 12,
-    pixelsPerUnit: 16,
-    start: 0,
-  });
 
   return (
     <div className="grid max-w-4xl gap-4 rounded-lg border border-slate-200 bg-white p-4 text-slate-800 shadow-sm">
-      <div className="grid gap-3 md:grid-cols-3">
+      <div className="grid gap-3 md:grid-cols-2">
         <button
           className="min-h-10 rounded-md border border-slate-300 bg-slate-50 px-3 text-sm font-bold"
           onClick={() =>
@@ -156,9 +148,6 @@ function FoundationPrimitivesFixture() {
         >
           Viewport {viewport.x}, {viewport.y}
         </button>
-        <div className="rounded-md border border-slate-200 bg-slate-50 p-2 text-sm font-bold">
-          Timeline {timelinePixel}px / {timelineTime}s
-        </div>
       </div>
 
       <div className="grid gap-2 rounded-md border border-slate-200 bg-slate-50 p-3">
