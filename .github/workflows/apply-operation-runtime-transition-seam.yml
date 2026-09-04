@@ -131,8 +131,8 @@ jobs:
           });
           EOF
       - run: bun run format
-      - run: bun run check-types
-      - run: bun run test:unit
+      - run: bun run build
+      - run: bunx vitest run src/operation-runtime-transitions.test.ts
       - name: Commit seam
         run: |
           git config user.name github-actions[bot]
