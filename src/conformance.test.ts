@@ -59,7 +59,10 @@ describe("editor conformance", () => {
     expect(result.ok).toBe(false);
     expect(result.issues).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ capability: "transition", message: expect.stringContaining("mutated") }),
+        expect.objectContaining({
+          capability: "transition",
+          message: expect.stringContaining("mutated"),
+        }),
       ]),
     );
   });
@@ -75,8 +78,6 @@ describe("editor conformance", () => {
     });
 
     expect(result.ok).toBe(false);
-    expect(result.issues).toEqual([
-      expect.objectContaining({ capability: "persistence" }),
-    ]);
+    expect(result.issues).toEqual([expect.objectContaining({ capability: "persistence" })]);
   });
 });
