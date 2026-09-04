@@ -1,10 +1,8 @@
 # Adoption Guide
 
-Use this guide when adding `@moenarch/editor-core` to a downstream editor package.
+Use `@moenarch/editor-core` when a downstream editor needs shared editing mechanics. Keep the downstream document model and domain rules in the package that owns them.
 
-## Minimal Runtime
-
-Use `createEditorRuntime` when whole-document snapshot history is enough:
+## Minimal runtime
 
 ```ts
 import {
@@ -18,8 +16,14 @@ type Document = {
   title: string;
 };
 
-let runtime = createEditorRuntime<Document>({
+type Selection = {
+  start: number;
+  end: number;
+};
+
+let runtime = createEditorRuntime<Document, Selection>({
   initialDocument: { body: "", title: "Draft" },
+  initialSelection: { start: 0, end: 0 },
   validate(document) {
     return document.title.trim() ? [] : [{ path: "title", message: "Title is required." }];
   },
@@ -39,153 +43,38 @@ const commands = createEditorRuntimeCommands({
 });
 ```
 
-Runtime state is opaque and readonly. Always start with `createEditorRuntime`, then use
-`commitEditorRuntime` or `resetEditorRuntime` for documents and `setEditorRuntimeSelection` for
-selection. Do not construct, deserialize, or copy Runtime state with object spread. To restore a
-saved editor, load its document and rebuild Runtime state through these transitions.
+Runtime state is opaque. Persist documents, not runtime state.
 
-Prefer snapshot history for small immutable documents where each undo step can store the full
-document. Prefer operation runtime when edits need semantic labels, merged drag transactions, or
-selection restoration.
+Use snapshot history for small immutable documents. Use operation runtime when edits need semantic labels, selection restoration, preflight checks, or interaction merging.
 
-## Document Adapter
-
-Adapters own the downstream document contract. Keep `format` globally specific and bump
-`schemaVersion` whenever serialized input needs a migration.
-
-```ts
-import type { EditorDocumentAdapter, EditorDocumentMigrations } from "@moenarch/editor-core";
-
-type Document = {
-  body: string;
-  title: string;
-  updatedAt: string;
-};
-
-export const adapter: EditorDocumentAdapter<Document> = {
-  format: "@example/editor/document",
-  schemaVersion: 2,
-  normalize(document) {
-    return {
-      body: document.body,
-      title: document.title.trim() || "Untitled",
-      updatedAt: document.updatedAt,
-    };
-  },
-  read(input) {
-    const value = input as Partial<Document>;
-    return {
-      body: typeof value.body === "string" ? value.body : "",
-      title: typeof value.title === "string" ? value.title : "Untitled",
-      updatedAt: typeof value.updatedAt === "string" ? value.updatedAt : new Date().toISOString(),
-    };
-  },
-  validate(document) {
-    return document.title ? [] : [{ path: "title", message: "Title is required." }];
-  },
-};
-
-export const migrations: EditorDocumentMigrations<Document> = {
-  1: (input) => ({
-    ...input,
-    document: {
-      ...(input.document as Record<string, unknown>),
-      updatedAt: new Date().toISOString(),
-    },
-    schemaVersion: 2,
-  }),
-};
-```
-
-## Adapter Contract Tests
-
-The testing subpath is framework-free. Use it from Vitest, Jest, Node test, or custom CI scripts.
-
-```ts
-import { assertEditorDocumentAdapter } from "@moenarch/editor-core/testing";
-import { adapter, migrations } from "./document-adapter.js";
-
-assertEditorDocumentAdapter(adapter, [
-  {
-    expected: {
-      body: "",
-      title: "Draft",
-      updatedAt: "2026-06-06T12:00:00.000Z",
-    },
-    id: "current-envelope",
-    input: {
-      document: {
-        title: " Draft ",
-        updatedAt: "2026-06-06T12:00:00.000Z",
-      },
-      format: adapter.format,
-      schemaVersion: adapter.schemaVersion,
-    },
-    roundtrip: true,
-  },
-  {
-    expected: {
-      body: "",
-      title: "Migrated",
-      updatedAt: expect.any(String),
-    },
-    id: "v1-migration",
-    input: {
-      document: { title: "Migrated" },
-      format: adapter.format,
-      schemaVersion: 1,
-    },
-    migrations,
-  },
-]);
-```
-
-If the runner does not support matcher objects such as `expect.any`, use
-`checkEditorDocumentAdapter` and compare the returned `value` directly.
-
-## Persistent Runtime
-
-Storage adapters only load and save documents. Runtime history, selection, and revisions are
-rebuilt around the loaded document. Storage must not serialize or reconstruct opaque Runtime state.
+## Semantic operations
 
 ```ts
 import {
-  createLocalStorageEditorStorage,
-  readEditorDocument,
-  serializeEditorDocument,
-} from "@moenarch/editor-core";
-import { usePersistentEditorRuntime } from "@moenarch/editor-core/react";
-import { adapter, migrations } from "./document-adapter.js";
+  applyEditorInteractionOperation,
+  createEditorOperationRuntime,
+} from "@moenarch/editor-core/operations";
 
-const storage = createLocalStorageEditorStorage({
-  key: "@example/editor/document",
-  parse(input) {
-    return readEditorDocument(input, adapter, { migrations });
-  },
-  serialize(document) {
-    return serializeEditorDocument(document, adapter);
+let editor = createEditorOperationRuntime({
+  initialDocument: { items: { a: { x: 0 } } },
+  preflight({ operation }) {
+    // Domain validation belongs here or in the specialization.
+    return operation.id === "forbidden" ? [{ path: "items.a", message: "Forbidden" }] : [];
   },
 });
 
-const runtime = usePersistentEditorRuntime({
-  autosave: {
-    delayMs: 750,
-    retry: { attempts: 1, delayMs: 1500 },
-    saveLatest: true,
-  },
-  initialDocument,
-  onPersistenceEvent(event) {
-    console.debug("[editor:persistence]", event);
-  },
-  storage,
+editor = applyEditorInteractionOperation(editor, {
+  id: "move-a",
+  mergeKey: "move:a",
+  apply: (document) => ({ items: { a: { x: 20 } } }),
 });
 ```
 
-`saveLatest: true` schedules one follow-up save when a newer dirty revision appears while an older
-save is still in flight. A stale save completion never marks the newer revision clean.
+`editor-core` owns the transaction behavior. The consumer owns what `move-a`, a valid graph connection, or a valid timeline trim actually means.
 
-For non-React hosts, use the headless persistence controller. It coordinates the same load, save,
-autosave, retry, and latest-revision behavior through caller-owned runtime and persistence state:
+## Persistence
+
+Storage adapters load and save caller-owned documents. Runtime history and transient selection state are rebuilt around loaded documents.
 
 ```ts
 import {
@@ -209,252 +98,80 @@ const controller = createEditorRuntimePersistenceController({
 });
 ```
 
-## Operation Runtime
+Revision tokens belong to persistence for stale-save detection. They do not imply presence, collaborative editing, or a synchronization protocol.
 
-Use `createEditorOperationRuntime` when semantic operations own undo and redo:
+## Serialization
 
-```ts
-import {
-  applyEditorOperation,
-  createEditorOperationRuntime,
-} from "@moenarch/editor-core/operations";
-
-let editor = createEditorOperationRuntime({ initialDocument });
-editor = applyEditorOperation(editor, {
-  apply: (document) => ({ ...document, title: "Published" }),
-  id: "publish",
-});
-```
-
-Operation Runtime state has a separate opaque identity because it owns preflight, transaction
-merging, and history-limit policy. Use its apply, undo, and redo transitions; do not construct,
-deserialize, or copy the state with object spread.
-
-## Operation Logs
-
-Use operation logs when a downstream editor needs importable semantic edit history:
+Use a document adapter only when the document actually crosses a persistence/export boundary.
 
 ```ts
-import {
-  readEditorOperationLog,
-  serializeEditorOperationLog,
-  type EditorOperationLogAdapter,
-} from "@moenarch/editor-core/operations";
+import type { EditorDocumentAdapter } from "@moenarch/editor-core/serialization";
 
-type RenameOperation = {
-  id: string;
-  type: "rename";
-  payload: { title: string };
-};
-
-const operationAdapter: EditorOperationLogAdapter<RenameOperation> = {
-  format: "@example/editor/operations",
+const adapter: EditorDocumentAdapter<Document> = {
+  format: "@example/editor/document",
   schemaVersion: 1,
-  read(input) {
-    return input as RenameOperation;
-  },
-  validate(operation) {
-    return operation.id ? [] : [{ path: "id", message: "Operation id is required." }];
-  },
+  normalize: (document) => document,
+  read: (input) => input as Document,
 };
-
-const exported = serializeEditorOperationLog(
-  [{ id: "rename-title", type: "rename", schemaVersion: 1, payload: { title: "Launch" } }],
-  {
-    format: operationAdapter.format,
-    schemaVersion: operationAdapter.schemaVersion,
-  },
-);
-const operations = readEditorOperationLog(exported, operationAdapter);
 ```
 
-Use `assertEditorOperationLogAdapter` from `/testing` for operation-log adapter coverage.
+Internal, non-persisted shapes do not need migration machinery merely because they are TypeScript types.
 
-## Collaboration
+## Generic entities and trees
 
-Use collaboration primitives when downstream editors exchange operation envelopes through their own
-transport. `editor-core` only tracks local client identity, remote presence, seen operation ids, and
-revision tokens:
+The entity helpers are optional. Use them when a consumer has stable IDs and hierarchy, without requiring the consumer to adopt a universal editor document.
+
+```ts
+import { createEditorEntityDocument } from "@moenarch/editor-core/entities";
+import { createEditorEntityIndexes } from "@moenarch/editor-core/indexes";
+
+const entities = createEditorEntityDocument([
+  { id: "a", type: "item", order: 1 },
+  { id: "b", type: "item", order: 2 },
+]);
+const indexes = createEditorEntityIndexes(entities);
+```
+
+Graph edges, workflow nodes, timeline clips, tracks, ports, and time ranges should be modeled in their owning packages rather than added to these generic types.
+
+## Generic 2D viewport
+
+The viewport helpers provide ordinary 2D pan/zoom, bounds, and scalar/point snapping.
 
 ```ts
 import {
-  createEditorCollaborationState,
-  dedupeEditorRemoteOperations,
-} from "@moenarch/editor-core/collaboration";
-
-let collaboration = createEditorCollaborationState({
-  clientId: "client-a",
-  revision: "server-1",
-});
-
-const deduped = dedupeEditorRemoteOperations(collaboration, incomingOperations);
-collaboration = deduped.state;
+  createEditorViewportState,
+  screenPointToEditorPoint,
+  zoomEditorViewportAtPoint,
+} from "@moenarch/editor-core/viewport";
 ```
 
-Apply `deduped.operations` through the downstream editor's own operation adapter. Local-client
-operations are ignored by default.
+Timeline time-to-pixel math belongs in `timeline-editor`. Graph routing and connection geometry belong in `graph-editor`.
 
-## Remote Apply
+## React
 
-Use `/sync` when a downstream transport receives operation envelopes that should update a headless
-operation runtime:
+React integration remains optional:
 
 ```ts
-import {
-  applyEditorRemoteOperations,
-  createEditorOperationRemoteApplyAdapter,
-} from "@moenarch/editor-core/sync";
-
-const remoteApply = createEditorOperationRemoteApplyAdapter({
-  decode(envelope) {
-    return {
-      id: envelope.id,
-      apply: (document) => applyRemotePayload(document, envelope.operation),
-    };
-  },
-});
-
-const result = applyEditorRemoteOperations(editor, collaboration, incomingOperations, remoteApply);
-editor = result.state;
-collaboration = result.collaboration;
+import { usePersistentEditorRuntime } from "@moenarch/editor-core/react";
 ```
 
-Failed operations are retryable because they are not marked seen. Remote operations are excluded
-from the local undo stack by default, so local undo remains scoped to the local user's edits.
+The React layer wraps the same headless kernel; it does not own product UI or domain chrome.
 
-## Patches
+## Specialization guidance
 
-Use patch helpers for JSON-compatible editor documents when a downstream package needs change
-summaries, simple conflict previews, or reversible updates:
+A specialization should expose its own vocabulary even when core supplies the mechanics underneath it.
 
-```ts
-import { applyEditorPatch, diffEditorJson, invertEditorPatch } from "@moenarch/editor-core/patches";
+Examples:
 
-const patch = diffEditorJson(previousDocument, nextDocument);
-const restored = applyEditorPatch(nextDocument, invertEditorPatch(patch));
-```
+- `graph-editor` owns nodes, edges, ports, graph indexes, graph connection validation, and graph selection.
+- `workflow-editor` owns workflow node kinds, typed workflow ports, DAG/workflow rules, templates/composition, and compilation.
+- `timeline-editor` owns tracks, clips/items, time ranges, trim/ripple/roll/slip behavior, playback, and temporal selection.
 
-Patch paths are arrays of string and number segments. Patches include old values by default so
-`invertEditorPatch` can restore previous values; if `includeOldValues: false` is used, inversion is
-not guaranteed to restore the original value. Array move detection is intentionally not included.
+Thin wrappers around generic history/runtime/operations are healthy seams. Do not eliminate them solely to reduce code duplication.
 
-## Plugins
+## When not to extend core
 
-Use plugin registries when a downstream editor is assembled from feature modules:
+Before adding a public core abstraction, ask whether substantially the same behavior is already required by multiple independent editor specializations.
 
-```ts
-import {
-  createEditorPluginRegistry,
-  getEditorPluginDiagnostics,
-  resolveEditorPluginRuntimeOptions,
-} from "@moenarch/editor-core/plugins";
-
-const registry = createEditorPluginRegistry([metadataPlugin, timelinePlugin]);
-const diagnostics = getEditorPluginDiagnostics(registry);
-const runtimeOptions = resolveEditorPluginRuntimeOptions(registry, { initialDocument });
-```
-
-Run diagnostics in development or CI to catch duplicate plugin ids, duplicate aspect ids, and
-command problems before rendering UI.
-
-## Conflict-Aware Persistence
-
-Use conflict-aware persistence for server-backed storage that requires a revision token such as an
-ETag or version:
-
-```ts
-import {
-  loadEditorRuntimeConflictPersistence,
-  saveEditorRuntimeConflictPersistence,
-  type EditorConflictStorageAdapter,
-  type EditorPersistedDocument,
-} from "@moenarch/editor-core/persistence";
-
-async function saveToServer(
-  value: EditorPersistedDocument<Document>,
-): Promise<EditorPersistedDocument<Document>> {
-  return value;
-}
-
-const storage: EditorConflictStorageAdapter<Document> = {
-  load: async (): Promise<EditorPersistedDocument<Document>> => ({
-    document: initialDocument,
-    revisionToken: "etag-1",
-  }),
-  save: async (value): Promise<EditorPersistedDocument<Document>> => saveToServer(value),
-};
-
-const loaded = await loadEditorRuntimeConflictPersistence(runtime, storage);
-const saved = await saveEditorRuntimeConflictPersistence(loaded.runtime, storage, {
-  revisionToken: loaded.persistence.revisionToken,
-});
-```
-
-Storage adapters should throw `EditorPersistenceConflictError` when a save is stale. The runtime
-stays dirty, persistence exposes the conflict, and a `save-conflict` event is emitted.
-
-Resolve conflicts with `/sync` helpers when the user or product policy chooses a document:
-
-```ts
-import {
-  acceptLocalEditorPersistenceConflict,
-  acceptMergedEditorPersistenceConflict,
-  acceptRemoteEditorPersistenceConflict,
-} from "@moenarch/editor-core/sync";
-
-const local = acceptLocalEditorPersistenceConflict(runtime, persistence);
-const remote = acceptRemoteEditorPersistenceConflict(runtime, persistence);
-const merged = acceptMergedEditorPersistenceConflict(runtime, persistence, mergedDocument);
-```
-
-These helpers are state-only. Save after accept-local or accept-merged when the chosen document
-should be persisted.
-
-## Command Runtime
-
-Use `createEditorCommandRuntime` when headless code needs the same hotkey policy as React hooks:
-
-```ts
-import { createEditorCommandRuntime } from "@moenarch/editor-core/commands";
-
-const commandRuntime = createEditorCommandRuntime({
-  commands,
-  readOnly: isReadOnly,
-});
-
-const result = await commandRuntime.run(event);
-if (result.status === "ran") {
-  console.log(`Ran ${result.commandId}`);
-}
-```
-
-The runtime centralizes disabled, read-only, scope, and editable-target checks. `useEditorHotkeys`
-delegates to the same policy, so `readOnly: true` suppresses command execution in React and
-headless integrations.
-
-## Command Diagnostics
-
-Run command diagnostics in development or CI to catch duplicate ids and bad shortcuts:
-
-```ts
-import { getEditorCommandDiagnostics } from "@moenarch/editor-core/commands";
-
-const diagnostics = getEditorCommandDiagnostics(commands);
-if (diagnostics.some((diagnostic) => diagnostic.severity === "error")) {
-  throw new Error(JSON.stringify(diagnostics, null, 2));
-}
-```
-
-Disabled commands do not participate in hotkey conflict warnings.
-
-## Downstream Release Checklist
-
-Before releasing a downstream editor package:
-
-- Run adapter contract tests for current envelopes, old migrations, legacy unwraps, and validation
-  failures.
-- Run command diagnostics against the command set used by the UI.
-- Verify persistence load, clean save skip, dirty save, save failure, and autosave retry behavior.
-- Verify conflict-aware persistence with matching tokens, stale tokens, and conflict recovery.
-- Smoke import every public subpath used by the package.
-- Update downstream changelog entries for schema-version bumps and migration behavior.
+If the proposed API requires explaining nodes, ports, tracks, clips, workflows, media, or collaboration, keep it downstream until evidence says otherwise.

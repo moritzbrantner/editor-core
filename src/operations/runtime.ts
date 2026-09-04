@@ -11,14 +11,16 @@ import {
   createEditorRuntime,
   type CommitEditorRuntimeOptions,
   type EditorRuntimeSelection,
+  type EditorRuntimeState,
 } from "../runtime.js";
 import type {
+  ApplyEditorInteractionOperationOptions,
   ApplyEditorOperationOptions,
-  ApplyEditorOperationModeOptions,
   EditorOperation,
   EditorOperationPreflightIssue,
   EditorOperationRuntimeOptions,
   EditorOperationRuntimeState,
+  ReplaceEditorOperationRuntimeCoreStateOptions,
 } from "./types.js";
 
 const operationRuntimeOptionsByState = new WeakMap<
@@ -45,6 +47,27 @@ export function createEditorOperationRuntime<TDocument, TSelection = unknown>(
       runtime,
     },
     options,
+  );
+}
+
+export function replaceEditorOperationRuntimeCoreState<TDocument, TSelection = unknown>(
+  state: EditorOperationRuntimeState<TDocument, TSelection>,
+  runtime: EditorRuntimeState<TDocument, TSelection>,
+  options: ReplaceEditorOperationRuntimeCoreStateOptions = {},
+): EditorOperationRuntimeState<TDocument, TSelection> {
+  const runtimeOptions = getOperationRuntimeOptions(state);
+  const operationHistory = options.clearOperationHistory
+    ? createEditorTransactionHistory<TDocument, TSelection>()
+    : state.operationHistory;
+
+  return withOperationRuntimeFlags(
+    {
+      issues: options.clearIssues ? [] : state.issues,
+      lastMergeKey: options.clearOperationHistory ? null : state.lastMergeKey,
+      operationHistory,
+      runtime,
+    },
+    runtimeOptions,
   );
 }
 
@@ -106,7 +129,10 @@ export function applyEditorOperation<TDocument, TSelection = unknown>(
     {
       issues,
       lastMergeKey: operation.mergeKey ?? null,
-      operationHistory: pushOrMergeOperationTransaction(state, transaction, options),
+      operationHistory:
+        options.recordHistory === false
+          ? state.operationHistory
+          : pushOrMergeOperationTransaction(state, transaction, options),
       runtime,
     },
     runtimeOptions,
@@ -116,32 +142,11 @@ export function applyEditorOperation<TDocument, TSelection = unknown>(
 export function applyEditorInteractionOperation<TDocument, TSelection = unknown>(
   state: EditorOperationRuntimeState<TDocument, TSelection>,
   operation: EditorOperation<TDocument, TSelection>,
-  options: ApplyEditorOperationModeOptions = {},
+  options: ApplyEditorInteractionOperationOptions = {},
 ): EditorOperationRuntimeState<TDocument, TSelection> {
-  return applyEditorOperation(state, withOperationModeOrigin(operation, options), { merge: true });
-}
-
-export function applyEditorRemoteOperation<TDocument, TSelection = unknown>(
-  state: EditorOperationRuntimeState<TDocument, TSelection>,
-  operation: EditorOperation<TDocument, TSelection>,
-  options: ApplyEditorOperationModeOptions = {},
-): EditorOperationRuntimeState<TDocument, TSelection> {
-  const nextState = applyEditorOperation(state, withOperationModeOrigin(operation, options), {
-    merge: false,
+  return applyEditorOperation(state, withOperationOrigin(operation, options.origin), {
+    merge: true,
   });
-
-  if (nextState.issues.some((issue) => issue.severity !== "warning")) {
-    return nextState;
-  }
-
-  return withOperationRuntimeFlags(
-    {
-      ...nextState,
-      lastMergeKey: null,
-      operationHistory: state.operationHistory,
-    },
-    getOperationRuntimeOptions(state),
-  );
 }
 
 export function undoEditorOperationRuntime<TDocument, TSelection = unknown>(
@@ -198,18 +203,11 @@ export function redoEditorOperationRuntime<TDocument, TSelection = unknown>(
   );
 }
 
-function withOperationModeOrigin<TDocument, TSelection>(
+function withOperationOrigin<TDocument, TSelection>(
   operation: EditorOperation<TDocument, TSelection>,
-  options: ApplyEditorOperationModeOptions,
+  origin: EditorChangeOrigin | undefined,
 ): EditorOperation<TDocument, TSelection> {
-  if (options.origin === undefined) {
-    return operation;
-  }
-
-  return {
-    ...operation,
-    origin: options.origin,
-  };
+  return origin === undefined ? operation : { ...operation, origin };
 }
 
 function pushOrMergeOperationTransaction<TDocument, TSelection>(
@@ -286,6 +284,5 @@ function getOperationRuntimeOptions<TDocument, TSelection>(
       "Editor operation runtime state must be created by createEditorOperationRuntime.",
     );
   }
-
   return options as EditorOperationRuntimeOptions<TDocument, TSelection>;
 }

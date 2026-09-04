@@ -5,8 +5,6 @@ import { afterEach, describe, expect, test, vi } from "vitest";
 import type { EditorStorageAdapter } from "./browser.js";
 import {
   EditorPersistenceConflictError,
-  createEditorSession,
-  createMemoryEditorSessionStorage,
   createEditorPersistenceState,
   normalizeEditorAutosaveOptions,
   type EditorConflictStorageAdapter,
@@ -19,7 +17,6 @@ import {
   useEditorRuntime,
   useEditorTreeState,
   usePersistentEditorRuntime,
-  useEditorSession,
   type UseConflictAwareEditorRuntimeResult,
   type UsePersistentEditorRuntimeResult,
 } from "./react.js";
@@ -681,29 +678,6 @@ describe("editor react hooks", () => {
     expect(fixture.result.persistence.status).toBe("saved");
     expect(fixture.result.state.status).toBe("clean");
     fixture.unmount();
-  });
-
-  test("useEditorSession subscribes to a framework-neutral session", async () => {
-    const session = createEditorSession({
-      autosave: false,
-      document: {
-        parse: (input: Document) => input,
-        serialize: (document: Document) => document,
-      },
-      equals: (left, right) => left.title === right.title,
-      initialDocument,
-      storage: createMemoryEditorSessionStorage<Document>(),
-    });
-    const fixture = renderHook(() => useEditorSession(session));
-
-    expect(fixture.result.status).toBe("idle");
-    await act(async () => {
-      await session.updateDocument({ title: "Dirty" });
-    });
-    expect(fixture.result).toMatchObject({ document: { title: "Dirty" }, status: "dirty" });
-
-    fixture.unmount();
-    await session.dispose();
   });
 
   test("useControllableEditorState supports uncontrolled and controlled values", () => {

@@ -1,5 +1,6 @@
-import type { EditorRevisionToken } from "../collaboration.js";
 import type { EditorRuntimeSelection, EditorRuntimeState } from "../runtime.js";
+
+export type EditorRevisionToken = string | number;
 
 export type EditorPersistenceStatus = "idle" | "loading" | "loaded" | "saving" | "saved" | "error";
 

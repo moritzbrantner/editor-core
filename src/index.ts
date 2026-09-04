@@ -1,7 +1,6 @@
 export * from "./aspects.js";
 export * from "./browser.js";
 export * from "./commands.js";
-export * from "./collaboration.js";
 export * from "./constraints.js";
 export * from "./entities.js";
 export * from "./history.js";
@@ -16,7 +15,6 @@ export * from "./plugins.js";
 export * from "./runtime.js";
 export * from "./selection.js";
 export * from "./serialization.js";
-export * from "./share.js";
 export * from "./testing.js";
 export * from "./tree.js";
 export * from "./viewport.js";

@@ -1,5 +1,4 @@
 import type { EditorStorageAdapter } from "../browser.js";
-import type { EditorRevisionToken } from "../collaboration.js";
 import { markEditorRuntimeSaved, type EditorRuntimeState } from "../runtime.js";
 import type {
   EditorConflictStorageAdapter,
@@ -17,6 +16,7 @@ import {
   type EditorPersistenceClock,
   type EditorPersistenceRevisionOptions,
   type EditorPersistenceSaveOperation,
+  type EditorRevisionToken,
   type SaveEditorRuntimePersistenceOptions,
   type SaveEditorRuntimePersistenceResult,
 } from "./types.js";

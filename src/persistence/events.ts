@@ -1,8 +1,8 @@
-import type { EditorRevisionToken } from "../collaboration.js";
 import type {
   EditorPersistenceEvent,
   EditorPersistenceEventHandler,
   EditorPersistenceRevisionOptions,
+  EditorRevisionToken,
 } from "./types.js";
 
 export type { EditorPersistenceEvent, EditorPersistenceEventHandler };

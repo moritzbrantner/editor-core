@@ -1,5 +1,4 @@
 import type { EditorStorageAdapter } from "../browser.js";
-import type { EditorRevisionToken } from "../collaboration.js";
 import type { EditorRuntimeState } from "../runtime.js";
 import type { EditorConflictStorageAdapter } from "./conflict.js";
 import { loadEditorRuntimeConflictPersistence, loadEditorRuntimePersistence } from "./load.js";
@@ -8,7 +7,7 @@ import type {
   PersistenceControllerAdapter,
   RuntimePersistenceControllerOptions,
 } from "./controller-types.js";
-import type { EditorPersistenceState } from "./types.js";
+import type { EditorPersistenceState, EditorRevisionToken } from "./types.js";
 
 export const basicPersistenceControllerAdapter = {
   load<TDocument, TSelection>(
