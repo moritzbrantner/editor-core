@@ -125,7 +125,7 @@
   },
   "scripts": {
     "format": "oxfmt",
-    "format:check": "oxfmt --check",
+    "format:check": "oxfmt && git diff --exit-code",
     "architecture:report": "node scripts/check-architecture.mjs --report",
     "architecture:check": "node scripts/check-architecture.mjs --check",
     "lint": "oxlint src stories benchmarks tests scripts .storybook examples/react/src examples/react/vite.config.ts playwright.config.ts unlighthouse.config.ts vitest.storybook.config.ts vitest.config.ts --format=github",
@@ -134,7 +134,7 @@
     "test:coverage": "$(dirname $(command -v npm))/node node_modules/vitest/vitest.mjs run --coverage",
     "test:unit": "$(dirname $(command -v npm))/node node_modules/vitest/vitest.mjs run && $(dirname $(command -v npm))/node --test scripts/*.test.mjs",
     "test:react": "$(dirname $(command -v npm))/node node_modules/vitest/vitest.mjs run src/react.test.tsx",
-    "test:integration": "bun run build && bun run smoke:package && node scripts/check-api-snapshot.mjs",
+    "test:integration": "bun run build && bun run smoke:package && node scripts/check-api-snapshot.mjs --write && git diff --exit-code",
     "test:e2e": "bun run example:build && bun run test:e2e:run",
     "test:e2e:run": "playwright test",
     "build": "tsup src/index.ts src/aspects.ts src/history.ts src/json.ts src/serialization.ts src/testing.ts src/conformance.ts src/hotkeys.ts src/browser.ts src/commands.ts src/constraints.ts src/entities.ts src/indexes.ts src/interaction.ts src/operations.ts src/persistence.ts src/patches.ts src/plugins.ts src/runtime.ts src/selection.ts src/tree.ts src/viewport.ts src/react.tsx --format esm --dts --clean --out-dir dist",
