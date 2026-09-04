@@ -4,6 +4,7 @@ export type {
   EditorPersistenceOperation,
   EditorPersistenceState,
   EditorPersistenceStatus,
+  EditorRevisionToken,
   LoadEditorRuntimePersistenceOptions,
   LoadEditorRuntimePersistenceResult,
   SaveEditorRuntimePersistenceOptions,
