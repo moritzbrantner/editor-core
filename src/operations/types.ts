@@ -62,6 +62,11 @@ export type EditorOperationRuntimeState<
 
 export type ApplyEditorOperationOptions = {
   merge?: boolean;
+  recordHistory?: boolean;
+};
+
+export type ReplaceEditorOperationRuntimeCoreStateOptions = {
+  clearOperationHistory?: boolean;
 };
 
 export type ApplyEditorInteractionOperationOptions = {
