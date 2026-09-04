@@ -392,7 +392,7 @@ export {
 };
 ```
 
-## controller-types-CsL9U6aG.d.ts
+## controller-types-BDMwWOHk.d.ts
 
 ```ts
 import { EditorStorageAdapter } from "./browser.js";
@@ -608,17 +608,18 @@ export {
   type EditorPersistenceStateUpdater as l,
   type EditorPersistenceStatus as m,
   type EditorPersistenceTimer as n,
-  type EditorRuntimeConflictPersistenceControllerOptions as o,
-  type EditorRuntimePersistenceController as p,
-  type EditorRuntimePersistenceControllerOptions as q,
-  type EditorRuntimeStateUpdater as r,
-  type LoadEditorRuntimeConflictPersistenceResult as s,
-  type LoadEditorRuntimePersistenceOptions as t,
-  type LoadEditorRuntimePersistenceResult as u,
-  type SaveEditorRuntimeConflictPersistenceResult as v,
-  type SaveEditorRuntimePersistenceOptions as w,
-  type SaveEditorRuntimePersistenceResult as x,
-  normalizeEditorAutosaveOptions as y,
+  type EditorRevisionToken as o,
+  type EditorRuntimeConflictPersistenceControllerOptions as p,
+  type EditorRuntimePersistenceController as q,
+  type EditorRuntimePersistenceControllerOptions as r,
+  type EditorRuntimeStateUpdater as s,
+  type LoadEditorRuntimeConflictPersistenceResult as t,
+  type LoadEditorRuntimePersistenceOptions as u,
+  type LoadEditorRuntimePersistenceResult as v,
+  type SaveEditorRuntimeConflictPersistenceResult as w,
+  type SaveEditorRuntimePersistenceOptions as x,
+  type SaveEditorRuntimePersistenceResult as y,
+  normalizeEditorAutosaveOptions as z,
 };
 ```
 
@@ -1054,21 +1055,22 @@ export {
   l as EditorPersistenceStateUpdater,
   m as EditorPersistenceStatus,
   n as EditorPersistenceTimer,
-  o as EditorRuntimeConflictPersistenceControllerOptions,
-  p as EditorRuntimePersistenceController,
-  q as EditorRuntimePersistenceControllerOptions,
-  r as EditorRuntimeStateUpdater,
+  o as EditorRevisionToken,
+  p as EditorRuntimeConflictPersistenceControllerOptions,
+  q as EditorRuntimePersistenceController,
+  r as EditorRuntimePersistenceControllerOptions,
+  s as EditorRuntimeStateUpdater,
   L as LoadEditorRuntimeConflictPersistenceOptions,
-  s as LoadEditorRuntimeConflictPersistenceResult,
-  t as LoadEditorRuntimePersistenceOptions,
-  u as LoadEditorRuntimePersistenceResult,
+  t as LoadEditorRuntimeConflictPersistenceResult,
+  u as LoadEditorRuntimePersistenceOptions,
+  v as LoadEditorRuntimePersistenceResult,
   N as NormalizedEditorAutosaveOptions,
   S as SaveEditorRuntimeConflictPersistenceOptions,
-  v as SaveEditorRuntimeConflictPersistenceResult,
-  w as SaveEditorRuntimePersistenceOptions,
-  x as SaveEditorRuntimePersistenceResult,
-  y as normalizeEditorAutosaveOptions,
-} from "./controller-types-CsL9U6aG.js";
+  w as SaveEditorRuntimeConflictPersistenceResult,
+  x as SaveEditorRuntimePersistenceOptions,
+  y as SaveEditorRuntimePersistenceResult,
+  z as normalizeEditorAutosaveOptions,
+} from "./controller-types-BDMwWOHk.js";
 export {
   clearEditorPersistenceConflict,
   createEditorPersistenceState,
@@ -1503,17 +1505,17 @@ import {
   k as EditorPersistenceState,
   b as EditorConflictStorageAdapter,
   L as LoadEditorRuntimeConflictPersistenceOptions,
-  s as LoadEditorRuntimeConflictPersistenceResult,
-  t as LoadEditorRuntimePersistenceOptions,
-  u as LoadEditorRuntimePersistenceResult,
+  t as LoadEditorRuntimeConflictPersistenceResult,
+  u as LoadEditorRuntimePersistenceOptions,
+  v as LoadEditorRuntimePersistenceResult,
   S as SaveEditorRuntimeConflictPersistenceOptions,
-  v as SaveEditorRuntimeConflictPersistenceResult,
-  w as SaveEditorRuntimePersistenceOptions,
-  x as SaveEditorRuntimePersistenceResult,
-  o as EditorRuntimeConflictPersistenceControllerOptions,
-  p as EditorRuntimePersistenceController,
-  q as EditorRuntimePersistenceControllerOptions,
-} from "./controller-types-CsL9U6aG.js";
+  w as SaveEditorRuntimeConflictPersistenceResult,
+  x as SaveEditorRuntimePersistenceOptions,
+  y as SaveEditorRuntimePersistenceResult,
+  p as EditorRuntimeConflictPersistenceControllerOptions,
+  q as EditorRuntimePersistenceController,
+  r as EditorRuntimePersistenceControllerOptions,
+} from "./controller-types-BDMwWOHk.js";
 export {
   E as EditorAutosaveOptions,
   a as EditorAutosaveRetryOptions,
@@ -1528,10 +1530,11 @@ export {
   l as EditorPersistenceStateUpdater,
   m as EditorPersistenceStatus,
   n as EditorPersistenceTimer,
-  r as EditorRuntimeStateUpdater,
+  o as EditorRevisionToken,
+  s as EditorRuntimeStateUpdater,
   N as NormalizedEditorAutosaveOptions,
-  y as normalizeEditorAutosaveOptions,
-} from "./controller-types-CsL9U6aG.js";
+  z as normalizeEditorAutosaveOptions,
+} from "./controller-types-BDMwWOHk.js";
 import { EditorStorageAdapter } from "./browser.js";
 import { b as EditorRuntimeState } from "./types-ue792Gw2.js";
 import "./aspects.js";
@@ -1688,8 +1691,8 @@ import {
   h as EditorPersistenceEventHandler,
   b as EditorConflictStorageAdapter,
   k as EditorPersistenceState,
-} from "./controller-types-CsL9U6aG.js";
-export { a as EditorAutosaveRetryOptions } from "./controller-types-CsL9U6aG.js";
+} from "./controller-types-BDMwWOHk.js";
+export { a as EditorAutosaveRetryOptions } from "./controller-types-BDMwWOHk.js";
 import { EditorCommandDefinition } from "./hotkeys.js";
 import { EditorTreeState, EditorTreeNodeId } from "./tree.js";
 import "./aspects.js";
