@@ -1,0 +1,36 @@
+name: Format kernel benchmark documentation
+
+on:
+  push:
+    branches:
+      - refactor/narrow-editor-kernel
+    paths:
+      - .github/workflows/format-kernel-baselines.yml
+
+permissions:
+  contents: write
+
+jobs:
+  format:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: refactor/narrow-editor-kernel
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.3.14"
+      - run: bun install --frozen-lockfile
+      - name: Format benchmark documentation
+        run: bun run format -- docs/performance-baselines.json docs/performance-baselines.md
+      - name: Commit formatter output
+        run: |
+          if git diff --quiet; then
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/performance-baselines.json docs/performance-baselines.md
+          git commit -m "style: format kernel benchmark documentation"
+          git push origin HEAD:refactor/narrow-editor-kernel
