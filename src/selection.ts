@@ -98,9 +98,7 @@ export function normalizeEditorSelection(
     );
   }
 
-  return exists(selection.anchorId) && exists(selection.focusId)
-    ? selection
-    : emptyEditorSelection;
+  return exists(selection.anchorId) && exists(selection.focusId) ? selection : emptyEditorSelection;
 }
 
 export function editorSelectionFromTreeNode(

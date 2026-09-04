@@ -88,7 +88,11 @@ describe("editor operations", () => {
     });
 
     runtime = applyEditorOperation(runtime, moveItem(10), { merge: true });
-    runtime = applyEditorOperation(runtime, { ...moveItem(20), mergeKey: "move:b" }, { merge: true });
+    runtime = applyEditorOperation(
+      runtime,
+      { ...moveItem(20), mergeKey: "move:b" },
+      { merge: true },
+    );
 
     expect(runtime.operationHistory.undoStack).toHaveLength(2);
   });

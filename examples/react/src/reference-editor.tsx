@@ -85,7 +85,10 @@ export function ReferenceEditor() {
     setEditor((current) => {
       const nextX = snapEditorValue(
         current.runtime.document.items.itemA.x + 37,
-        [{ id: "guide-40", value: 40 }, { id: "guide-80", value: 80 }],
+        [
+          { id: "guide-40", value: 40 },
+          { id: "guide-80", value: 80 },
+        ],
         5,
       ).value;
       return applyEditorOperation(
@@ -134,8 +137,8 @@ export function ReferenceEditor() {
       <div>
         <h2 className="text-lg font-bold text-slate-900">Generic editor kernel</h2>
         <p className="text-sm text-slate-600">
-          Domain objects stay local; Editor Core supplies history, selection, indexing, tree projection,
-          commands, and generic snapping.
+          Domain objects stay local; Editor Core supplies history, selection, indexing, tree
+          projection, commands, and generic snapping.
         </p>
       </div>
 
@@ -164,7 +167,10 @@ export function ReferenceEditor() {
         <Metric
           label="Children order"
           value={
-            indexes.childrenByParentId.get("group")?.map((item) => item.id).join(" → ") ?? ""
+            indexes.childrenByParentId
+              .get("group")
+              ?.map((item) => item.id)
+              .join(" → ") ?? ""
           }
         />
         <Metric label="Projected rows" value={String(tree.items.length)} />

@@ -294,7 +294,12 @@ async function smokeBrowserBundle(tarball) {
   );
   await execFileAsync(
     node,
-    [join(rootDir, "node_modules", "vite", "bin", "vite.js"), "build", "--config", "vite.config.mjs"],
+    [
+      join(rootDir, "node_modules", "vite", "bin", "vite.js"),
+      "build",
+      "--config",
+      "vite.config.mjs",
+    ],
     { cwd: consumerDir },
   );
 }

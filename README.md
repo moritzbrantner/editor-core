@@ -57,29 +57,29 @@ A useful test for a proposed core API is: **would it still make sense for an edi
 
 ## Main entrypoints
 
-| Import path | Purpose |
-| --- | --- |
-| `@moenarch/editor-core` | Headless generic kernel exports |
-| `/runtime` | Document runtime, selection, validation, revisions, dirty state |
-| `/operations` | Semantic operations, merged transactions, undo/redo |
-| `/history` | Snapshot and transaction history helpers |
-| `/commands` | Command definitions, runtime policy, diagnostics |
-| `/persistence` | Load/save, autosave, conflicts, revision tokens |
-| `/entities` | Generic entity IDs, hierarchy, bounds, ID helpers |
-| `/indexes` | Generic entity hierarchy and validation indexes |
-| `/selection` | Generic entity/range selection helpers |
-| `/tree` | Adapter-driven tree projection and UI state |
-| `/viewport` | Generic 2D viewport/bounds/snap math |
-| `/serialization` | Versioned document envelopes and migrations |
-| `/patches` | Immutable JSON diff/apply/invert helpers |
-| `/json` | Stable JSON helpers |
-| `/hotkeys` | Shortcut parsing/matching/conflict detection |
-| `/interaction` | Transient interaction-session helpers |
-| `/browser` | Browser file/clipboard/storage helpers |
-| `/plugins` | Composition of generic commands/validators/aspects |
-| `/aspects` | Derived document values |
-| `/testing` | Adapter contract checks |
-| `/react` | Optional React hooks |
+| Import path             | Purpose                                                         |
+| ----------------------- | --------------------------------------------------------------- |
+| `@moenarch/editor-core` | Headless generic kernel exports                                 |
+| `/runtime`              | Document runtime, selection, validation, revisions, dirty state |
+| `/operations`           | Semantic operations, merged transactions, undo/redo             |
+| `/history`              | Snapshot and transaction history helpers                        |
+| `/commands`             | Command definitions, runtime policy, diagnostics                |
+| `/persistence`          | Load/save, autosave, conflicts, revision tokens                 |
+| `/entities`             | Generic entity IDs, hierarchy, bounds, ID helpers               |
+| `/indexes`              | Generic entity hierarchy and validation indexes                 |
+| `/selection`            | Generic entity/range selection helpers                          |
+| `/tree`                 | Adapter-driven tree projection and UI state                     |
+| `/viewport`             | Generic 2D viewport/bounds/snap math                            |
+| `/serialization`        | Versioned document envelopes and migrations                     |
+| `/patches`              | Immutable JSON diff/apply/invert helpers                        |
+| `/json`                 | Stable JSON helpers                                             |
+| `/hotkeys`              | Shortcut parsing/matching/conflict detection                    |
+| `/interaction`          | Transient interaction-session helpers                           |
+| `/browser`              | Browser file/clipboard/storage helpers                          |
+| `/plugins`              | Composition of generic commands/validators/aspects              |
+| `/aspects`              | Derived document values                                         |
+| `/testing`              | Adapter contract checks                                         |
+| `/react`                | Optional React hooks                                            |
 
 ## Runtime
 

@@ -233,10 +233,7 @@ describe("headless editor kernel reference fixtures", () => {
   });
 });
 
-function validateGraphConnection(
-  connection: { sourceId: string; targetId: string },
-  path: string,
-) {
+function validateGraphConnection(connection: { sourceId: string; targetId: string }, path: string) {
   return connection.sourceId === connection.targetId
     ? [{ path, message: "Connections must target a different entity." }]
     : [];

@@ -189,7 +189,10 @@ describe("editor-core critical path benchmarks", () => {
 
   bench("selection normalize large entity set", () => {
     consumeBenchmarkResult(
-      normalizeEditorSelection(selection, (id) => selectionEntityDocument.entities[id] !== undefined),
+      normalizeEditorSelection(
+        selection,
+        (id) => selectionEntityDocument.entities[id] !== undefined,
+      ),
     );
   });
 
