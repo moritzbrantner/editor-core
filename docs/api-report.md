@@ -366,6 +366,79 @@ export {
 };
 ```
 
+## conformance.d.ts
+
+```ts
+type EditorConformanceCapability = "transition" | "history" | "serialization" | "persistence";
+type EditorConformanceIssue = {
+  capability: EditorConformanceCapability;
+  message: string;
+  path?: string;
+};
+type EditorConformanceResult = {
+  ok: boolean;
+  issues: readonly EditorConformanceIssue[];
+};
+type EditorConformanceHistoryAdapter<TDocument, TAction, THistory> = {
+  create: (document: TDocument) => THistory;
+  apply: (history: THistory, action: TAction) => THistory;
+  undo: (history: THistory) => THistory;
+  redo: (history: THistory) => THistory;
+  getDocument: (history: THistory) => TDocument;
+};
+type EditorConformanceRoundtripAdapter<TDocument, TSerialized> = {
+  serialize: (document: TDocument) => TSerialized;
+  parse: (serialized: TSerialized) => TDocument;
+};
+type EditorConformanceSuite<
+  TDocument,
+  TAction,
+  THistory = never,
+  TSerialized = never,
+  TPersisted = never,
+> = {
+  createDocument: () => TDocument;
+  actions: readonly TAction[];
+  apply: (document: TDocument, action: TAction) => TDocument;
+  history?: EditorConformanceHistoryAdapter<TDocument, TAction, THistory>;
+  serialization?: EditorConformanceRoundtripAdapter<TDocument, TSerialized>;
+  persistence?: EditorConformanceRoundtripAdapter<TDocument, TPersisted>;
+  equals?: (left: TDocument, right: TDocument) => boolean;
+};
+declare class EditorConformanceError extends Error {
+  readonly issues: readonly EditorConformanceIssue[];
+  constructor(issues: readonly EditorConformanceIssue[]);
+}
+declare function checkEditorConformanceSuite<
+  TDocument,
+  TAction,
+  THistory = never,
+  TSerialized = never,
+  TPersisted = never,
+>(
+  suite: EditorConformanceSuite<TDocument, TAction, THistory, TSerialized, TPersisted>,
+): EditorConformanceResult;
+declare function assertEditorConformanceSuite<
+  TDocument,
+  TAction,
+  THistory = never,
+  TSerialized = never,
+  TPersisted = never,
+>(suite: EditorConformanceSuite<TDocument, TAction, THistory, TSerialized, TPersisted>): void;
+
+export {
+  type EditorConformanceCapability,
+  EditorConformanceError,
+  type EditorConformanceHistoryAdapter,
+  type EditorConformanceIssue,
+  type EditorConformanceResult,
+  type EditorConformanceRoundtripAdapter,
+  type EditorConformanceSuite,
+  assertEditorConformanceSuite,
+  checkEditorConformanceSuite,
+};
+```
+
 ## constraints.d.ts
 
 ```ts
