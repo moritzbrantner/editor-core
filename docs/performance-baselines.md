@@ -53,17 +53,17 @@ EDITOR_CORE_STABLE_MAX_REGRESSION_RATIO=0.35 EDITOR_CORE_STABLE_MIN_DURATION_MS=
 
 Track these scenarios when reviewing benchmark output:
 
-| Scenario                       | Current benchmark                                   | Target behavior                                                                              |
-| ------------------------------ | --------------------------------------------------- | -------------------------------------------------------------------------------------------- |
-| Stable JSON stringify          | `stable JSON stringify`                             | Deterministic key ordering for medium editor documents without surprising allocation spikes. |
-| Tree projection                | `tree projection`                                   | Linear projection cost as node count grows.                                                  |
-| Entity indexes                 | `entity indexes`                                    | Linear parent/child and root ordering cost for large entity documents.                       |
-| Runtime commits                | `runtime commit with validation and aspects`        | Commit cost stays bounded when validation and derived aspects are active.                    |
-| Merged operation sequences     | `operation runtime merged interaction sequence`     | Mergeable interaction streams stay bounded without growing undo cost per update.             |
-| Operation undo/redo            | `operation runtime undo redo`                       | Semantic undo/redo stays cheap after a populated operation history.                          |
-| Viewport coordinate transforms | `viewport bulk coordinate transforms`               | Bulk screen/document coordinate math remains suitable for pointer and render loops.          |
-| Large selection normalization  | `selection normalize large entity set`              | Stale ids are filtered without quadratic behavior for large multi-selects.                   |
-| Migrated document read         | `serialization read migrated document`              | Migration chains and adapter validation remain cheap for import/load flows.                  |
+| Scenario                       | Current benchmark                               | Target behavior                                                                              |
+| ------------------------------ | ----------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| Stable JSON stringify          | `stable JSON stringify`                         | Deterministic key ordering for medium editor documents without surprising allocation spikes. |
+| Tree projection                | `tree projection`                               | Linear projection cost as node count grows.                                                  |
+| Entity indexes                 | `entity indexes`                                | Linear parent/child and root ordering cost for large entity documents.                       |
+| Runtime commits                | `runtime commit with validation and aspects`    | Commit cost stays bounded when validation and derived aspects are active.                    |
+| Merged operation sequences     | `operation runtime merged interaction sequence` | Mergeable interaction streams stay bounded without growing undo cost per update.             |
+| Operation undo/redo            | `operation runtime undo redo`                   | Semantic undo/redo stays cheap after a populated operation history.                          |
+| Viewport coordinate transforms | `viewport bulk coordinate transforms`           | Bulk screen/document coordinate math remains suitable for pointer and render loops.          |
+| Large selection normalization  | `selection normalize large entity set`          | Stale ids are filtered without quadratic behavior for large multi-selects.                   |
+| Migrated document read         | `serialization read migrated document`          | Migration chains and adapter validation remain cheap for import/load flows.                  |
 
 The benchmark suite intentionally excludes domain-specific graph and timeline indexes, tiny
 wrappers, browser DOM download helpers, and React hooks. Those paths are either owned downstream,
