@@ -6,9 +6,10 @@ This package follows semver. While the package is in `0.x`, breaking changes may
 
 ## Unreleased
 
-- Added the test-runner-neutral editor-family conformance suite under the testing entrypoint.
-- Added framework-neutral Editor Session lifecycle, recovery, typed diagnostic, revision-token,
-  memory/local-storage/IndexedDB, optional journal, and React subscription primitives.
+- Breaking: narrowed `editor-core` to domain-neutral editing mechanics. Graph-specific edge/port/connection/index helpers and timeline-specific range/index/selection/viewport helpers are no longer part of the core API; those semantics belong to `graph-editor` and `timeline-editor`.
+- Breaking: removed the unused `@moenarch/editor-core/collaboration`, `/sync`, and `/share` entrypoints and removed remote-operation application from the generic operation runtime. Collaboration may return later behind a concrete product requirement rather than as speculative core vocabulary.
+- Persistence now owns `EditorRevisionToken`; stale-save revision tokens and conflict detection remain supported without implying a collaboration protocol.
+- Generic runtime, operations, history, commands, persistence, entity hierarchy, tree projection, 2D viewport/snap, JSON/patch/serialization, testing, browser, plugin, aspect, and React surfaces remain available.
 
 ## 0.5.0
 

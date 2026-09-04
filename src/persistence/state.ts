@@ -1,5 +1,8 @@
-import type { EditorRevisionToken } from "../collaboration.js";
-import type { EditorPersistenceConflictError, EditorPersistenceState } from "./types.js";
+import type {
+  EditorPersistenceConflictError,
+  EditorPersistenceState,
+  EditorRevisionToken,
+} from "./types.js";
 
 export function createEditorPersistenceState(): EditorPersistenceState {
   return {

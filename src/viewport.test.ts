@@ -1,19 +1,14 @@
 import { describe, expect, test } from "vitest";
 import {
-  createEditorTimelineViewportState,
   createEditorViewportState,
   doEditorBoundsIntersect,
-  editorPixelToTime,
   editorPointToScreenPoint,
-  editorTimeToPixel,
   fitEditorBoundsInViewport,
-  panEditorTimelineViewport,
   panEditorViewport,
   screenPointToEditorPoint,
   snapEditorPoint,
   snapEditorValue,
   unionEditorBounds,
-  zoomEditorTimelineViewportAtPixel,
   zoomEditorViewportAtPoint,
 } from "./viewport.js";
 
@@ -53,7 +48,7 @@ describe("editor viewport", () => {
     ).toBe(true);
   });
 
-  test("snaps values and points within thresholds", () => {
+  test("snaps scalar and 2D values without defining domain semantics", () => {
     expect(snapEditorValue(9, [{ value: 10, id: "guide" }], 2)).toEqual({
       snapped: true,
       target: { value: 10, id: "guide" },
@@ -63,17 +58,5 @@ describe("editor viewport", () => {
     expect(snapEditorPoint({ x: 9, y: 21 }, { x: [{ value: 10 }], y: [{ value: 20 }] }, 2)).toEqual(
       { x: 10, y: 20 },
     );
-  });
-
-  test("converts and zooms timeline coordinates", () => {
-    let viewport = createEditorTimelineViewportState({ end: 10, pixelsPerUnit: 10, start: 0 });
-    expect(editorTimeToPixel(5, viewport)).toBe(50);
-    expect(editorPixelToTime(50, viewport)).toBe(5);
-
-    viewport = panEditorTimelineViewport(viewport, 5);
-    expect(viewport).toMatchObject({ end: 15, start: 5 });
-
-    const zoomed = zoomEditorTimelineViewportAtPixel(viewport, 20, 50);
-    expect(editorPixelToTime(50, zoomed)).toBe(10);
   });
 });

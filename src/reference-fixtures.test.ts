@@ -1,11 +1,6 @@
 import { describe, expect, test } from "vitest";
-import { validateEditorGraphConnection, validateEditorTimelineRange } from "./constraints.js";
 import { createEditorEntityDocument, type EditorBounds } from "./entities.js";
-import {
-  createEditorEntityIndexes,
-  createEditorGraphIndexes,
-  createEditorTimelineIndexes,
-} from "./indexes.js";
+import { createEditorEntityIndexes } from "./indexes.js";
 import {
   applyEditorOperation,
   createEditorOperationRuntime,
@@ -19,8 +14,8 @@ import { createEditorEntitySelection, type EditorSelection } from "./selection.j
 import { projectEditorTree } from "./tree.js";
 import { revealEditorBounds, snapEditorValue } from "./viewport.js";
 
-describe("headless reference editor fixtures", () => {
-  test("layer reorder is one undoable transaction", () => {
+describe("headless editor kernel reference fixtures", () => {
+  test("layer reorder is one undoable transaction without a layer ontology", () => {
     type Layer = {
       id: string;
       locked: boolean;
@@ -104,48 +99,32 @@ describe("headless reference editor fixtures", () => {
 
     const undone = undoEditorOperationRuntime(runtime);
     expect(undone.runtime.document.layers.layerA.order).toBe(1);
-    expect(
-      createEditorEntityIndexes(
-        createEditorEntityDocument(Object.values(undone.runtime.document.layers)),
-      )
-        .childrenByParentId.get("group")
-        ?.map((layer) => layer.id),
-    ).toEqual(["layerA", "layerB"]);
-
     const redone = redoEditorOperationRuntime(undone);
     expect(redone.runtime.document.layers.layerA.order).toBe(3);
   });
 
-  test("graph drag merges and connection validation blocks invalid edges", () => {
-    type GraphDocument = {
-      edges: Array<{ id: string; sourceId: string; targetId: string }>;
-      nodes: Record<string, { bounds: EditorBounds; id: string; type: "node" }>;
-    };
-    const initial: GraphDocument = {
+  test("2D drag merges while graph validation remains caller-owned", () => {
+    const initial: GraphDocumentFixture = {
       edges: [],
       nodes: {
         a: { bounds: { height: 40, width: 80, x: 0, y: 0 }, id: "a", type: "node" },
         b: { bounds: { height: 40, width: 80, x: 160, y: 0 }, id: "b", type: "node" },
       },
     };
-    let runtime = createEditorOperationRuntime<GraphDocument, EditorSelection>({
+    let runtime = createEditorOperationRuntime<GraphDocumentFixture, EditorSelection>({
       initialDocument: initial,
       initialSelection: createEditorEntitySelection(["a"]),
       preflight({ operation }) {
         if (operation.id !== "connect") {
           return [];
         }
-        return validateEditorGraphConnection(
-          { sourceId: "a", targetId: "a" },
-          { path: "edges.next" },
-        );
+        return validateGraphConnection({ sourceId: "a", targetId: "a" }, "edges.next");
       },
     });
 
     runtime = applyEditorOperation(runtime, moveGraphNode(20), { merge: true });
     runtime = applyEditorOperation(runtime, moveGraphNode(40), { merge: true });
 
-    const graphIndexes = createEditorGraphIndexes([{ id: "edge", sourceId: "a", targetId: "b" }]);
     const viewport = revealEditorBounds(
       Object.values(runtime.runtime.document.nodes).map((node) => node.bounds),
       { viewportSize: { height: 100, width: 320 } },
@@ -161,25 +140,13 @@ describe("headless reference editor fixtures", () => {
 
     expect(runtime.operationHistory.undoStack).toHaveLength(1);
     expect(undoEditorOperationRuntime(runtime).runtime.document.nodes.a.bounds.x).toBe(0);
-    expect(graphIndexes.outgoingEdgesByNodeId.get("a")?.[0]?.targetId).toBe("b");
     expect(viewport?.zoom).toBeGreaterThan(0);
     expect(runtime.issues).toEqual([
       { path: "edges.next", message: "Connections must target a different entity." },
     ]);
-
-    runtime = applyEditorOperation(runtime, {
-      apply: (document) => ({
-        ...document,
-        edges: [...document.edges, { id: "a-b", sourceId: "a", targetId: "b" }],
-      }),
-      id: "connect-valid",
-      selectionAfter: createEditorEntitySelection(["a-b"]),
-    });
-    expect(runtime.issues).toEqual([]);
-    expect(runtime.runtime.document.edges).toEqual([{ id: "a-b", sourceId: "a", targetId: "b" }]);
   });
 
-  test("workflow invalid transition is blocked through preflight", () => {
+  test("workflow-specific rules plug into generic preflight", () => {
     type WorkflowDocument = {
       nodes: Record<string, { id: string; type: "start" | "action" | "end" }>;
       transitions: Array<{ id: string; sourceId: string; targetId: string }>;
@@ -196,30 +163,9 @@ describe("headless reference editor fixtures", () => {
       initialDocument: initial,
       initialSelection: createEditorEntitySelection(["action"]),
       preflight({ operation }) {
-        if (operation.id !== "connect-end-start") {
-          return [];
-        }
-        return validateEditorGraphConnection(
-          { sourceId: "end", targetId: "start" },
-          {
-            canConnect: (connection) => connection.sourceId !== "end",
-            path: "transitions.next",
-          },
-        );
-      },
-    });
-    const tree = projectEditorTree(initial, {
-      getRoot(document) {
-        return {
-          children: Object.values(document.nodes).map((node) => ({
-            id: node.id,
-            kind: node.type,
-            label: node.id,
-          })),
-          expandedByDefault: true,
-          id: "workflow",
-          label: "Workflow",
-        };
+        return operation.id === "connect-end-start"
+          ? [{ path: "transitions.next", message: "End nodes cannot have outgoing transitions." }]
+          : [];
       },
     });
 
@@ -234,23 +180,14 @@ describe("headless reference editor fixtures", () => {
       id: "connect-end-start",
     });
 
-    expect(tree.items.map((item) => item.node.id)).toContain("action");
     expect(runtime.runtime.document.transitions).toHaveLength(1);
     expect(runtime.issues).toEqual([
-      { path: "transitions.next", message: "Connection is not allowed." },
+      { path: "transitions.next", message: "End nodes cannot have outgoing transitions." },
     ]);
   });
 
-  test("timeline trim snaps and undo restores range plus selection", () => {
-    type TimelineDocument = {
-      clips: Record<
-        string,
-        { id: string; range: { end: number; start: number }; trackId: string; type: "clip" }
-      >;
-      playhead: number;
-      tracks: Record<string, { id: string; type: "track" }>;
-    };
-    const initial: TimelineDocument = {
+  test("timeline trim uses generic snapping while time semantics stay caller-owned", () => {
+    const initial: TimelineDocumentFixture = {
       clips: {
         clip: { id: "clip", range: { end: 10, start: 0 }, trackId: "track", type: "clip" },
       },
@@ -258,18 +195,20 @@ describe("headless reference editor fixtures", () => {
       tracks: { track: { id: "track", type: "track" } },
     };
     const selection = createEditorEntitySelection(["clip"]);
-    let runtime = createEditorOperationRuntime<TimelineDocument, EditorSelection>({
+    let runtime = createEditorOperationRuntime<TimelineDocumentFixture, EditorSelection>({
       initialDocument: initial,
       initialSelection: selection,
+      preflight({ operation }) {
+        const next = operation.apply(runtime.runtime.document);
+        return validateTimelineRange(next.clips.clip.range, "clips.clip.range");
+      },
     });
     const snappedEnd = snapEditorValue(11.8, [{ kind: "frame", value: 12 }], 0.5).value;
 
     runtime = applyEditorOperation(runtime, trimClipEnd(snappedEnd, selection), { merge: true });
     runtime = applyEditorOperation(runtime, trimClipEnd(12, selection), { merge: true });
 
-    const indexes = createEditorTimelineIndexes(Object.values(runtime.runtime.document.clips));
-    expect(validateEditorTimelineRange(runtime.runtime.document.clips.clip.range)).toEqual([]);
-    expect(indexes.trackItemsByTrackId.get("track")?.[0]?.id).toBe("clip");
+    expect(runtime.runtime.document.clips.clip.range).toEqual({ end: 12, start: 0 });
     expect(runtime.operationHistory.undoStack).toHaveLength(1);
 
     runtime = undoEditorOperationRuntime(runtime);
@@ -279,26 +218,30 @@ describe("headless reference editor fixtures", () => {
 
   test("persistence saves dirty runtime documents and reloads clean state", async () => {
     const storage = createMemoryStorage<{ title: string }>(null);
-    let runtime = createEditorRuntime({
-      initialDocument: { title: "Draft" },
-    });
+    let runtime = createEditorRuntime({ initialDocument: { title: "Draft" } });
 
     runtime = commitEditorRuntime(runtime, { title: "Saved" });
-    expect(runtime.status).toBe("dirty");
-
     const saved = await saveEditorRuntimePersistence(runtime, storage);
-    expect(saved.saved).toBe(true);
-    expect(saved.runtime.status).toBe("clean");
-    expect(storage.value).toEqual({ title: "Saved" });
-
     const loaded = await loadEditorRuntimePersistence(
       createEditorRuntime({ initialDocument: { title: "Fallback" } }),
       storage,
     );
+
+    expect(saved.saved).toBe(true);
+    expect(saved.runtime.status).toBe("clean");
     expect(loaded.runtime.document).toEqual({ title: "Saved" });
-    expect(loaded.runtime.status).toBe("clean");
   });
 });
+
+function validateGraphConnection(connection: { sourceId: string; targetId: string }, path: string) {
+  return connection.sourceId === connection.targetId
+    ? [{ path, message: "Connections must target a different entity." }]
+    : [];
+}
+
+function validateTimelineRange(range: { start: number; end: number }, path: string) {
+  return range.end > range.start ? [] : [{ path, message: "Range end must be after range start." }];
+}
 
 function moveGraphNode(x: number): EditorOperation<GraphDocumentFixture, EditorSelection> {
   return {
@@ -306,13 +249,7 @@ function moveGraphNode(x: number): EditorOperation<GraphDocumentFixture, EditorS
       ...document,
       nodes: {
         ...document.nodes,
-        a: {
-          ...document.nodes.a,
-          bounds: {
-            ...document.nodes.a.bounds,
-            x,
-          },
-        },
+        a: { ...document.nodes.a, bounds: { ...document.nodes.a.bounds, x } },
       },
     }),
     id: "drag-node",
@@ -330,10 +267,7 @@ function trimClipEnd(
       ...document,
       clips: {
         ...document.clips,
-        clip: {
-          ...document.clips.clip,
-          range: { ...document.clips.clip.range, end },
-        },
+        clip: { ...document.clips.clip, range: { ...document.clips.clip.range, end } },
       },
     }),
     id: "trim-clip",

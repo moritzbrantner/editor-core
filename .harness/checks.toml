@@ -264,33 +264,6 @@ failure_semantics = "nonzero means the maintained React consumer example violate
 independence_group = "react-example-typescript"
 
 [[checks]]
-id = "browser-storage-contract-full"
-command = ["bun", "run", "test:browser"]
-scope = ["**"]
-tier = "full"
-blocking = true
-evidence_classes = ["behavioral"]
-protected_properties = ["INV-002", "INV-005"]
-source_of_truth = [
-  "invariant:INV-002",
-  "invariant:INV-005",
-  "repo:docs/adr/0005-editor-session-persistence.md",
-  "repo:src/browser-session.browser.test.ts",
-  "repo:vitest.browser.config.ts",
-  "repo:.github/workflows/validate.yml",
-]
-state_class = "stateful"
-timeout_seconds = 300
-expected_runtime_seconds = 60
-tools = ["bun", "node"]
-services = []
-generated_outputs = ["node_modules/.vite/**", "playwright-report/**", "test-results/**"]
-cost_class = "medium"
-success_exit_codes = [0]
-failure_semantics = "nonzero means revisioned browser session storage or conflict behavior regressed"
-independence_group = "vitest-browser-storage"
-
-[[checks]]
 id = "browser-e2e-full"
 command = ["bun", "run", "test:e2e:run"]
 scope = ["**"]

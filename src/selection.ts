@@ -4,14 +4,7 @@ import type { EditorTreeNode, EditorTreeNodeId } from "./tree.js";
 export type EditorSelection =
   | { kind: "empty" }
   | { kind: "entity"; ids: readonly EditorEntityId[]; anchorId?: EditorEntityId }
-  | { kind: "range"; anchorId: EditorEntityId; focusId: EditorEntityId }
-  | { kind: "port"; entityId: EditorEntityId; portId: string }
-  | {
-      kind: "time";
-      start: number;
-      end: number;
-      trackIds?: readonly EditorEntityId[];
-    };
+  | { kind: "range"; anchorId: EditorEntityId; focusId: EditorEntityId };
 
 export const emptyEditorSelection: EditorSelection = { kind: "empty" };
 
@@ -31,15 +24,7 @@ export function getEditorSelectedEntityIds(selection: EditorSelection | null): E
     return [...selection.ids];
   }
 
-  if (selection.kind === "range") {
-    return normalizeSelectionIds([selection.anchorId, selection.focusId]);
-  }
-
-  if (selection.kind === "port") {
-    return [selection.entityId];
-  }
-
-  return normalizeSelectionIds(selection.trackIds ?? []);
+  return normalizeSelectionIds([selection.anchorId, selection.focusId]);
 }
 
 export function isEditorEntitySelected(
@@ -54,15 +39,7 @@ export function isEditorEntitySelected(
     return selection.ids.includes(id);
   }
 
-  if (selection.kind === "range") {
-    return selection.anchorId === id || selection.focusId === id;
-  }
-
-  if (selection.kind === "port") {
-    return selection.entityId === id;
-  }
-
-  return selection.trackIds?.includes(id) ?? false;
+  return selection.anchorId === id || selection.focusId === id;
 }
 
 export function addEditorEntityToSelection(
@@ -121,23 +98,7 @@ export function normalizeEditorSelection(
     );
   }
 
-  if (selection.kind === "range") {
-    return exists(selection.anchorId) && exists(selection.focusId)
-      ? selection
-      : emptyEditorSelection;
-  }
-
-  if (selection.kind === "port") {
-    return exists(selection.entityId) ? selection : emptyEditorSelection;
-  }
-
-  const trackIds = selection.trackIds?.filter(exists);
-  return {
-    ...selection,
-    end: Math.max(selection.start, selection.end),
-    start: Math.min(selection.start, selection.end),
-    trackIds: trackIds && trackIds.length > 0 ? trackIds : undefined,
-  };
+  return exists(selection.anchorId) && exists(selection.focusId) ? selection : emptyEditorSelection;
 }
 
 export function editorSelectionFromTreeNode(

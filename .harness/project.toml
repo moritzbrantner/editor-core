@@ -25,7 +25,6 @@ verification_surface_globs = [
   "tsconfig.json",
   "unlighthouse.config.ts",
   "vitest.config.ts",
-  "vitest.browser.config.ts",
   "vitest.storybook.config.ts",
 ]
 generated_path_globs = [

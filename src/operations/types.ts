@@ -62,11 +62,15 @@ export type EditorOperationRuntimeState<
 
 export type ApplyEditorOperationOptions = {
   merge?: boolean;
+  recordHistory?: boolean;
 };
 
-export type EditorOperationApplyMode = "local" | "interaction" | "remote";
+export type ReplaceEditorOperationRuntimeCoreStateOptions = {
+  clearIssues?: boolean;
+  clearOperationHistory?: boolean;
+};
 
-export type ApplyEditorOperationModeOptions = {
+export type ApplyEditorInteractionOperationOptions = {
   origin?: EditorChangeOrigin;
 };
 

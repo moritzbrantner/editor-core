@@ -11,7 +11,6 @@
       "@moenarch/editor-core/aspects": ["./src/aspects.ts"],
       "@moenarch/editor-core/browser": ["./src/browser.ts"],
       "@moenarch/editor-core/commands": ["./src/commands.ts"],
-      "@moenarch/editor-core/collaboration": ["./src/collaboration.ts"],
       "@moenarch/editor-core/constraints": ["./src/constraints.ts"],
       "@moenarch/editor-core/entities": ["./src/entities.ts"],
       "@moenarch/editor-core/history": ["./src/history.ts"],
@@ -27,7 +26,6 @@
       "@moenarch/editor-core/runtime": ["./src/runtime.ts"],
       "@moenarch/editor-core/serialization": ["./src/serialization.ts"],
       "@moenarch/editor-core/selection": ["./src/selection.ts"],
-      "@moenarch/editor-core/share": ["./src/share.ts"],
       "@moenarch/editor-core/testing": ["./src/testing.ts"],
       "@moenarch/editor-core/tree": ["./src/tree.ts"],
       "@moenarch/editor-core/viewport": ["./src/viewport.ts"]

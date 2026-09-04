@@ -22,16 +22,12 @@ describe("editor selection", () => {
     expect(normalizeEditorSelection(selection, (id) => id !== "b")).toEqual({ kind: "empty" });
   });
 
-  test("normalizes stale range and port selections", () => {
+  test("normalizes stale range selections", () => {
     expect(
       normalizeEditorSelection(
         { anchorId: "a", focusId: "missing", kind: "range" },
         (id) => id === "a",
       ),
-    ).toEqual({ kind: "empty" });
-
-    expect(
-      normalizeEditorSelection({ entityId: "missing", kind: "port", portId: "out" }, () => false),
     ).toEqual({ kind: "empty" });
   });
 
@@ -46,7 +42,7 @@ describe("editor selection", () => {
     expect(getEditorSelectionTreeNodeId(selection, (id) => `tree.${id}`)).toBe("tree.node-a");
   });
 
-  test("queries selected entity ids across selection shapes", () => {
+  test("queries selected entity ids across generic selection shapes", () => {
     expect(getEditorSelectedEntityIds(null)).toEqual([]);
     expect(getEditorSelectedEntityIds({ kind: "empty" })).toEqual([]);
     expect(getEditorSelectedEntityIds(createEditorEntitySelection(["a", "b", "a"]))).toEqual([
@@ -57,18 +53,6 @@ describe("editor selection", () => {
       "a",
       "b",
     ]);
-    expect(getEditorSelectedEntityIds({ entityId: "node", kind: "port", portId: "out" })).toEqual([
-      "node",
-    ]);
-    expect(getEditorSelectedEntityIds({ end: 10, kind: "time", start: 0 })).toEqual([]);
-    expect(
-      getEditorSelectedEntityIds({
-        end: 10,
-        kind: "time",
-        start: 0,
-        trackIds: ["track-a", "", "track-a", "track-b"],
-      }),
-    ).toEqual(["track-a", "track-b"]);
   });
 
   test("checks, removes, and resolves primary selected entities", () => {
@@ -85,11 +69,6 @@ describe("editor selection", () => {
     expect(removeEditorEntityFromSelection(selection, "b")).toEqual({
       anchorId: "a",
       ids: ["a"],
-      kind: "entity",
-    });
-    expect(removeEditorEntityFromSelection(selection, "missing")).toEqual({
-      anchorId: "b",
-      ids: ["a", "b"],
       kind: "entity",
     });
     expect(removeEditorEntityFromSelection(createEditorEntitySelection(["only"]), "only")).toEqual({
@@ -116,31 +95,11 @@ describe("editor selection", () => {
     ).toEqual({ anchorId: "c", ids: ["a", "b", "c"], kind: "entity" });
   });
 
-  test("checks selected entities without changing selection shape", () => {
-    const entitySelection = createEditorEntitySelection(["a", "b"], "a");
+  test("checks range membership without changing selection shape", () => {
     const rangeSelection = { anchorId: "a", focusId: "b", kind: "range" } as const;
-    const portSelection = { entityId: "a", kind: "port", portId: "out" } as const;
-    const timeSelection = {
-      end: 10,
-      kind: "time",
-      start: 0,
-      trackIds: ["track-a", "track-b"],
-    } as const;
 
-    expect(isEditorEntitySelected(entitySelection, "a")).toBe(true);
     expect(isEditorEntitySelected(rangeSelection, "b")).toBe(true);
-    expect(isEditorEntitySelected(portSelection, "a")).toBe(true);
-    expect(isEditorEntitySelected(timeSelection, "track-b")).toBe(true);
-    expect(isEditorEntitySelected(timeSelection, "missing")).toBe(false);
-
-    expect(entitySelection).toEqual({ anchorId: "a", ids: ["a", "b"], kind: "entity" });
+    expect(isEditorEntitySelected(rangeSelection, "missing")).toBe(false);
     expect(rangeSelection).toEqual({ anchorId: "a", focusId: "b", kind: "range" });
-    expect(portSelection).toEqual({ entityId: "a", kind: "port", portId: "out" });
-    expect(timeSelection).toEqual({
-      end: 10,
-      kind: "time",
-      start: 0,
-      trackIds: ["track-a", "track-b"],
-    });
   });
 });

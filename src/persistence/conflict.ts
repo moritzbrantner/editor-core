@@ -1,7 +1,7 @@
-import type { EditorRevisionToken } from "../collaboration.js";
 import {
   EditorPersistenceConflictError,
   type EditorPersistedDocument,
+  type EditorRevisionToken,
   type LoadEditorRuntimePersistenceOptions,
   type LoadEditorRuntimePersistenceResult,
   type SaveEditorRuntimePersistenceOptions,

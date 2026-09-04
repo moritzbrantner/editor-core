@@ -6,11 +6,7 @@ import {
   createEditorDocumentIoCommands,
   createEditorRuntimeCommands,
   createStableEditorJsonEquals,
-  decodeEditorSharePayload,
   downloadEditorJson,
-  editorShareTokenFromUrl,
-  editorShareUrl,
-  encodeEditorSharePayload,
   formatEditorShortcutLabel,
   readEditorDocument,
   readEditorJsonFile,
@@ -45,11 +41,11 @@ type ExampleDocument = {
   updatedAt: string;
 };
 
-type CommandId = EditorRuntimeCommandId | EditorDocumentIoCommandId | "share" | "template";
+type CommandId = EditorRuntimeCommandId | EditorDocumentIoCommandId | "template";
 
 const templateDocument: ExampleDocument = {
   accent: "cobalt",
-  body: "Start drafting here. Change the title, adjust the accent, undo edits, and create a share URL from the current document state.",
+  body: "Start drafting here. Change the title, adjust the accent, undo edits, save locally, and export the current document as JSON.",
   title: "Launch Notes",
   updatedAt: new Date("2026-01-15T10:00:00.000Z").toISOString(),
 };
@@ -188,7 +184,6 @@ function App() {
   const workspaceRef = React.useRef<HTMLDivElement>(null);
   const importFileInputRef = React.useRef<HTMLInputElement>(null);
   const tree = useEditorTreeState({ expandedIds: ["document"] });
-  const hasShareToken = editorShareTokenFromUrl(window.location.href) !== null;
   const templateQuery = useQuery({
     queryFn: loadTemplateDocument,
     queryKey: ["react-example", "template-document"],
@@ -196,7 +191,7 @@ function App() {
   const runtime = usePersistentEditorRuntime<ExampleDocument, string>({
     history: historyOptions,
     initialDocument: fallbackDocument,
-    loadOnMount: !hasShareToken,
+    loadOnMount: true,
     storage: exampleStorage,
     validate: (document) => exampleDocumentAdapter.validate?.(document) ?? [],
   });
@@ -232,13 +227,6 @@ function App() {
     reset(nextDocument, { markSaved: true });
     setNotice("Template loaded");
   }, [reset, template, templateQuery]);
-
-  const shareDocument = React.useCallback(async () => {
-    const token = await encodeEditorSharePayload(document);
-    const url = editorShareUrl(window.location.origin, window.location.pathname, token);
-    await navigator.clipboard?.writeText(url);
-    setNotice(navigator.clipboard ? "Share URL copied" : url);
-  }, [document]);
 
   const downloadDocument = React.useCallback(() => {
     downloadEditorJson(serializeEditorDocument(document, exampleDocumentAdapter), {
@@ -311,14 +299,8 @@ function App() {
         label: "Template",
         run: loadTemplate,
       },
-      {
-        hotkeys: ["Mod+S"],
-        id: "share",
-        label: "Share",
-        run: shareDocument,
-      },
     ],
-    [documentIoCommands, loadTemplate, runtimeCommands, shareDocument],
+    [documentIoCommands, loadTemplate, runtimeCommands],
   );
 
   useEditorHotkeys({
@@ -326,32 +308,6 @@ function App() {
     commands,
     scopeRef: workspaceRef,
   });
-
-  React.useEffect(() => {
-    const token = editorShareTokenFromUrl(window.location.href);
-    if (!token) {
-      return;
-    }
-
-    let mounted = true;
-    void decodeEditorSharePayload<ExampleDocument>(token)
-      .then((sharedDocument) => {
-        if (!mounted) {
-          return;
-        }
-        reset(sharedDocument, { markSaved: true });
-        setNotice("Loaded shared document");
-      })
-      .catch(() => {
-        if (mounted) {
-          setNotice("Share URL could not be opened");
-        }
-      });
-
-    return () => {
-      mounted = false;
-    };
-  }, [reset]);
 
   React.useEffect(() => {
     if (persistence.status === "loaded" && !equalsDocument(editor.document, fallbackDocument)) {
