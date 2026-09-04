@@ -66,6 +66,7 @@ export type ApplyEditorOperationOptions = {
 };
 
 export type ReplaceEditorOperationRuntimeCoreStateOptions = {
+  clearIssues?: boolean;
   clearOperationHistory?: boolean;
 };
 

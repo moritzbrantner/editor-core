@@ -62,7 +62,7 @@ export function replaceEditorOperationRuntimeCoreState<TDocument, TSelection = u
 
   return withOperationRuntimeFlags(
     {
-      issues: [],
+      issues: options.clearIssues ? [] : state.issues,
       lastMergeKey: options.clearOperationHistory ? null : state.lastMergeKey,
       operationHistory,
       runtime,

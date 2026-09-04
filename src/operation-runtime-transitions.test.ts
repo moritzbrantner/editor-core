@@ -34,6 +34,25 @@ describe("operation runtime transitions", () => {
     expect(undoEditorOperationRuntime(editor).runtime.document).toEqual({ value: 0 });
   });
 
+  test("preserves operation issues unless explicitly cleared", () => {
+    let editor = createEditorOperationRuntime<{ value: number }>({
+      initialDocument: { value: 0 },
+      preflight: () => [{ path: "$", message: "Blocked" }],
+    });
+    editor = applyEditorOperation(editor, {
+      id: "blocked",
+      apply: () => ({ value: 1 }),
+    });
+    expect(editor.issues).toEqual([{ path: "$", message: "Blocked" }]);
+
+    const replacement = resetEditorRuntime(editor.runtime, { value: 9 });
+    editor = replaceEditorOperationRuntimeCoreState(editor, replacement);
+    expect(editor.issues).toEqual([{ path: "$", message: "Blocked" }]);
+
+    editor = replaceEditorOperationRuntimeCoreState(editor, replacement, { clearIssues: true });
+    expect(editor.issues).toEqual([]);
+  });
+
   test("replaces core runtime state without breaking opaque runtime ownership", () => {
     let editor = createEditorOperationRuntime<{ value: number }, string>({
       initialDocument: { value: 0 },
