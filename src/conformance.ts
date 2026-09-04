@@ -92,13 +92,7 @@ export function checkEditorConformanceSuite<
   }
 
   if (suite.serialization) {
-    checkRoundtrip(
-      "serialization",
-      firstFinal,
-      suite.serialization,
-      equals,
-      issues,
-    );
+    checkRoundtrip("serialization", firstFinal, suite.serialization, equals, issues);
   }
 
   if (suite.persistence) {
@@ -114,9 +108,7 @@ export function assertEditorConformanceSuite<
   THistory = never,
   TSerialized = never,
   TPersisted = never,
->(
-  suite: EditorConformanceSuite<TDocument, TAction, THistory, TSerialized, TPersisted>,
-): void {
+>(suite: EditorConformanceSuite<TDocument, TAction, THistory, TSerialized, TPersisted>): void {
   const result = checkEditorConformanceSuite(suite);
   if (!result.ok) {
     throw new EditorConformanceError(result.issues);
@@ -131,13 +123,7 @@ function applySequence<TDocument, TAction>(
   return actions.reduce((document, action) => apply(document, action), initialDocument);
 }
 
-function checkHistoryConformance<
-  TDocument,
-  TAction,
-  THistory,
-  TSerialized,
-  TPersisted,
->(
+function checkHistoryConformance<TDocument, TAction, THistory, TSerialized, TPersisted>(
   suite: EditorConformanceSuite<TDocument, TAction, THistory, TSerialized, TPersisted>,
   expectedFinal: TDocument,
   equals: (left: TDocument, right: TDocument) => boolean,
