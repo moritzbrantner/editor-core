@@ -1,17 +1,21 @@
 import { describe, expect, test } from "vitest";
 
+import type { EditorConformanceSuite } from "./conformance.js";
+import { checkEditorConformanceSuite } from "./conformance.js";
 import {
   commitEditorSnapshotHistory,
   createEditorSnapshotHistory,
   redoEditorSnapshotHistory,
   undoEditorSnapshotHistory,
 } from "./history.js";
-import { checkEditorConformanceSuite } from "./conformance.js";
 
 type Document = { value: number };
 type Action = { delta: number };
+type History = ReturnType<typeof createEditorSnapshotHistory<Document>>;
 
-function createSuite() {
+type Suite = EditorConformanceSuite<Document, Action, History, string, Document>;
+
+function createSuite(): Suite {
   const apply = (document: Document, action: Action): Document => ({
     value: document.value + action.delta,
   });
@@ -22,12 +26,11 @@ function createSuite() {
     apply,
     history: {
       create: (document: Document) => createEditorSnapshotHistory(document),
-      apply: (history: ReturnType<typeof createEditorSnapshotHistory<Document>>, action: Action) =>
+      apply: (history: History, action: Action) =>
         commitEditorSnapshotHistory(history, apply(history.present, action)),
       undo: undoEditorSnapshotHistory,
       redo: redoEditorSnapshotHistory,
-      getDocument: (history: ReturnType<typeof createEditorSnapshotHistory<Document>>) =>
-        history.present,
+      getDocument: (history: History) => history.present,
     },
     serialization: {
       serialize: (document: Document) => JSON.stringify(document),
@@ -47,7 +50,7 @@ describe("editor conformance", () => {
 
   test("detects in-place document mutation", () => {
     const suite = createSuite();
-    const result = checkEditorConformanceSuite({
+    const result = checkEditorConformanceSuite<Document, Action, History, string, Document>({
       ...suite,
       history: undefined,
       apply(document, action) {
@@ -69,7 +72,7 @@ describe("editor conformance", () => {
 
   test("reports broken persistence roundtrips independently", () => {
     const suite = createSuite();
-    const result = checkEditorConformanceSuite({
+    const result = checkEditorConformanceSuite<Document, Action, History, string, number>({
       ...suite,
       persistence: {
         serialize: (document: Document) => document.value,
