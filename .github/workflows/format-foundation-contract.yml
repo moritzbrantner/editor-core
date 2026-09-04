@@ -1,0 +1,35 @@
+name: Format foundation contract
+
+on:
+  push:
+    branches:
+      - chore/deterministic-lint-foundation
+    paths:
+      - .github/workflows/format-foundation-contract.yml
+
+permissions:
+  contents: write
+
+jobs:
+  format:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: chore/deterministic-lint-foundation
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.3.14"
+      - run: bun install --frozen-lockfile
+      - run: bun run format -- .coding-tooling.json
+      - name: Commit formatter output
+        run: |
+          if git diff --quiet -- .coding-tooling.json; then
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .coding-tooling.json
+          git commit -m "style: format deterministic foundation contract"
+          git push origin HEAD:chore/deterministic-lint-foundation
