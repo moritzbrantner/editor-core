@@ -26,5 +26,9 @@
       ],
       "benchmark:smoke": ["bun", "run", "bench:check"]
     }
+  },
+  "merge": {
+    "authority": "hosted",
+    "requiredChecks": ["fast-validation / Fast Validation"]
   }
 }
