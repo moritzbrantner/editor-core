@@ -21,6 +21,16 @@ describe("json", () => {
     expect(createStableEditorJsonEquals<typeof left>()(left, right as typeof left)).toBe(true);
   });
 
+  test("preserves __proto__ as an own JSON property without changing the result prototype", () => {
+    const value = JSON.parse('{"z":1,"__proto__":{"polluted":true}}') as Record<string, unknown>;
+    const sorted = sortEditorJsonValue(value) as Record<string, unknown>;
+
+    expect(Object.getPrototypeOf(sorted)).toBe(Object.prototype);
+    expect(Object.prototype.hasOwnProperty.call(sorted, "__proto__")).toBe(true);
+    expect(sorted.__proto__).toEqual({ polluted: true });
+    expect(stableEditorJsonStringify(value)).toBe('{"__proto__":{"polluted":true},"z":1}');
+  });
+
   test("identifies plain records", () => {
     expect(isEditorRecord({})).toBe(true);
     expect(isEditorRecord([])).toBe(false);
