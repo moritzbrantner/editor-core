@@ -31,6 +31,5 @@ export function stableEditorJsonFingerprint(value: unknown): string {
 }
 
 export function createStableEditorJsonEquals<T>(): (left: T, right: T) => boolean {
-  return (left, right) =>
-    Object.is(left, right) || stableEditorJsonFingerprint(left) === stableEditorJsonFingerprint(right);
+  return (left, right) => stableEditorJsonFingerprint(left) === stableEditorJsonFingerprint(right);
 }
