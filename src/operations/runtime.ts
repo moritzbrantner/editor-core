@@ -1,6 +1,7 @@
 import type { EditorChangeOrigin } from "../aspects.js";
 import {
   createEditorTransactionHistory,
+  pushEditorTransactionHistory,
   redoEditorTransactionHistory,
   undoEditorTransactionHistory,
   type EditorTransaction,
@@ -235,9 +236,11 @@ function pushOrMergeOperationTransaction<TDocument, TSelection>(
       selectionAfter: transaction.selectionAfter,
       selectionBefore: lastTransaction.selectionBefore,
     };
+    const undoStack = state.operationHistory.undoStack.slice(0, -1);
+    undoStack.push(mergedTransaction);
     return {
       redoStack: [],
-      undoStack: [...state.operationHistory.undoStack.slice(0, -1), mergedTransaction],
+      undoStack,
     };
   }
 
@@ -245,10 +248,7 @@ function pushOrMergeOperationTransaction<TDocument, TSelection>(
     0,
     Math.trunc(getOperationRuntimeOptions(state).operationHistoryLimit ?? 100),
   );
-  return {
-    redoStack: [],
-    undoStack: limit === 0 ? [] : [...state.operationHistory.undoStack, transaction].slice(-limit),
-  };
+  return pushEditorTransactionHistory(state.operationHistory, transaction, { limit });
 }
 
 function preflightEditorOperation<TDocument, TSelection>(
