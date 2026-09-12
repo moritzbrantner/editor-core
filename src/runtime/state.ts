@@ -55,11 +55,10 @@ export function commitEditorRuntime<TDocument, TSelection = unknown>(
   const runtimeOptions = getRuntimeStateOptions(state);
   const document = resolveRuntimeUpdate(state, update);
   const history = commitEditorSnapshotHistory(state.history, document, runtimeOptions.history);
-  const documentChanged = !runtimeDocumentsEqual(
-    state.history.present,
-    history.present,
-    runtimeOptions,
-  );
+  const documentChanged =
+    history.present !== state.history.present ||
+    history.past !== state.history.past ||
+    history.future !== state.history.future;
   const selection = options.selection !== undefined ? options.selection : state.selection;
   const selectionChanged = selection !== state.selection;
 
