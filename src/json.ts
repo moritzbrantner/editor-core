@@ -17,17 +17,12 @@ export function sortEditorJsonValue(value: unknown): unknown {
 
   const sortedValue: Record<string, unknown> = {};
   for (const key of Object.keys(value).sort()) {
-    const sortedChild = sortEditorJsonValue(value[key]);
-    if (key === "__proto__") {
-      Object.defineProperty(sortedValue, key, {
-        configurable: true,
-        enumerable: true,
-        value: sortedChild,
-        writable: true,
-      });
-    } else {
-      sortedValue[key] = sortedChild;
-    }
+    Object.defineProperty(sortedValue, key, {
+      configurable: true,
+      enumerable: true,
+      value: sortEditorJsonValue(value[key]),
+      writable: true,
+    });
   }
   return sortedValue;
 }
