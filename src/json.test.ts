@@ -31,6 +31,29 @@ describe("json", () => {
     expect(stableEditorJsonStringify(value)).toBe('{"__proto__":{"polluted":true},"z":1}');
   });
 
+  test("creates own data properties without invoking inherited setters", () => {
+    const key = "__editorCoreInheritedSetterTest__";
+    let setterCalls = 0;
+    Object.defineProperty(Object.prototype, key, {
+      configurable: true,
+      set() {
+        setterCalls += 1;
+      },
+    });
+
+    try {
+      const value = { [key]: "value" };
+      const sorted = sortEditorJsonValue(value) as Record<string, unknown>;
+
+      expect(setterCalls).toBe(0);
+      expect(Object.prototype.hasOwnProperty.call(sorted, key)).toBe(true);
+      expect(sorted[key]).toBe("value");
+      expect(stableEditorJsonStringify(value)).toBe(`{"${key}":"value"}`);
+    } finally {
+      delete (Object.prototype as Record<string, unknown>)[key];
+    }
+  });
+
   test("identifies plain records", () => {
     expect(isEditorRecord({})).toBe(true);
     expect(isEditorRecord([])).toBe(false);
