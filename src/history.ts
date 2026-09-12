@@ -44,7 +44,7 @@ export function commitEditorSnapshotHistory<TDocument>(
   }
 
   const limit = normalizeHistoryLimit(options.limit);
-  const past = limit === 0 ? [] : [...history.past, history.present].slice(-limit);
+  const past = appendBoundedHistoryEntry(history.past, history.present, limit);
 
   return withSnapshotFlags({
     past,
@@ -146,7 +146,7 @@ export function pushEditorTransactionHistory<TDocument, TSelection = unknown>(
   options: { limit?: number } = {},
 ): EditorTransactionHistory<TDocument, TSelection> {
   const limit = normalizeHistoryLimit(options.limit);
-  const undoStack = limit === 0 ? [] : [...history.undoStack, transaction].slice(-limit);
+  const undoStack = appendBoundedHistoryEntry(history.undoStack, transaction, limit);
 
   return {
     undoStack,
@@ -192,6 +192,17 @@ export function redoEditorTransactionHistory<TDocument, TSelection = unknown>(
     selection: transaction.selectionAfter ?? fallbackSelection,
     transaction,
   };
+}
+
+function appendBoundedHistoryEntry<T>(items: readonly T[], item: T, limit: number): T[] {
+  if (limit === 0) {
+    return [];
+  }
+
+  const start = Math.max(0, items.length - limit + 1);
+  const nextItems = items.slice(start);
+  nextItems.push(item);
+  return nextItems;
 }
 
 function normalizeSnapshotDocument<TDocument>(

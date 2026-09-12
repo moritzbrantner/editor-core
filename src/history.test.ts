@@ -72,6 +72,20 @@ describe("transaction history", () => {
     expect(redone.selection).toEqual(["b"]);
   });
 
+  test("keeps only the newest bounded transactions", () => {
+    let history = createEditorTransactionHistory<number>();
+
+    for (let index = 0; index < 4; index += 1) {
+      history = pushEditorTransactionHistory(
+        history,
+        { id: `tx-${index}`, before: index, after: index + 1 },
+        { limit: 2 },
+      );
+    }
+
+    expect(history.undoStack.map((transaction) => transaction.id)).toEqual(["tx-2", "tx-3"]);
+  });
+
   test("handles empty transaction history and limit zero", () => {
     const history = createEditorTransactionHistory<string>();
     expect(undoEditorTransactionHistory(history)).toEqual({ history });
