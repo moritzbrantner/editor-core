@@ -15,11 +15,11 @@ export function sortEditorJsonValue(value: unknown): unknown {
     return value;
   }
 
-  return Object.fromEntries(
-    Object.keys(value)
-      .sort()
-      .map((key) => [key, sortEditorJsonValue(value[key])]),
-  );
+  const sortedValue: Record<string, unknown> = {};
+  for (const key of Object.keys(value).sort()) {
+    sortedValue[key] = sortEditorJsonValue(value[key]);
+  }
+  return sortedValue;
 }
 
 export function stableEditorJsonStringify(value: unknown): string {
@@ -31,5 +31,6 @@ export function stableEditorJsonFingerprint(value: unknown): string {
 }
 
 export function createStableEditorJsonEquals<T>(): (left: T, right: T) => boolean {
-  return (left, right) => stableEditorJsonFingerprint(left) === stableEditorJsonFingerprint(right);
+  return (left, right) =>
+    Object.is(left, right) || stableEditorJsonFingerprint(left) === stableEditorJsonFingerprint(right);
 }
