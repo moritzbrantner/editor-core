@@ -162,9 +162,12 @@
     "verify:fast": "bun run format:check && bun run architecture:check && bun run lint && bun run check-types && bun run test:unit",
     "verify:release": "bun run verify:fast && bun run example:check-types && bun run test:integration && bun run test:e2e && bun run storybook:build && bun run bench:check && bun run unlighthouse && bun run pack:check",
     "verify:ci": "bun run verify:release",
-    "verify": "bun run verify:release"
+    "verify": "bun run verify:release",
+    "changeset": "changeset"
   },
   "devDependencies": {
+    "@changesets/changelog-github": "^0.6.0",
+    "@changesets/cli": "^2.29.7",
     "@playwright/test": "^1.62.1",
     "@storybook/addon-vitest": "^10.4.2",
     "@storybook/react-vite": "^10.4.2",
