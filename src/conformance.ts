@@ -19,12 +19,7 @@ export type EditorConformanceResult = {
   issues: readonly EditorConformanceIssue[];
 };
 
-export type EditorConformanceHistoryAdapter<
-  TDocument,
-  TAction,
-  THistory,
-  TSelection = never,
-> = {
+export type EditorConformanceHistoryAdapter<TDocument, TAction, THistory, TSelection = never> = {
   create: (document: TDocument) => THistory;
   apply: (history: THistory, action: TAction) => THistory;
   undo: (history: THistory) => THistory;
@@ -92,14 +87,7 @@ export function checkEditorConformanceSuite<
   TPersisted = never,
   TSelection = never,
 >(
-  suite: EditorConformanceSuite<
-    TDocument,
-    TAction,
-    THistory,
-    TSerialized,
-    TPersisted,
-    TSelection
-  >,
+  suite: EditorConformanceSuite<TDocument, TAction, THistory, TSerialized, TPersisted, TSelection>,
 ): EditorConformanceResult {
   const issues: EditorConformanceIssue[] = [];
   const equals = suite.equals ?? createStableEditorJsonEquals<TDocument>();
@@ -154,14 +142,7 @@ export function assertEditorConformanceSuite<
   TPersisted = never,
   TSelection = never,
 >(
-  suite: EditorConformanceSuite<
-    TDocument,
-    TAction,
-    THistory,
-    TSerialized,
-    TPersisted,
-    TSelection
-  >,
+  suite: EditorConformanceSuite<TDocument, TAction, THistory, TSerialized, TPersisted, TSelection>,
 ): void {
   const result = checkEditorConformanceSuite(suite);
   if (!result.ok) {
@@ -198,22 +179,8 @@ function checkNormalizationConformance<TDocument>(
   }
 }
 
-function checkHistoryConformance<
-  TDocument,
-  TAction,
-  THistory,
-  TSerialized,
-  TPersisted,
-  TSelection,
->(
-  suite: EditorConformanceSuite<
-    TDocument,
-    TAction,
-    THistory,
-    TSerialized,
-    TPersisted,
-    TSelection
-  >,
+function checkHistoryConformance<TDocument, TAction, THistory, TSerialized, TPersisted, TSelection>(
+  suite: EditorConformanceSuite<TDocument, TAction, THistory, TSerialized, TPersisted, TSelection>,
   expectedFinal: TDocument,
   equals: (left: TDocument, right: TDocument) => boolean,
   issues: EditorConformanceIssue[],

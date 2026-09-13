@@ -385,12 +385,14 @@ type EditorConformanceResult = {
   ok: boolean;
   issues: readonly EditorConformanceIssue[];
 };
-type EditorConformanceHistoryAdapter<TDocument, TAction, THistory> = {
+type EditorConformanceHistoryAdapter<TDocument, TAction, THistory, TSelection = never> = {
   create: (document: TDocument) => THistory;
   apply: (history: THistory, action: TAction) => THistory;
   undo: (history: THistory) => THistory;
   redo: (history: THistory) => THistory;
   getDocument: (history: THistory) => TDocument;
+  getSelection?: (history: THistory) => TSelection;
+  selectionFingerprint?: (selection: TSelection) => string;
 };
 type EditorConformanceRoundtripAdapter<TDocument, TSerialized> = {
   serialize: (document: TDocument) => TSerialized;
@@ -415,12 +417,13 @@ type EditorConformanceSuite<
   THistory = never,
   TSerialized = never,
   TPersisted = never,
+  TSelection = never,
 > = {
   createDocument: () => TDocument;
   actions: readonly TAction[];
   apply: (document: TDocument, action: TAction) => TDocument;
   normalization?: EditorConformanceNormalizationAdapter<TDocument>;
-  history?: EditorConformanceHistoryAdapter<TDocument, TAction, THistory>;
+  history?: EditorConformanceHistoryAdapter<TDocument, TAction, THistory, TSelection>;
   serialization?: EditorConformanceRoundtripAdapter<TDocument, TSerialized>;
   migration?: EditorConformanceMigrationAdapter<TDocument, TSerialized>;
   persistence?: EditorConformanceRoundtripAdapter<TDocument, TPersisted>;
@@ -436,8 +439,9 @@ declare function checkEditorConformanceSuite<
   THistory = never,
   TSerialized = never,
   TPersisted = never,
+  TSelection = never,
 >(
-  suite: EditorConformanceSuite<TDocument, TAction, THistory, TSerialized, TPersisted>,
+  suite: EditorConformanceSuite<TDocument, TAction, THistory, TSerialized, TPersisted, TSelection>,
 ): EditorConformanceResult;
 declare function assertEditorConformanceSuite<
   TDocument,
@@ -445,7 +449,10 @@ declare function assertEditorConformanceSuite<
   THistory = never,
   TSerialized = never,
   TPersisted = never,
->(suite: EditorConformanceSuite<TDocument, TAction, THistory, TSerialized, TPersisted>): void;
+  TSelection = never,
+>(
+  suite: EditorConformanceSuite<TDocument, TAction, THistory, TSerialized, TPersisted, TSelection>,
+): void;
 
 export {
   type EditorConformanceCapability,
