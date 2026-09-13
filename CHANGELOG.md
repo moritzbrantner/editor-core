@@ -11,6 +11,7 @@ This package follows semver. While the package is in `0.x`, breaking changes may
 - Persistence now owns `EditorRevisionToken`; stale-save revision tokens and conflict detection remain supported without implying a collaboration protocol.
 - Generic runtime, operations, history, commands, persistence, entity hierarchy, tree projection, 2D viewport/snap, JSON/patch/serialization, testing, browser, plugin, aspect, and React surfaces remain available.
 - Conformance suites can now verify idempotent normalization and named migration cases without moving domain-specific normalization or versioning policy into editor-core.
+- History conformance can optionally fingerprint selection state so complete undo/redo traversals prove selection restoration together with document restoration.
 
 ## 0.5.0
 
