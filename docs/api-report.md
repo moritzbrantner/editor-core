@@ -394,9 +394,14 @@ type EditorConformanceHistoryAdapter<TDocument, TAction, THistory, TSelection = 
   getSelection?: (history: THistory) => TSelection;
   selectionFingerprint?: (selection: TSelection) => string;
 };
+type EditorConformanceRoundtripCase<TDocument> = {
+  document: TDocument;
+  name?: string;
+};
 type EditorConformanceRoundtripAdapter<TDocument, TSerialized> = {
   serialize: (document: TDocument) => TSerialized;
   parse: (serialized: TSerialized) => TDocument;
+  cases?: readonly EditorConformanceRoundtripCase<TDocument>[];
 };
 type EditorConformanceNormalizationAdapter<TDocument> = {
   normalize: (document: TDocument) => TDocument;
@@ -464,6 +469,7 @@ export {
   type EditorConformanceNormalizationAdapter,
   type EditorConformanceResult,
   type EditorConformanceRoundtripAdapter,
+  type EditorConformanceRoundtripCase,
   type EditorConformanceSuite,
   assertEditorConformanceSuite,
   checkEditorConformanceSuite,
