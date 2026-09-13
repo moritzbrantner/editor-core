@@ -6,7 +6,8 @@ export type EditorConformanceCapability =
   | "history"
   | "serialization"
   | "migration"
-  | "persistence";
+  | "persistence"
+  | "import";
 
 export type EditorConformanceIssue = {
   capability: EditorConformanceCapability;
@@ -56,6 +57,26 @@ export type EditorConformanceMigrationAdapter<TDocument, TSerialized> = {
   parse: (serialized: TSerialized) => TDocument;
 };
 
+export type EditorConformanceImportDiagnostic = {
+  message: string;
+  path?: string;
+};
+
+export type EditorConformanceInvalidImportCase<TInput> = {
+  input: TInput;
+  name?: string;
+};
+
+export type EditorConformanceInvalidImportResult<TDocument> = {
+  document: TDocument;
+  diagnostics: readonly EditorConformanceImportDiagnostic[];
+};
+
+export type EditorConformanceInvalidImportAdapter<TDocument, TInput> = {
+  cases: readonly EditorConformanceInvalidImportCase<TInput>[];
+  attempt: (document: TDocument, input: TInput) => EditorConformanceInvalidImportResult<TDocument>;
+};
+
 export type EditorConformanceSuite<
   TDocument,
   TAction,
@@ -63,6 +84,7 @@ export type EditorConformanceSuite<
   TSerialized = never,
   TPersisted = never,
   TSelection = never,
+  TImportInput = never,
 > = {
   createDocument: () => TDocument;
   actions: readonly TAction[];
@@ -72,6 +94,7 @@ export type EditorConformanceSuite<
   serialization?: EditorConformanceRoundtripAdapter<TDocument, TSerialized>;
   migration?: EditorConformanceMigrationAdapter<TDocument, TSerialized>;
   persistence?: EditorConformanceRoundtripAdapter<TDocument, TPersisted>;
+  invalidImports?: EditorConformanceInvalidImportAdapter<TDocument, TImportInput>;
   equals?: (left: TDocument, right: TDocument) => boolean;
 };
 
@@ -92,8 +115,17 @@ export function checkEditorConformanceSuite<
   TSerialized = never,
   TPersisted = never,
   TSelection = never,
+  TImportInput = never,
 >(
-  suite: EditorConformanceSuite<TDocument, TAction, THistory, TSerialized, TPersisted, TSelection>,
+  suite: EditorConformanceSuite<
+    TDocument,
+    TAction,
+    THistory,
+    TSerialized,
+    TPersisted,
+    TSelection,
+    TImportInput
+  >,
 ): EditorConformanceResult {
   const issues: EditorConformanceIssue[] = [];
   const equals = suite.equals ?? createStableEditorJsonEquals<TDocument>();
@@ -137,6 +169,10 @@ export function checkEditorConformanceSuite<
     checkRoundtrip("persistence", firstFinal, suite.persistence, equals, issues);
   }
 
+  if (suite.invalidImports) {
+    checkInvalidImportConformance(suite, suite.invalidImports, equals, issues);
+  }
+
   return { ok: issues.length === 0, issues };
 }
 
@@ -147,8 +183,17 @@ export function assertEditorConformanceSuite<
   TSerialized = never,
   TPersisted = never,
   TSelection = never,
+  TImportInput = never,
 >(
-  suite: EditorConformanceSuite<TDocument, TAction, THistory, TSerialized, TPersisted, TSelection>,
+  suite: EditorConformanceSuite<
+    TDocument,
+    TAction,
+    THistory,
+    TSerialized,
+    TPersisted,
+    TSelection,
+    TImportInput
+  >,
 ): void {
   const result = checkEditorConformanceSuite(suite);
   if (!result.ok) {
@@ -185,8 +230,24 @@ function checkNormalizationConformance<TDocument>(
   }
 }
 
-function checkHistoryConformance<TDocument, TAction, THistory, TSerialized, TPersisted, TSelection>(
-  suite: EditorConformanceSuite<TDocument, TAction, THistory, TSerialized, TPersisted, TSelection>,
+function checkHistoryConformance<
+  TDocument,
+  TAction,
+  THistory,
+  TSerialized,
+  TPersisted,
+  TSelection,
+  TImportInput,
+>(
+  suite: EditorConformanceSuite<
+    TDocument,
+    TAction,
+    THistory,
+    TSerialized,
+    TPersisted,
+    TSelection,
+    TImportInput
+  >,
   expectedFinal: TDocument,
   equals: (left: TDocument, right: TDocument) => boolean,
   issues: EditorConformanceIssue[],
@@ -324,6 +385,73 @@ function checkRoundtripDocument<TDocument, TValue>(
       ...(path ? { path } : {}),
     });
   }
+}
+
+function checkInvalidImportConformance<
+  TDocument,
+  TAction,
+  THistory,
+  TSerialized,
+  TPersisted,
+  TSelection,
+  TImportInput,
+>(
+  suite: EditorConformanceSuite<
+    TDocument,
+    TAction,
+    THistory,
+    TSerialized,
+    TPersisted,
+    TSelection,
+    TImportInput
+  >,
+  adapter: EditorConformanceInvalidImportAdapter<TDocument, TImportInput>,
+  equals: (left: TDocument, right: TDocument) => boolean,
+  issues: EditorConformanceIssue[],
+): void {
+  for (const importCase of adapter.cases) {
+    const initialDocument = suite.createDocument();
+    const initialSnapshot = stableEditorJsonStringify(initialDocument);
+    const result = adapter.attempt(initialDocument, importCase.input);
+    const path = importCase.name;
+
+    if (
+      result.diagnostics.length === 0 ||
+      !result.diagnostics.every(isStructuredImportDiagnostic)
+    ) {
+      issues.push({
+        capability: "import",
+        message: "Invalid import did not return structured diagnostics.",
+        ...(path ? { path } : {}),
+      });
+    }
+
+    if (!equals(initialDocument, result.document)) {
+      issues.push({
+        capability: "import",
+        message: `Invalid import changed the editor document from ${initialSnapshot} to ${stableEditorJsonStringify(result.document)}.`,
+        ...(path ? { path } : {}),
+      });
+    }
+
+    if (stableEditorJsonStringify(initialDocument) !== initialSnapshot) {
+      issues.push({
+        capability: "import",
+        message: "Invalid import mutated the original editor document in place.",
+        ...(path ? { path } : {}),
+      });
+    }
+  }
+}
+
+function isStructuredImportDiagnostic(diagnostic: EditorConformanceImportDiagnostic): boolean {
+  return (
+    typeof diagnostic === "object" &&
+    diagnostic !== null &&
+    typeof diagnostic.message === "string" &&
+    diagnostic.message.length > 0 &&
+    (diagnostic.path === undefined || typeof diagnostic.path === "string")
+  );
 }
 
 function formatEditorConformanceIssues(issues: readonly EditorConformanceIssue[]): string {

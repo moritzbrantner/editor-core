@@ -13,6 +13,7 @@ This package follows semver. While the package is in `0.x`, breaking changes may
 - Conformance suites can now verify idempotent normalization and named migration cases without moving domain-specific normalization or versioning policy into editor-core.
 - History conformance can optionally fingerprint selection state so complete undo/redo traversals prove selection restoration together with document restoration.
 - Serialization and persistence conformance can register named roundtrip cases for opaque JSON-compatible custom data and other downstream-owned semantic edge cases.
+- Invalid-import conformance can verify structured diagnostics while proving rejected input leaves the editor document semantically and physically unchanged.
 
 ## 0.5.0
 

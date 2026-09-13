@@ -13,6 +13,11 @@ import {
   undoEditorTransactionHistory,
   type EditorTransactionHistory,
 } from "./history.js";
+import {
+  EditorJsonParseError,
+  parseEditorDocumentJson,
+  type EditorDocumentAdapter,
+} from "./serialization.js";
 
 type Document = { value: number; custom?: unknown };
 type Action = { delta: number };
@@ -24,7 +29,7 @@ type SelectionHistory = {
   selection: Selection;
 };
 
-type Suite = EditorConformanceSuite<Document, Action, History, string, Document>;
+type Suite = EditorConformanceSuite<Document, Action, History, string, Document, never, string>;
 type SelectionSuite = EditorConformanceSuite<
   Document,
   Action,
@@ -33,6 +38,15 @@ type SelectionSuite = EditorConformanceSuite<
   never,
   Selection
 >;
+
+const documentAdapter: EditorDocumentAdapter<Document> = {
+  format: "editor-conformance-test",
+  schemaVersion: 1,
+  normalize: (document) => structuredClone(document),
+  read(input) {
+    return input as Document;
+  },
+};
 
 function applyAction(document: Document, action: Action): Document {
   return {
@@ -94,6 +108,25 @@ function createSuite(): Suite {
       serialize: (document: Document) => structuredClone(document),
       parse: (persisted: Document) => structuredClone(persisted),
     },
+    invalidImports: {
+      cases: [{ input: "{", name: "invalid-json" }],
+      attempt(document, input) {
+        try {
+          return {
+            document: parseEditorDocumentJson(input, documentAdapter),
+            diagnostics: [],
+          };
+        } catch (error) {
+          if (error instanceof EditorJsonParseError) {
+            return {
+              document,
+              diagnostics: error.issues,
+            };
+          }
+          throw error;
+        }
+      },
+    },
   };
 }
 
@@ -148,7 +181,7 @@ function createSelectionSuite(): SelectionSuite {
 }
 
 describe("editor conformance", () => {
-  test("accepts deterministic transitions, normalization, history, migration, and roundtrips", () => {
+  test("accepts deterministic transitions, normalization, history, migration, roundtrips, and invalid import handling", () => {
     expect(checkEditorConformanceSuite(createSuite())).toEqual({ ok: true, issues: [] });
   });
 
@@ -158,7 +191,15 @@ describe("editor conformance", () => {
 
   test("detects in-place document mutation", () => {
     const suite = createSuite();
-    const result = checkEditorConformanceSuite<Document, Action, History, string, Document>({
+    const result = checkEditorConformanceSuite<
+      Document,
+      Action,
+      History,
+      string,
+      Document,
+      never,
+      string
+    >({
       ...suite,
       history: undefined,
       apply(document, action) {
@@ -240,7 +281,15 @@ describe("editor conformance", () => {
 
   test("reports broken persistence roundtrips independently", () => {
     const suite = createSuite();
-    const result = checkEditorConformanceSuite<Document, Action, History, string, number>({
+    const result = checkEditorConformanceSuite<
+      Document,
+      Action,
+      History,
+      string,
+      number,
+      never,
+      string
+    >({
       ...suite,
       persistence: {
         serialize: (document: Document) => document.value,
@@ -250,6 +299,75 @@ describe("editor conformance", () => {
 
     expect(result.ok).toBe(false);
     expect(result.issues).toEqual([expect.objectContaining({ capability: "persistence" })]);
+  });
+
+  test("reports invalid imports without structured diagnostics", () => {
+    const suite = createSuite();
+    const result = checkEditorConformanceSuite({
+      ...suite,
+      invalidImports: {
+        cases: [{ input: "{", name: "invalid-json" }],
+        attempt: (document: Document) => ({ document, diagnostics: [] }),
+      },
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.issues).toEqual([
+      expect.objectContaining({
+        capability: "import",
+        path: "invalid-json",
+        message: expect.stringContaining("structured diagnostics"),
+      }),
+    ]);
+  });
+
+  test("reports invalid imports that replace the document", () => {
+    const suite = createSuite();
+    const result = checkEditorConformanceSuite({
+      ...suite,
+      invalidImports: {
+        cases: [{ input: "{", name: "invalid-json" }],
+        attempt: (_document: Document) => ({
+          document: { value: 999 },
+          diagnostics: [{ path: "", message: "Invalid JSON." }],
+        }),
+      },
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.issues).toEqual([
+      expect.objectContaining({
+        capability: "import",
+        path: "invalid-json",
+        message: expect.stringContaining("changed the editor document"),
+      }),
+    ]);
+  });
+
+  test("reports invalid imports that mutate the original document", () => {
+    const suite = createSuite();
+    const result = checkEditorConformanceSuite({
+      ...suite,
+      invalidImports: {
+        cases: [{ input: "{", name: "invalid-json" }],
+        attempt(document: Document) {
+          document.value = 999;
+          return {
+            document,
+            diagnostics: [{ path: "", message: "Invalid JSON." }],
+          };
+        },
+      },
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.issues).toEqual([
+      expect.objectContaining({
+        capability: "import",
+        path: "invalid-json",
+        message: expect.stringContaining("mutated the original editor document"),
+      }),
+    ]);
   });
 
   test("reports when undo does not restore selection", () => {

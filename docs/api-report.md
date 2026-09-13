@@ -375,7 +375,8 @@ type EditorConformanceCapability =
   | "history"
   | "serialization"
   | "migration"
-  | "persistence";
+  | "persistence"
+  | "import";
 type EditorConformanceIssue = {
   capability: EditorConformanceCapability;
   message: string;
@@ -416,6 +417,22 @@ type EditorConformanceMigrationAdapter<TDocument, TSerialized> = {
   migrate: (input: TSerialized) => TSerialized;
   parse: (serialized: TSerialized) => TDocument;
 };
+type EditorConformanceImportDiagnostic = {
+  message: string;
+  path?: string;
+};
+type EditorConformanceInvalidImportCase<TInput> = {
+  input: TInput;
+  name?: string;
+};
+type EditorConformanceInvalidImportResult<TDocument> = {
+  document: TDocument;
+  diagnostics: readonly EditorConformanceImportDiagnostic[];
+};
+type EditorConformanceInvalidImportAdapter<TDocument, TInput> = {
+  cases: readonly EditorConformanceInvalidImportCase<TInput>[];
+  attempt: (document: TDocument, input: TInput) => EditorConformanceInvalidImportResult<TDocument>;
+};
 type EditorConformanceSuite<
   TDocument,
   TAction,
@@ -423,6 +440,7 @@ type EditorConformanceSuite<
   TSerialized = never,
   TPersisted = never,
   TSelection = never,
+  TImportInput = never,
 > = {
   createDocument: () => TDocument;
   actions: readonly TAction[];
@@ -432,6 +450,7 @@ type EditorConformanceSuite<
   serialization?: EditorConformanceRoundtripAdapter<TDocument, TSerialized>;
   migration?: EditorConformanceMigrationAdapter<TDocument, TSerialized>;
   persistence?: EditorConformanceRoundtripAdapter<TDocument, TPersisted>;
+  invalidImports?: EditorConformanceInvalidImportAdapter<TDocument, TImportInput>;
   equals?: (left: TDocument, right: TDocument) => boolean;
 };
 declare class EditorConformanceError extends Error {
@@ -445,8 +464,17 @@ declare function checkEditorConformanceSuite<
   TSerialized = never,
   TPersisted = never,
   TSelection = never,
+  TImportInput = never,
 >(
-  suite: EditorConformanceSuite<TDocument, TAction, THistory, TSerialized, TPersisted, TSelection>,
+  suite: EditorConformanceSuite<
+    TDocument,
+    TAction,
+    THistory,
+    TSerialized,
+    TPersisted,
+    TSelection,
+    TImportInput
+  >,
 ): EditorConformanceResult;
 declare function assertEditorConformanceSuite<
   TDocument,
@@ -455,14 +483,27 @@ declare function assertEditorConformanceSuite<
   TSerialized = never,
   TPersisted = never,
   TSelection = never,
+  TImportInput = never,
 >(
-  suite: EditorConformanceSuite<TDocument, TAction, THistory, TSerialized, TPersisted, TSelection>,
+  suite: EditorConformanceSuite<
+    TDocument,
+    TAction,
+    THistory,
+    TSerialized,
+    TPersisted,
+    TSelection,
+    TImportInput
+  >,
 ): void;
 
 export {
   type EditorConformanceCapability,
   EditorConformanceError,
   type EditorConformanceHistoryAdapter,
+  type EditorConformanceImportDiagnostic,
+  type EditorConformanceInvalidImportAdapter,
+  type EditorConformanceInvalidImportCase,
+  type EditorConformanceInvalidImportResult,
   type EditorConformanceIssue,
   type EditorConformanceMigrationAdapter,
   type EditorConformanceMigrationCase,
