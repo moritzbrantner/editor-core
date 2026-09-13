@@ -5,32 +5,53 @@ import { checkEditorConformanceSuite } from "./conformance.js";
 import {
   commitEditorSnapshotHistory,
   createEditorSnapshotHistory,
+  createEditorTransactionHistory,
+  pushEditorTransactionHistory,
   redoEditorSnapshotHistory,
+  redoEditorTransactionHistory,
   undoEditorSnapshotHistory,
+  undoEditorTransactionHistory,
+  type EditorTransactionHistory,
 } from "./history.js";
 
 type Document = { value: number };
 type Action = { delta: number };
 type History = ReturnType<typeof createEditorSnapshotHistory<Document>>;
+type Selection = { id: string };
+type SelectionHistory = {
+  document: Document;
+  history: EditorTransactionHistory<Document, Selection>;
+  selection: Selection;
+};
 
 type Suite = EditorConformanceSuite<Document, Action, History, string, Document>;
+type SelectionSuite = EditorConformanceSuite<
+  Document,
+  Action,
+  SelectionHistory,
+  never,
+  never,
+  Selection
+>;
+
+function applyAction(document: Document, action: Action): Document {
+  return {
+    value: document.value + action.delta,
+  };
+}
 
 function createSuite(): Suite {
-  const apply = (document: Document, action: Action): Document => ({
-    value: document.value + action.delta,
-  });
-
   return {
     createDocument: (): Document => ({ value: 0 }),
     actions: [{ delta: 1 }, { delta: 2 }],
-    apply,
+    apply: applyAction,
     normalization: {
       normalize: (document: Document): Document => ({ value: Math.trunc(document.value) }),
     },
     history: {
       create: (document: Document) => createEditorSnapshotHistory(document),
       apply: (history: History, action: Action) =>
-        commitEditorSnapshotHistory(history, apply(history.present, action)),
+        commitEditorSnapshotHistory(history, applyAction(history.present, action)),
       undo: undoEditorSnapshotHistory,
       redo: redoEditorSnapshotHistory,
       getDocument: (history: History) => history.present,
@@ -60,9 +81,63 @@ function createSuite(): Suite {
   };
 }
 
+function createSelectionSuite(): SelectionSuite {
+  return {
+    createDocument: (): Document => ({ value: 0 }),
+    actions: [{ delta: 1 }, { delta: 2 }],
+    apply: applyAction,
+    history: {
+      create(document) {
+        return {
+          document,
+          history: createEditorTransactionHistory<Document, Selection>(),
+          selection: { id: "initial" },
+        };
+      },
+      apply(state, action) {
+        const document = applyAction(state.document, action);
+        const selection = { id: `value-${document.value}` };
+        return {
+          document,
+          history: pushEditorTransactionHistory(state.history, {
+            after: document,
+            before: state.document,
+            id: `value-${document.value}`,
+            selectionAfter: selection,
+            selectionBefore: state.selection,
+          }),
+          selection,
+        };
+      },
+      undo(state) {
+        const result = undoEditorTransactionHistory(state.history, state.selection);
+        return {
+          document: result.document ?? state.document,
+          history: result.history,
+          selection: result.selection ?? state.selection,
+        };
+      },
+      redo(state) {
+        const result = redoEditorTransactionHistory(state.history, state.selection);
+        return {
+          document: result.document ?? state.document,
+          history: result.history,
+          selection: result.selection ?? state.selection,
+        };
+      },
+      getDocument: (state) => state.document,
+      getSelection: (state) => state.selection,
+    },
+  };
+}
+
 describe("editor conformance", () => {
   test("accepts deterministic transitions, normalization, history, migration, and roundtrips", () => {
     expect(checkEditorConformanceSuite(createSuite())).toEqual({ ok: true, issues: [] });
+  });
+
+  test("accepts transaction history that restores selection on undo and redo", () => {
+    expect(checkEditorConformanceSuite(createSelectionSuite())).toEqual({ ok: true, issues: [] });
   });
 
   test("detects in-place document mutation", () => {
@@ -138,5 +213,63 @@ describe("editor conformance", () => {
 
     expect(result.ok).toBe(false);
     expect(result.issues).toEqual([expect.objectContaining({ capability: "persistence" })]);
+  });
+
+  test("reports when undo does not restore selection", () => {
+    const suite = createSelectionSuite();
+    const history = suite.history;
+    if (!history) {
+      throw new Error("Selection suite requires history.");
+    }
+
+    const result = checkEditorConformanceSuite({
+      ...suite,
+      history: {
+        ...history,
+        undo(state) {
+          const restored = history.undo(state);
+          return { ...restored, selection: { id: "wrong-after-undo" } };
+        },
+      },
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.issues).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          capability: "history",
+          message: expect.stringContaining("initial selection"),
+        }),
+      ]),
+    );
+  });
+
+  test("reports when redo does not restore selection", () => {
+    const suite = createSelectionSuite();
+    const history = suite.history;
+    if (!history) {
+      throw new Error("Selection suite requires history.");
+    }
+
+    const result = checkEditorConformanceSuite({
+      ...suite,
+      history: {
+        ...history,
+        redo(state) {
+          const restored = history.redo(state);
+          return { ...restored, selection: { id: "wrong-after-redo" } };
+        },
+      },
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.issues).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          capability: "history",
+          message: expect.stringContaining("final selection"),
+        }),
+      ]),
+    );
   });
 });
