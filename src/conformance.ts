@@ -415,7 +415,10 @@ function checkInvalidImportConformance<
     const result = adapter.attempt(initialDocument, importCase.input);
     const path = importCase.name;
 
-    if (result.diagnostics.length === 0 || !result.diagnostics.every(isStructuredImportDiagnostic)) {
+    if (
+      result.diagnostics.length === 0 ||
+      !result.diagnostics.every(isStructuredImportDiagnostic)
+    ) {
       issues.push({
         capability: "import",
         message: "Invalid import did not return structured diagnostics.",
