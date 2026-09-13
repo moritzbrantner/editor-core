@@ -4,6 +4,8 @@
 
 A consumer supplies its own document factory, action sequence, and transition function. Optional adapters add normalization, history, serialization, migration, and persistence checks. The harness verifies that repeated action application is deterministic, transitions do not mutate the original document, normalization is idempotent, complete undo/redo traversals restore the initial and final documents, serialization or persistence roundtrips preserve the document, and named migration cases produce their expected semantic documents.
 
+Serialization and persistence adapters can register named `cases` in addition to the action-produced document. These cases let specialized editors pin opaque JSON-compatible custom fields, plugin metadata, or other semantic edge cases that must survive a roundtrip. A failure reports the case name while leaving the meaning and schema of that data entirely downstream-owned.
+
 History adapters can also expose `getSelection`. When they do, the harness fingerprints the initial and final selections and verifies that complete undo and redo traversals restore those states together with the document. JSON-compatible selections use the stable JSON fingerprint by default; adapters with another semantic representation can provide `selectionFingerprint` without moving selection policy into editor-core.
 
 Normalization remains consumer-owned: the harness only requires that normalizing an already normalized document does not change the semantic result. Migration cases likewise keep versioning and envelope policy in the specialized editor; each case supplies serialized legacy input, the expected current document, and the consumer-owned migrate/parse functions needed to prove that boundary.
