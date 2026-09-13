@@ -29,9 +29,15 @@ export type EditorConformanceHistoryAdapter<TDocument, TAction, THistory, TSelec
   selectionFingerprint?: (selection: TSelection) => string;
 };
 
+export type EditorConformanceRoundtripCase<TDocument> = {
+  document: TDocument;
+  name?: string;
+};
+
 export type EditorConformanceRoundtripAdapter<TDocument, TSerialized> = {
   serialize: (document: TDocument) => TSerialized;
   parse: (serialized: TSerialized) => TDocument;
+  cases?: readonly EditorConformanceRoundtripCase<TDocument>[];
 };
 
 export type EditorConformanceNormalizationAdapter<TDocument> = {
@@ -288,11 +294,34 @@ function checkRoundtrip<TDocument, TValue>(
   equals: (left: TDocument, right: TDocument) => boolean,
   issues: EditorConformanceIssue[],
 ): void {
+  checkRoundtripDocument(capability, document, adapter, equals, issues);
+
+  for (const roundtripCase of adapter.cases ?? []) {
+    checkRoundtripDocument(
+      capability,
+      roundtripCase.document,
+      adapter,
+      equals,
+      issues,
+      roundtripCase.name,
+    );
+  }
+}
+
+function checkRoundtripDocument<TDocument, TValue>(
+  capability: "serialization" | "persistence",
+  document: TDocument,
+  adapter: EditorConformanceRoundtripAdapter<TDocument, TValue>,
+  equals: (left: TDocument, right: TDocument) => boolean,
+  issues: EditorConformanceIssue[],
+  path?: string,
+): void {
   const roundtripped = adapter.parse(adapter.serialize(document));
   if (!equals(document, roundtripped)) {
     issues.push({
       capability,
       message: `${capability} roundtrip changed the document from ${stableEditorJsonStringify(document)} to ${stableEditorJsonStringify(roundtripped)}.`,
+      ...(path ? { path } : {}),
     });
   }
 }
