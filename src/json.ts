@@ -15,11 +15,21 @@ export function sortEditorJsonValue(value: unknown): unknown {
     return value;
   }
 
-  return Object.fromEntries(
-    Object.keys(value)
-      .sort()
-      .map((key) => [key, sortEditorJsonValue(value[key])]),
-  );
+  const sortedValue: Record<string, unknown> = {};
+  for (const key of Object.keys(value).sort()) {
+    const sortedChild = sortEditorJsonValue(value[key]);
+    if (key in Object.prototype) {
+      Object.defineProperty(sortedValue, key, {
+        configurable: true,
+        enumerable: true,
+        value: sortedChild,
+        writable: true,
+      });
+    } else {
+      sortedValue[key] = sortedChild;
+    }
+  }
+  return sortedValue;
 }
 
 export function stableEditorJsonStringify(value: unknown): string {
