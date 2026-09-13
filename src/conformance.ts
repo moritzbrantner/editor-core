@@ -2,8 +2,10 @@ import { createStableEditorJsonEquals, stableEditorJsonStringify } from "./json.
 
 export type EditorConformanceCapability =
   | "transition"
+  | "normalization"
   | "history"
   | "serialization"
+  | "migration"
   | "persistence";
 
 export type EditorConformanceIssue = {
@@ -30,6 +32,22 @@ export type EditorConformanceRoundtripAdapter<TDocument, TSerialized> = {
   parse: (serialized: TSerialized) => TDocument;
 };
 
+export type EditorConformanceNormalizationAdapter<TDocument> = {
+  normalize: (document: TDocument) => TDocument;
+};
+
+export type EditorConformanceMigrationCase<TDocument, TSerialized> = {
+  input: TSerialized;
+  expectedDocument: TDocument;
+  name?: string;
+};
+
+export type EditorConformanceMigrationAdapter<TDocument, TSerialized> = {
+  cases: readonly EditorConformanceMigrationCase<TDocument, TSerialized>[];
+  migrate: (input: TSerialized) => TSerialized;
+  parse: (serialized: TSerialized) => TDocument;
+};
+
 export type EditorConformanceSuite<
   TDocument,
   TAction,
@@ -40,8 +58,10 @@ export type EditorConformanceSuite<
   createDocument: () => TDocument;
   actions: readonly TAction[];
   apply: (document: TDocument, action: TAction) => TDocument;
+  normalization?: EditorConformanceNormalizationAdapter<TDocument>;
   history?: EditorConformanceHistoryAdapter<TDocument, TAction, THistory>;
   serialization?: EditorConformanceRoundtripAdapter<TDocument, TSerialized>;
+  migration?: EditorConformanceMigrationAdapter<TDocument, TSerialized>;
   persistence?: EditorConformanceRoundtripAdapter<TDocument, TPersisted>;
   equals?: (left: TDocument, right: TDocument) => boolean;
 };
@@ -87,12 +107,20 @@ export function checkEditorConformanceSuite<
     });
   }
 
+  if (suite.normalization) {
+    checkNormalizationConformance(firstFinal, suite.normalization, equals, issues);
+  }
+
   if (suite.history && suite.actions.length > 0) {
     checkHistoryConformance(suite, firstFinal, equals, issues);
   }
 
   if (suite.serialization) {
     checkRoundtrip("serialization", firstFinal, suite.serialization, equals, issues);
+  }
+
+  if (suite.migration) {
+    checkMigrationConformance(suite.migration, equals, issues);
   }
 
   if (suite.persistence) {
@@ -121,6 +149,27 @@ function applySequence<TDocument, TAction>(
   apply: (document: TDocument, action: TAction) => TDocument,
 ): TDocument {
   return actions.reduce((document, action) => apply(document, action), initialDocument);
+}
+
+function checkNormalizationConformance<TDocument>(
+  document: TDocument,
+  adapter: EditorConformanceNormalizationAdapter<TDocument>,
+  equals: (left: TDocument, right: TDocument) => boolean,
+  issues: EditorConformanceIssue[],
+): void {
+  const normalized = adapter.normalize(document);
+  const normalizedSnapshot = stableEditorJsonStringify(normalized);
+  const renormalized = adapter.normalize(normalized);
+
+  if (
+    !equals(normalized, renormalized) ||
+    stableEditorJsonStringify(renormalized) !== normalizedSnapshot
+  ) {
+    issues.push({
+      capability: "normalization",
+      message: "Normalizing an already normalized document changed its semantic result.",
+    });
+  }
 }
 
 function checkHistoryConformance<TDocument, TAction, THistory, TSerialized, TPersisted>(
@@ -168,6 +217,23 @@ function checkHistoryConformance<TDocument, TAction, THistory, TSerialized, TPer
       capability: "history",
       message: "Redoing the complete action sequence did not restore the final document.",
     });
+  }
+}
+
+function checkMigrationConformance<TDocument, TSerialized>(
+  adapter: EditorConformanceMigrationAdapter<TDocument, TSerialized>,
+  equals: (left: TDocument, right: TDocument) => boolean,
+  issues: EditorConformanceIssue[],
+): void {
+  for (const migrationCase of adapter.cases) {
+    const migratedDocument = adapter.parse(adapter.migrate(migrationCase.input));
+    if (!equals(migratedDocument, migrationCase.expectedDocument)) {
+      issues.push({
+        capability: "migration",
+        message: `Migrating serialized input changed the expected document from ${stableEditorJsonStringify(migrationCase.expectedDocument)} to ${stableEditorJsonStringify(migratedDocument)}.`,
+        ...(migrationCase.name ? { path: migrationCase.name } : {}),
+      });
+    }
   }
 }
 

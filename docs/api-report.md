@@ -369,7 +369,13 @@ export {
 ## conformance.d.ts
 
 ```ts
-type EditorConformanceCapability = "transition" | "history" | "serialization" | "persistence";
+type EditorConformanceCapability =
+  | "transition"
+  | "normalization"
+  | "history"
+  | "serialization"
+  | "migration"
+  | "persistence";
 type EditorConformanceIssue = {
   capability: EditorConformanceCapability;
   message: string;
@@ -390,6 +396,19 @@ type EditorConformanceRoundtripAdapter<TDocument, TSerialized> = {
   serialize: (document: TDocument) => TSerialized;
   parse: (serialized: TSerialized) => TDocument;
 };
+type EditorConformanceNormalizationAdapter<TDocument> = {
+  normalize: (document: TDocument) => TDocument;
+};
+type EditorConformanceMigrationCase<TDocument, TSerialized> = {
+  input: TSerialized;
+  expectedDocument: TDocument;
+  name?: string;
+};
+type EditorConformanceMigrationAdapter<TDocument, TSerialized> = {
+  cases: readonly EditorConformanceMigrationCase<TDocument, TSerialized>[];
+  migrate: (input: TSerialized) => TSerialized;
+  parse: (serialized: TSerialized) => TDocument;
+};
 type EditorConformanceSuite<
   TDocument,
   TAction,
@@ -400,8 +419,10 @@ type EditorConformanceSuite<
   createDocument: () => TDocument;
   actions: readonly TAction[];
   apply: (document: TDocument, action: TAction) => TDocument;
+  normalization?: EditorConformanceNormalizationAdapter<TDocument>;
   history?: EditorConformanceHistoryAdapter<TDocument, TAction, THistory>;
   serialization?: EditorConformanceRoundtripAdapter<TDocument, TSerialized>;
+  migration?: EditorConformanceMigrationAdapter<TDocument, TSerialized>;
   persistence?: EditorConformanceRoundtripAdapter<TDocument, TPersisted>;
   equals?: (left: TDocument, right: TDocument) => boolean;
 };
@@ -431,6 +452,9 @@ export {
   EditorConformanceError,
   type EditorConformanceHistoryAdapter,
   type EditorConformanceIssue,
+  type EditorConformanceMigrationAdapter,
+  type EditorConformanceMigrationCase,
+  type EditorConformanceNormalizationAdapter,
   type EditorConformanceResult,
   type EditorConformanceRoundtripAdapter,
   type EditorConformanceSuite,
