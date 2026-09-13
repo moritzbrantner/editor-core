@@ -19,12 +19,19 @@ export type EditorConformanceResult = {
   issues: readonly EditorConformanceIssue[];
 };
 
-export type EditorConformanceHistoryAdapter<TDocument, TAction, THistory> = {
+export type EditorConformanceHistoryAdapter<
+  TDocument,
+  TAction,
+  THistory,
+  TSelection = never,
+> = {
   create: (document: TDocument) => THistory;
   apply: (history: THistory, action: TAction) => THistory;
   undo: (history: THistory) => THistory;
   redo: (history: THistory) => THistory;
   getDocument: (history: THistory) => TDocument;
+  getSelection?: (history: THistory) => TSelection;
+  selectionFingerprint?: (selection: TSelection) => string;
 };
 
 export type EditorConformanceRoundtripAdapter<TDocument, TSerialized> = {
@@ -54,12 +61,13 @@ export type EditorConformanceSuite<
   THistory = never,
   TSerialized = never,
   TPersisted = never,
+  TSelection = never,
 > = {
   createDocument: () => TDocument;
   actions: readonly TAction[];
   apply: (document: TDocument, action: TAction) => TDocument;
   normalization?: EditorConformanceNormalizationAdapter<TDocument>;
-  history?: EditorConformanceHistoryAdapter<TDocument, TAction, THistory>;
+  history?: EditorConformanceHistoryAdapter<TDocument, TAction, THistory, TSelection>;
   serialization?: EditorConformanceRoundtripAdapter<TDocument, TSerialized>;
   migration?: EditorConformanceMigrationAdapter<TDocument, TSerialized>;
   persistence?: EditorConformanceRoundtripAdapter<TDocument, TPersisted>;
@@ -82,8 +90,16 @@ export function checkEditorConformanceSuite<
   THistory = never,
   TSerialized = never,
   TPersisted = never,
+  TSelection = never,
 >(
-  suite: EditorConformanceSuite<TDocument, TAction, THistory, TSerialized, TPersisted>,
+  suite: EditorConformanceSuite<
+    TDocument,
+    TAction,
+    THistory,
+    TSerialized,
+    TPersisted,
+    TSelection
+  >,
 ): EditorConformanceResult {
   const issues: EditorConformanceIssue[] = [];
   const equals = suite.equals ?? createStableEditorJsonEquals<TDocument>();
@@ -136,7 +152,17 @@ export function assertEditorConformanceSuite<
   THistory = never,
   TSerialized = never,
   TPersisted = never,
->(suite: EditorConformanceSuite<TDocument, TAction, THistory, TSerialized, TPersisted>): void {
+  TSelection = never,
+>(
+  suite: EditorConformanceSuite<
+    TDocument,
+    TAction,
+    THistory,
+    TSerialized,
+    TPersisted,
+    TSelection
+  >,
+): void {
   const result = checkEditorConformanceSuite(suite);
   if (!result.ok) {
     throw new EditorConformanceError(result.issues);
@@ -172,8 +198,22 @@ function checkNormalizationConformance<TDocument>(
   }
 }
 
-function checkHistoryConformance<TDocument, TAction, THistory, TSerialized, TPersisted>(
-  suite: EditorConformanceSuite<TDocument, TAction, THistory, TSerialized, TPersisted>,
+function checkHistoryConformance<
+  TDocument,
+  TAction,
+  THistory,
+  TSerialized,
+  TPersisted,
+  TSelection,
+>(
+  suite: EditorConformanceSuite<
+    TDocument,
+    TAction,
+    THistory,
+    TSerialized,
+    TPersisted,
+    TSelection
+  >,
   expectedFinal: TDocument,
   equals: (left: TDocument, right: TDocument) => boolean,
   issues: EditorConformanceIssue[],
@@ -185,10 +225,13 @@ function checkHistoryConformance<TDocument, TAction, THistory, TSerialized, TPer
 
   const expectedInitial = suite.createDocument();
   let history = historyAdapter.create(suite.createDocument());
+  const initialSelectionFingerprint = getSelectionFingerprint(historyAdapter, history);
 
   for (const action of suite.actions) {
     history = historyAdapter.apply(history, action);
   }
+
+  const finalSelectionFingerprint = getSelectionFingerprint(historyAdapter, history);
 
   if (!equals(historyAdapter.getDocument(history), expectedFinal)) {
     issues.push({
@@ -208,6 +251,16 @@ function checkHistoryConformance<TDocument, TAction, THistory, TSerialized, TPer
     });
   }
 
+  if (
+    initialSelectionFingerprint !== undefined &&
+    getSelectionFingerprint(historyAdapter, history) !== initialSelectionFingerprint
+  ) {
+    issues.push({
+      capability: "history",
+      message: "Undoing the complete action sequence did not restore the initial selection.",
+    });
+  }
+
   for (let index = 0; index < suite.actions.length; index += 1) {
     history = historyAdapter.redo(history);
   }
@@ -218,6 +271,30 @@ function checkHistoryConformance<TDocument, TAction, THistory, TSerialized, TPer
       message: "Redoing the complete action sequence did not restore the final document.",
     });
   }
+
+  if (
+    finalSelectionFingerprint !== undefined &&
+    getSelectionFingerprint(historyAdapter, history) !== finalSelectionFingerprint
+  ) {
+    issues.push({
+      capability: "history",
+      message: "Redoing the complete action sequence did not restore the final selection.",
+    });
+  }
+}
+
+function getSelectionFingerprint<TDocument, TAction, THistory, TSelection>(
+  adapter: EditorConformanceHistoryAdapter<TDocument, TAction, THistory, TSelection>,
+  history: THistory,
+): string | undefined {
+  if (!adapter.getSelection) {
+    return undefined;
+  }
+
+  const selection = adapter.getSelection(history);
+  return adapter.selectionFingerprint
+    ? adapter.selectionFingerprint(selection)
+    : `json:${stableEditorJsonStringify(selection)}`;
 }
 
 function checkMigrationConformance<TDocument, TSerialized>(
