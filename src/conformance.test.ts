@@ -14,7 +14,7 @@ import {
   type EditorTransactionHistory,
 } from "./history.js";
 
-type Document = { value: number };
+type Document = { value: number; custom?: unknown };
 type Action = { delta: number };
 type History = ReturnType<typeof createEditorSnapshotHistory<Document>>;
 type Selection = { id: string };
@@ -36,6 +36,7 @@ type SelectionSuite = EditorConformanceSuite<
 
 function applyAction(document: Document, action: Action): Document {
   return {
+    ...document,
     value: document.value + action.delta,
   };
 }
@@ -46,7 +47,10 @@ function createSuite(): Suite {
     actions: [{ delta: 1 }, { delta: 2 }],
     apply: applyAction,
     normalization: {
-      normalize: (document: Document): Document => ({ value: Math.trunc(document.value) }),
+      normalize: (document: Document): Document => ({
+        ...document,
+        value: Math.trunc(document.value),
+      }),
     },
     history: {
       create: (document: Document) => createEditorSnapshotHistory(document),
@@ -59,6 +63,18 @@ function createSuite(): Suite {
     serialization: {
       serialize: (document: Document) => JSON.stringify(document),
       parse: (serialized: string) => JSON.parse(serialized) as Document,
+      cases: [
+        {
+          document: {
+            value: 7,
+            custom: {
+              plugin: "example",
+              nested: [1, true, null, { label: "kept" }],
+            },
+          },
+          name: "unknown-custom-data",
+        },
+      ],
     },
     migration: {
       cases: [
@@ -197,6 +213,27 @@ describe("editor conformance", () => {
         capability: "migration",
         path: "v1",
         message: expect.stringContaining("expected document"),
+      }),
+    ]);
+  });
+
+  test("reports named serialization cases that lose custom data", () => {
+    const suite = createSuite();
+    const result = checkEditorConformanceSuite({
+      ...suite,
+      serialization: {
+        serialize: (document: Document) => JSON.stringify({ value: document.value }),
+        parse: (serialized: string) => JSON.parse(serialized) as Document,
+        cases: suite.serialization?.cases,
+      },
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.issues).toEqual([
+      expect.objectContaining({
+        capability: "serialization",
+        path: "unknown-custom-data",
+        message: expect.stringContaining("roundtrip changed"),
       }),
     ]);
   });
