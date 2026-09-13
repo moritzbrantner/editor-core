@@ -43,13 +43,16 @@ jobs:
       artifact_paths: ""
 
   api-report-generator:
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write
       packages: read
     steps:
-      - name: Checkout
+      - name: Checkout PR branch
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        with:
+          ref: ${{ github.head_ref }}
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
@@ -62,12 +65,16 @@ jobs:
       - name: Generate API report
         run: bun run build && bun run api:update
 
-      - name: Upload generated API report
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
-        with:
-          name: generated-api-report
-          path: docs/api-report.md
-          retention-days: 1
+      - name: Commit generated API report
+        run: |
+          if git diff --quiet -- docs/api-report.md; then
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/api-report.md
+          git commit -m "docs: update API report"
+          git push origin HEAD:${GITHUB_HEAD_REF}
 
   node24-package-smoke:
     runs-on: ubuntu-latest
