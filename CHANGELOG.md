@@ -10,6 +10,7 @@ This package follows semver. While the package is in `0.x`, breaking changes may
 - Breaking: removed the unused `@moenarch/editor-core/collaboration`, `/sync`, and `/share` entrypoints and removed remote-operation application from the generic operation runtime. Collaboration may return later behind a concrete product requirement rather than as speculative core vocabulary.
 - Persistence now owns `EditorRevisionToken`; stale-save revision tokens and conflict detection remain supported without implying a collaboration protocol.
 - Generic runtime, operations, history, commands, persistence, entity hierarchy, tree projection, 2D viewport/snap, JSON/patch/serialization, testing, browser, plugin, aspect, and React surfaces remain available.
+- Conformance suites can now verify idempotent normalization and named migration cases without moving domain-specific normalization or versioning policy into editor-core.
 
 ## 0.5.0
 
