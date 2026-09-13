@@ -38,7 +38,7 @@ jobs:
           NODE
           bun install
           bunx oxfmt package.json .changeset/config.json
-          git fetch origin main
+          git branch --force main origin/main
           bun run changeset status
 
       - name: Commit generated package metadata
