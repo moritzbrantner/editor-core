@@ -23,6 +23,7 @@ jobs:
     with:
       bun_version: "1.3.14"
       install_command: "bun install --frozen-lockfile"
+      pre_command: "bun run architecture:check"
       format_command: "bun run format:check"
       lint_command: "bun run lint"
       typecheck_command: "bun run check-types"
