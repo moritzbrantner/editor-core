@@ -30,6 +30,14 @@ await write(
 const passing = await checkArchitecture({ rootDir: root });
 assert.equal(passing.errors.length, 0);
 
+await write("json.ts", "export const stableJson = (value) => JSON.stringify(value);\n");
+await write(
+  "conformance.ts",
+  'import { stableJson } from "./json.js";\nexport const fingerprint = stableJson;\n',
+);
+const conformanceJsonDependency = await checkArchitecture({ rootDir: root });
+assert.equal(conformanceJsonDependency.errors.length, 0);
+
 await write(
   "oversized.test.ts",
   Array.from({ length: 301 }, (_, index) => `export const value${index} = ${index};`).join("\n"),
