@@ -15,7 +15,7 @@ concurrency:
 
 jobs:
   fast-validation:
-    uses: moritzbrantner/reusable-workflows/.github/workflows/fast-validation.yml@fd22697af1dfc42e4b8d66e222e1a7c415da2be0
+    uses: moritzbrantner/reusable-workflows/.github/workflows/fast-validation.yml@workflow-standard-v1.2
     permissions:
       contents: read
       packages: read
@@ -23,10 +23,15 @@ jobs:
     with:
       bun_version: "1.4.0"
       install_command: "bun install --frozen-lockfile"
-      command: "bun run verify:fast"
+      pre_command: "bun run architecture:check"
+      format_command: "bun run format:check"
+      lint_command: "bun run lint"
+      typecheck_command: "bun run check-types"
+      build_command: "bun run build"
+      unit_test_command: "bun run test:unit"
 
   integration-validation:
-    uses: moritzbrantner/reusable-workflows/.github/workflows/integration-validation.yml@fd22697af1dfc42e4b8d66e222e1a7c415da2be0
+    uses: moritzbrantner/reusable-workflows/.github/workflows/integration-validation.yml@workflow-standard-v1.2
     permissions:
       contents: read
       packages: read
@@ -69,7 +74,7 @@ jobs:
           EDITOR_CORE_COMPAT_NODE_BIN: node
 
   e2e-validation:
-    uses: moritzbrantner/reusable-workflows/.github/workflows/e2e-validation.yml@fd22697af1dfc42e4b8d66e222e1a7c415da2be0
+    uses: moritzbrantner/reusable-workflows/.github/workflows/e2e-validation.yml@workflow-standard-v1.2
     permissions:
       contents: read
       packages: read
@@ -85,7 +90,7 @@ jobs:
         test-results
 
   storybook-validation:
-    uses: moritzbrantner/reusable-workflows/.github/workflows/storybook-validation.yml@fd22697af1dfc42e4b8d66e222e1a7c415da2be0
+    uses: moritzbrantner/reusable-workflows/.github/workflows/storybook-validation.yml@workflow-standard-v1.2
     permissions:
       contents: read
       packages: read
@@ -102,7 +107,7 @@ jobs:
         test-results
 
   performance-validation:
-    uses: moritzbrantner/reusable-workflows/.github/workflows/performance-validation.yml@fd22697af1dfc42e4b8d66e222e1a7c415da2be0
+    uses: moritzbrantner/reusable-workflows/.github/workflows/performance-validation.yml@workflow-standard-v1.2
     permissions:
       contents: read
       packages: read
