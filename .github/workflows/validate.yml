@@ -15,7 +15,7 @@ concurrency:
 
 jobs:
   fast-validation:
-    uses: moritzbrantner/reusable-workflows/.github/workflows/fast-validation.yml@d373511617b2f79b632170d84246fe0d370d3ae1
+    uses: moritzbrantner/reusable-workflows/.github/workflows/fast-validation.yml@fd22697af1dfc42e4b8d66e222e1a7c415da2be0
     permissions:
       contents: read
       packages: read
@@ -31,7 +31,7 @@ jobs:
       unit_test_command: "bun run test:unit"
 
   integration-validation:
-    uses: moritzbrantner/reusable-workflows/.github/workflows/integration-validation.yml@d373511617b2f79b632170d84246fe0d370d3ae1
+    uses: moritzbrantner/reusable-workflows/.github/workflows/integration-validation.yml@fd22697af1dfc42e4b8d66e222e1a7c415da2be0
     permissions:
       contents: read
       packages: read
@@ -74,7 +74,7 @@ jobs:
           EDITOR_CORE_COMPAT_NODE_BIN: node
 
   e2e-validation:
-    uses: moritzbrantner/reusable-workflows/.github/workflows/e2e-validation.yml@d373511617b2f79b632170d84246fe0d370d3ae1
+    uses: moritzbrantner/reusable-workflows/.github/workflows/e2e-validation.yml@fd22697af1dfc42e4b8d66e222e1a7c415da2be0
     permissions:
       contents: read
       packages: read
@@ -90,7 +90,7 @@ jobs:
         test-results
 
   storybook-validation:
-    uses: moritzbrantner/reusable-workflows/.github/workflows/storybook-validation.yml@d373511617b2f79b632170d84246fe0d370d3ae1
+    uses: moritzbrantner/reusable-workflows/.github/workflows/storybook-validation.yml@fd22697af1dfc42e4b8d66e222e1a7c415da2be0
     permissions:
       contents: read
       packages: read
@@ -107,7 +107,7 @@ jobs:
         test-results
 
   performance-validation:
-    uses: moritzbrantner/reusable-workflows/.github/workflows/performance-validation.yml@d373511617b2f79b632170d84246fe0d370d3ae1
+    uses: moritzbrantner/reusable-workflows/.github/workflows/performance-validation.yml@fd22697af1dfc42e4b8d66e222e1a7c415da2be0
     permissions:
       contents: read
       packages: read
