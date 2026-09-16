@@ -8,6 +8,7 @@ export const architectureRules = {
     aspects: [],
     browser: [],
     commands: ["history", "hotkeys"],
+    conformance: ["json"],
     constraints: [],
     entities: [],
     history: [],
