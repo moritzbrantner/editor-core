@@ -23,12 +23,7 @@ jobs:
     with:
       bun_version: "1.4.0"
       install_command: "bun install --frozen-lockfile"
-      pre_command: "bun run architecture:check"
-      format_command: "bun run format:check"
-      lint_command: "bun run lint"
-      typecheck_command: "bun run check-types"
-      build_command: "bun run build"
-      unit_test_command: "bun run test:unit"
+      command: "bun run verify:fast"
 
   integration-validation:
     uses: moritzbrantner/reusable-workflows/.github/workflows/integration-validation.yml@fd22697af1dfc42e4b8d66e222e1a7c415da2be0
