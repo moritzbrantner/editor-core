@@ -31,7 +31,6 @@ jobs:
 
   build-package:
     name: Build or reuse package
-    needs: fast-validation
     permissions:
       actions: read
       contents: read
