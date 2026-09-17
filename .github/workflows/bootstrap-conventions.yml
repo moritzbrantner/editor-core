@@ -41,6 +41,9 @@ jobs:
         working-directory: .bootstrap/coding-tooling
         run: bun install --frozen-lockfile
 
+      - name: Install editor-core dependencies
+        run: bun install --frozen-lockfile
+
       - name: Install canonical conventions
         run: |
           bun .bootstrap/coding-tooling/src/router.ts conventions init \
@@ -53,6 +56,14 @@ jobs:
         run: |
           bun .bootstrap/coding-tooling/src/router.ts conventions check \
             --root "$GITHUB_WORKSPACE" \
+            --json
+
+      - name: Run strict fast verification
+        run: |
+          bun .bootstrap/coding-tooling/src/router.ts run \
+            --root "$GITHUB_WORKSPACE" \
+            --tier fast \
+            --strict \
             --json
 
       - name: Commit canonical generated state
