@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 1,
+  "ruleId": "LIGHTHOUSE-002",
+  "enforcement": {
+    "kind": "capability",
+    "capability": "web:audit",
+    "tiers": ["full"]
+  }
+}

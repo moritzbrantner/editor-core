@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "registry": "coding-agent-conventions",
+  "modules": [
+    "benchmarking",
+    "lighthouse",
+    "playwright",
+    "react",
+    "storybook",
+    "tooling",
+    "typescript",
+    "vite",
+    "vitest"
+  ]
+}
