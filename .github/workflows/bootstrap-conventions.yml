@@ -39,6 +39,9 @@ jobs:
       - name: Install editor-core dependencies
         run: bun install --frozen-lockfile
 
+      - name: Align executable convention lint runtime
+        run: bun add --dev --exact oxlint@1.80.0
+
       - name: Install canonical conventions
         run: |
           bun "$RUNNER_TEMP/coding-tooling/src/router.ts" conventions init \
@@ -65,7 +68,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add conventions.json conventions.lock.json .conventions
+          git add package.json bun.lock conventions.json conventions.lock.json .conventions
           if git diff --cached --quiet; then
             echo "No convention changes generated"
             exit 0
