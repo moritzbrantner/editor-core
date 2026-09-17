@@ -23,22 +23,17 @@ jobs:
         with:
           bun-version: "1.4.0"
 
-      - name: Checkout coding-tooling
-        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
-        with:
-          repository: moritzbrantner/coding-tooling
-          ref: 5b9768c99c7011f98701ac030adb46a1b678aa59
-          path: .bootstrap/coding-tooling
-
-      - name: Checkout coding-agent-conventions
-        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
-        with:
-          repository: moritzbrantner/coding-agent-conventions
-          ref: 21ae3d91a3a5c5c36e4c3618d13522f006208633
-          path: .bootstrap/coding-agent-conventions
+      - name: Fetch pinned convergence tooling outside the repository
+        run: |
+          git clone --filter=blob:none --no-checkout https://github.com/moritzbrantner/coding-tooling.git "$RUNNER_TEMP/coding-tooling"
+          git -C "$RUNNER_TEMP/coding-tooling" fetch --depth=1 origin 5b9768c99c7011f98701ac030adb46a1b678aa59
+          git -C "$RUNNER_TEMP/coding-tooling" checkout --detach 5b9768c99c7011f98701ac030adb46a1b678aa59
+          git clone --filter=blob:none --no-checkout https://github.com/moritzbrantner/coding-agent-conventions.git "$RUNNER_TEMP/coding-agent-conventions"
+          git -C "$RUNNER_TEMP/coding-agent-conventions" fetch --depth=1 origin 21ae3d91a3a5c5c36e4c3618d13522f006208633
+          git -C "$RUNNER_TEMP/coding-agent-conventions" checkout --detach 21ae3d91a3a5c5c36e4c3618d13522f006208633
 
       - name: Install coding-tooling dependencies
-        working-directory: .bootstrap/coding-tooling
+        working-directory: ${{ runner.temp }}/coding-tooling
         run: bun install --frozen-lockfile
 
       - name: Install editor-core dependencies
@@ -46,21 +41,21 @@ jobs:
 
       - name: Install canonical conventions
         run: |
-          bun .bootstrap/coding-tooling/src/router.ts conventions init \
+          bun "$RUNNER_TEMP/coding-tooling/src/router.ts" conventions init \
             benchmarking lighthouse playwright react storybook tooling typescript vite vitest \
             --root "$GITHUB_WORKSPACE" \
-            --conventions-root "$GITHUB_WORKSPACE/.bootstrap/coding-agent-conventions" \
+            --conventions-root "$RUNNER_TEMP/coding-agent-conventions" \
             --json
 
       - name: Verify installed convention snapshot
         run: |
-          bun .bootstrap/coding-tooling/src/router.ts conventions check \
+          bun "$RUNNER_TEMP/coding-tooling/src/router.ts" conventions check \
             --root "$GITHUB_WORKSPACE" \
             --json
 
       - name: Run strict fast verification
         run: |
-          bun .bootstrap/coding-tooling/src/router.ts run \
+          bun "$RUNNER_TEMP/coding-tooling/src/router.ts" run \
             --root "$GITHUB_WORKSPACE" \
             --tier fast \
             --strict \
