@@ -158,7 +158,7 @@
     "size:check": "bun run build && bun run pack:check",
     "smoke:package": "node scripts/smoke-package-exports.mjs",
     "pack:check": "bun pm pack --dry-run",
-    "prepare": "bun install --frozen-lockfile --ignore-scripts && bun ./scripts/prepare-git-install.ts",
+    "prepare": "bun ./scripts/prepare-git-install.ts",
     "verify:git-install": "bun ./scripts/verify-git-install.ts",
     "prepublishOnly": "bun run verify:release",
     "verify:fast": "bun run format:check && bun run architecture:check && bun run lint && bun run check-types && bun run test:unit",
