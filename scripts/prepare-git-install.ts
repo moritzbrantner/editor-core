@@ -34,7 +34,8 @@ if (!packageRoot.split(path.sep).includes("node_modules")) {
     symlinkSync(
       path.join(packageRoot, "node_modules"),
       path.join(buildRoot, "node_modules"),
-      "dir",
+      // A junction needs no symlink privilege on Windows.
+      process.platform === "win32" ? "junction" : "dir",
     );
     build(buildRoot);
 
