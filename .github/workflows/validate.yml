@@ -19,7 +19,6 @@ jobs:
     permissions:
       contents: read
       packages: read
-    secrets: inherit
     with:
       bun_version: "1.4.0"
       install_command: "bun install --frozen-lockfile"
@@ -35,12 +34,11 @@ jobs:
     permissions:
       contents: read
       packages: read
-    secrets: inherit
     with:
       bun_version: "1.4.0"
       install_command: "bun install --frozen-lockfile"
       integration_command: "bun run test:integration"
-      package_check_command: "bun run pack:check"
+      package_check_command: "bun run pack:check && bun run verify:git-install"
       artifact_paths: ""
 
   node24-package-smoke:
@@ -78,7 +76,6 @@ jobs:
     permissions:
       contents: read
       packages: read
-    secrets: inherit
     with:
       bun_version: "1.4.0"
       install_command: "bun install --frozen-lockfile"
@@ -94,7 +91,6 @@ jobs:
     permissions:
       contents: read
       packages: read
-    secrets: inherit
     with:
       bun_version: "1.4.0"
       install_command: "bun install --frozen-lockfile"
@@ -111,7 +107,6 @@ jobs:
     permissions:
       contents: read
       packages: read
-    secrets: inherit
     with:
       bun_version: "1.4.0"
       install_command: "bun install --frozen-lockfile"

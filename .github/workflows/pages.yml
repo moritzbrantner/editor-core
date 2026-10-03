@@ -17,7 +17,6 @@ jobs:
       contents: read
       packages: read
     uses: moritzbrantner/reusable-workflows/.github/workflows/build-artifact.yml@fd22697af1dfc42e4b8d66e222e1a7c415da2be0
-    secrets: inherit
     with:
       source_sha: ${{ github.sha }}
       artifact_key: editor-core-pages-v1
@@ -41,7 +40,6 @@ jobs:
       id-token: write
       packages: read
       pages: write
-    secrets: inherit
     with:
       node_version: ""
       bun_version: ""
