@@ -37,7 +37,7 @@
 
 ## INV-006 — The maintained release verification matrix remains green
 
-- Source of truth: repo:package.json, repo:.github/workflows/validate.yml, repo:.github/workflows/publish.yml
+- Source of truth: repo:package.json, repo:.github/workflows/validate.yml
 - Required evidence: static, integration, performance
 - Sensitivity: optional
 - Risk dimensions: security=covered:lint-and-package-boundary-checks; recovery=not-applicable:verification-orchestration; persistence=not-applicable:verification-orchestration; concurrency=not-applicable:verification-orchestration; migration=covered:build-and-api-validation; partial-failure=covered:blocking-command-exit-status; operational=covered:build-e2e-storybook-and-performance-gates

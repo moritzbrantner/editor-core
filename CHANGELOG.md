@@ -6,6 +6,9 @@ This package follows semver. While the package is in `0.x`, breaking changes may
 
 ## Unreleased
 
+- Expanded the editor-family conformance API with normalization and migration checks, selection restoration, named serialization and persistence roundtrip cases, and invalid-import diagnostics with state-preservation checks.
+- The package builds in a `prepare` script so consumers can install it as a commit-pinned git dependency (`git+https://github.com/moritzbrantner/editor-core.git#<sha>` listed in `trustedDependencies`).
+- Retired npm publishing: removed the tag-triggered publish workflow and changesets. Releases are commits on `main`.
 - Breaking: narrowed `editor-core` to domain-neutral editing mechanics. Graph-specific edge/port/connection/index helpers and timeline-specific range/index/selection/viewport helpers are no longer part of the core API; those semantics belong to `graph-editor` and `timeline-editor`.
 - Breaking: removed the unused `@moenarch/editor-core/collaboration`, `/sync`, and `/share` entrypoints and removed remote-operation application from the generic operation runtime. Collaboration may return later behind a concrete product requirement rather than as speculative core vocabulary.
 - Persistence now owns `EditorRevisionToken`; stale-save revision tokens and conflict detection remain supported without implying a collaboration protocol.

@@ -41,25 +41,9 @@ bun run api:update
 
 Review the resulting diff before committing.
 
-## Release Checklist
+## Releases
 
-The full release checklist lives in `docs/release.md`. The preferred release path is trusted npm
-publishing from the tag-triggered `Release` workflow, with manual npm publishing documented there
-as a fallback.
-
-1. Update `CHANGELOG.md`.
-2. Confirm `package.json` has the intended version.
-3. Push `main` and wait for GitHub validation to pass.
-4. Run the local release preflight:
-
-   ```sh
-   git status --short --branch
-   bun install --frozen-lockfile
-   npm whoami
-   npm view @moenarch/editor-core version dist-tags --json
-   bun run verify:release
-   npm pack --dry-run --json
-   npm publish --dry-run --access public
-   ```
-
-5. Create and push the matching release tag from the validated commit.
+`docs/release.md` describes the release model. The package is not published to npm; consumers pin
+a commit from `main` as a git dependency, and the `prepare` script builds `dist` during that
+install. Record changes in `CHANGELOG.md` under `Unreleased` and run `bun run verify:release`
+before merging public package changes.
