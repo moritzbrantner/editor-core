@@ -406,7 +406,6 @@ source_of_truth = [
   "invariant:INV-006",
   "repo:package.json",
   "repo:.github/workflows/validate.yml",
-  "repo:.github/workflows/publish.yml",
 ]
 state_class = "deterministic"
 timeout_seconds = 360

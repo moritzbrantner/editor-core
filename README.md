@@ -8,9 +8,19 @@ It intentionally does **not** define graph, workflow, timeline, media, or collab
 
 ## Install
 
-```sh
-bun add @moenarch/editor-core
+The package is not published to npm for now (earlier versions stay on npm). Install it as a
+commit-pinned git dependency and trust it so its `prepare` script can build `dist`:
+
+```json
+{
+  "dependencies": {
+    "@moenarch/editor-core": "git+https://github.com/moritzbrantner/editor-core.git#<commit-sha>"
+  },
+  "trustedDependencies": ["@moenarch/editor-core"]
+}
 ```
+
+Pin a commit from `main`; bump the SHA to upgrade.
 
 The root entrypoint is framework-free. React helpers are available from `@moenarch/editor-core/react`.
 
