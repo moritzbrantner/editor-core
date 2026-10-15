@@ -11,7 +11,7 @@ This repository contains headless shared infrastructure for Moritz Brantner edit
 
 ## Domain context
 
-See `docs/agents/domain.md`.
+Read `README.md` for the public package surface and `CONTEXT.md` for the stable Editor Core runtime, operation, command, persistence and autosave vocabulary. Consult the relevant accepted `docs/adr/` decision before changing these boundaries. `CONTEXT.md` remains a cited source of truth for INV-001/INV-002 in `.harness/`; do not delete or move it without separately updating and validating that verification contract.
 
 <!-- prettier-ignore-start -->
 <!-- verification-harness:start -->
