@@ -9,9 +9,11 @@ This repository contains headless shared infrastructure for Moritz Brantner edit
 - Put reusable interaction state machines at the narrowest editor-core seam that genuinely owns them. Consumers may compose those interactions but must not create a competing owner for the same gesture.
 - Use examples to demonstrate direct manipulation through the public editor seams; inspectors and forms should supplement that interaction rather than become a second implementation of it.
 
-## Domain context
+## Domain authority
 
-Read `README.md` for the public package surface and `CONTEXT.md` for the stable Editor Core runtime, operation, command, persistence and autosave vocabulary. Consult the relevant accepted `docs/adr/` decision before changing these boundaries. `CONTEXT.md` remains a cited source of truth for INV-001/INV-002 in `.harness/`; do not delete or move it without separately updating and validating that verification contract.
+- `README.md` describes the public package; `CONTEXT.md` defines Editor Core runtime, operation, command, persistence, and autosave vocabulary.
+- Read relevant accepted `docs/adr/` decisions before changing architectural or public boundaries.
+- Keep `CONTEXT.md`: `.harness/` cites it for INV-001/INV-002. Moving it requires a separately validated harness update.
 
 <!-- prettier-ignore-start -->
 <!-- verification-harness:start -->
