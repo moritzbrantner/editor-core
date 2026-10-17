@@ -174,21 +174,21 @@
     "@vitest/browser-playwright": "4.1.12",
     "@vitest/coverage-v8": "4.1.12",
     "jsdom": "29.1.1",
-    "oxfmt": "0.52.0",
+    "oxfmt": "0.73.0",
     "oxlint": "1.88.0",
     "react": "19.3.1",
     "react-dom": "19.3.1",
-    "start-server-and-test": "3.0.8",
+    "start-server-and-test": "3.0.13",
     "storybook": "10.6.2",
     "tailwindcss": "4.3.3",
     "tsup": "8.5.1",
     "typescript": "6.0.3",
-    "unlighthouse": "0.17.10",
+    "unlighthouse": "0.19.1",
     "vite": "8.3.4",
     "vitest": "4.1.12"
   },
   "engines": {
     "node": ">=20.19"
   },
-  "packageManager": "bun@1.4.0"
+  "packageManager": "bun@1.4.3"
 }
