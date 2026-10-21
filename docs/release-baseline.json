@@ -22,6 +22,7 @@
     "./interaction": "{\"types\":\"./dist/interaction.d.ts\",\"import\":\"./dist/interaction.js\"}",
     "./operations": "{\"types\":\"./dist/operations.d.ts\",\"import\":\"./dist/operations.js\"}",
     "./persistence": "{\"types\":\"./dist/persistence.d.ts\",\"import\":\"./dist/persistence.js\"}",
+    "./telemetry": "{\"types\":\"./dist/telemetry.d.ts\",\"import\":\"./dist/telemetry.js\"}",
     "./session": "{\"types\":\"./dist/session.d.ts\",\"import\":\"./dist/session.js\"}",
     "./patches": "{\"types\":\"./dist/patches.d.ts\",\"import\":\"./dist/patches.js\"}",
     "./plugins": "{\"types\":\"./dist/plugins.d.ts\",\"import\":\"./dist/plugins.js\"}",
@@ -56,6 +57,7 @@
         "commitEditorRuntime": "226fd6e4b51ffe30",
         "CommitEditorRuntimeOptions": "5b7c0f64cc464b5d",
         "commitEditorSnapshotHistory": "093001814994c0de",
+        "countEditorTelemetryIssues": "b52e592b0cbc9723",
         "createBrowserClipboardAdapter": "3e3a06e724f6c9a3",
         "createBrowserDownloadAdapter": "1ebad2ca9b0cd169",
         "createEditorAspect": "dacd67596d067033",
@@ -78,6 +80,8 @@
         "createEditorRuntimePersistenceController": "7dda2f0b5718b23e",
         "createEditorSnapshotHistory": "359dfd5a4654405b",
         "createEditorSnapshotHistoryCommands": "98b4122c85105c4c",
+        "createEditorTelemetry": "f15602883faade02",
+        "createEditorTelemetryRecorder": "1000b1e8d44bb769",
         "createEditorTransactionHistory": "66378403f26913c3",
         "createEditorTreeState": "ce949b33ae502289",
         "createEditorViewportState": "1298b335e6197463",
@@ -124,7 +128,7 @@
         "EditorCommandRuntimeEvent": "f4f33ed2d10c4370",
         "EditorCommandRuntimeIgnoredReason": "1a71eede225dcb6f",
         "EditorCommandRuntimeMatch": "e9463150c2623a0a",
-        "EditorCommandRuntimeOptions": "11822464cc17e33d",
+        "EditorCommandRuntimeOptions": "773ff1b6818597b5",
         "EditorCommandRuntimeRunResult": "768b2b9eb44bae3c",
         "EditorConflictStorageAdapter": "a18e0e89d18f7fe8",
         "EditorConstraintIssueOptions": "f4b28143b6173cc5",
@@ -189,9 +193,9 @@
         "EditorRuntimeCommandId": "7abb3f60fdb63c07",
         "EditorRuntimeCommandsOptions": "45755c042ffa4217",
         "EditorRuntimeConflictPersistenceControllerOptions": "89983da779fddd0d",
-        "EditorRuntimeOptions": "1a98f93485fa9e88",
+        "EditorRuntimeOptions": "c0a7c076316190ec",
         "EditorRuntimePersistenceController": "95fece2d2b3d2762",
-        "EditorRuntimePersistenceControllerOptions": "394e42f7a5cb7773",
+        "EditorRuntimePersistenceControllerOptions": "e56440b291a0b9e7",
         "EditorRuntimeSelection": "45be75858b25016e",
         "EditorRuntimeState": "fa2ec8abae275ab0",
         "EditorRuntimeStateUpdater": "fd315fb5858a4301",
@@ -211,6 +215,16 @@
         "EditorSnapshotHistoryOptions": "3bc5cd24547cca14",
         "EditorSnapTarget": "5f548b363de2f6c6",
         "EditorStorageAdapter": "b7cafcae88b1614a",
+        "EditorTelemetry": "9d0fd5c023e6c0cf",
+        "EditorTelemetryEmitOptions": "e1e507e422c31dcf",
+        "EditorTelemetryEvent": "9bdac021d1f55142",
+        "EditorTelemetryEventMap": "b4fad7a9b4571b53",
+        "EditorTelemetryEventName": "9f9df1d3e8e332e3",
+        "EditorTelemetryIssueCounts": "06cd413f33894a46",
+        "EditorTelemetryOptions": "3528b935e2a7a032",
+        "EditorTelemetryProcessor": "aa95d3d5ba25d763",
+        "editorTelemetrySchemaVersion": "9294a62479b86beb",
+        "EditorTelemetrySink": "b6257d5fbdf4d254",
         "EditorTransaction": "507dc8d361227a28",
         "EditorTransactionHistory": "3696f27a46e5ab2a",
         "EditorTransactionHistoryResult": "3260256c8a491f93",
@@ -226,10 +240,13 @@
         "EditorTreeState": "f15d3d25f889ae1c",
         "EditorViewportClamp": "eac5f1f4249618a5",
         "EditorViewportState": "56139e37686584d9",
+        "emitEditorTelemetry": "8e8348e1f91a5db9",
         "emptyEditorSelection": "8ee122cab20d7e46",
+        "enrichEditorTelemetry": "18d592380c9657f0",
         "ensureEditorJsonFilename": "da2f6ff75d876c57",
         "expandEditorTreeAncestors": "f062ae68f33ab47a",
         "expandEditorTreeNode": "6751b3643f1cc92e",
+        "filterEditorTelemetry": "75022993299ad5dd",
         "fitEditorBoundsInViewport": "cabf554da06d69a9",
         "FitEditorBoundsOptions": "eac836dc248e7b16",
         "formatEditorShortcutLabel": "2a96c1c79f97c5d2",
@@ -242,6 +259,7 @@
         "getEditorSelectedEntityIds": "cc18d95f64d7001c",
         "getEditorSelectionPrimaryEntityId": "c420eeeed8a44f94",
         "getEditorSelectionTreeNodeId": "3a4e0e5e805f180b",
+        "getEditorTelemetryErrorName": "576d4ed0e1d4a02e",
         "getEditorTreeNodePath": "5c27b6df13c03447",
         "getRunnableEditorCommands": "2ea22255a841c6ca",
         "groupEditorValidationIssuesByEntityId": "2e0da1e63bdbcb0f",
@@ -266,6 +284,7 @@
         "matchesEditorHotkey": "3b5fbed763d85468",
         "migrateEditorDocument": "b0c20fadee44a1df",
         "migrateEditorOperationLog": "6ba1a70339bc2822",
+        "noopEditorTelemetrySink": "870b593960b9fa79",
         "NormalizedEditorAutosaveOptions": "14f9d1298d188db5",
         "normalizeEditorAutosaveOptions": "0da2c77370c7b0e6",
         "normalizeEditorSelection": "bb337ed4dd5f9b8d",
@@ -299,6 +318,7 @@
         "resolveEditorPluginCommands": "059d77f7948c05ae",
         "resolveEditorPluginRuntimeOptions": "ec1a77be4831146b",
         "revealEditorBounds": "3dfe981598f2baec",
+        "sampleEditorTelemetry": "94ed4c458069b2c4",
         "saveEditorRuntimeConflictPersistence": "3cd19dfe756613a2",
         "SaveEditorRuntimeConflictPersistenceOptions": "3e21ce51329ac9d3",
         "SaveEditorRuntimeConflictPersistenceResult": "1392734046e1837d",
@@ -336,8 +356,8 @@
         "writeEditorClipboardJson": "fe39d68af8303a55",
         "zoomEditorViewportAtPoint": "0b10581a7ca31326"
       },
-      "jsGzipBytes": 26328,
-      "dtsBytes": 78865
+      "jsGzipBytes": 28952,
+      "dtsBytes": 87090
     },
     "./aspects": {
       "kind": "core",
@@ -428,8 +448,8 @@
         "EditorDocumentAdapterCheckCase": "7c45d2704ea120f1",
         "EditorOperationLogAdapterCheckCase": "29d688a9bb1df7e3"
       },
-      "jsGzipBytes": 12496,
-      "dtsBytes": 21231
+      "jsGzipBytes": 14331,
+      "dtsBytes": 28303
     },
     "./conformance": {
       "kind": "optional",
@@ -523,7 +543,7 @@
         "EditorCommandRuntimeEvent": "f4f33ed2d10c4370",
         "EditorCommandRuntimeIgnoredReason": "1a71eede225dcb6f",
         "EditorCommandRuntimeMatch": "e9463150c2623a0a",
-        "EditorCommandRuntimeOptions": "11822464cc17e33d",
+        "EditorCommandRuntimeOptions": "773ff1b6818597b5",
         "EditorCommandRuntimeRunResult": "768b2b9eb44bae3c",
         "EditorContextualCommandDefinition": "14bef20143a8e74f",
         "EditorResolvedCommandDefinition": "73d094b9a80d7ac0",
@@ -534,8 +554,8 @@
         "getRunnableEditorCommands": "2ea22255a841c6ca",
         "resolveEditorCommands": "98a26edbd3c10783"
       },
-      "jsGzipBytes": 4734,
-      "dtsBytes": 12039
+      "jsGzipBytes": 6079,
+      "dtsBytes": 19041
     },
     "./constraints": {
       "kind": "core",
@@ -584,7 +604,7 @@
         "EditorDocumentIoCommandsOptions": "a4bf2ca9f8bc5098",
         "EditorRuntimeCommandId": "7abb3f60fdb63c07",
         "EditorRuntimeCommandsOptions": "45755c042ffa4217",
-        "EditorRuntimeOptions": "1a98f93485fa9e88",
+        "EditorRuntimeOptions": "c0a7c076316190ec",
         "EditorRuntimeSelection": "45be75858b25016e",
         "EditorRuntimeState": "fa2ec8abae275ab0",
         "EditorRuntimeStatus": "96500ee8be674b22",
@@ -600,8 +620,8 @@
         "undoEditorRuntime": "9c28d2912bc27276",
         "validateEditorRuntime": "28ada8e459c8ebd1"
       },
-      "jsGzipBytes": 7190,
-      "dtsBytes": 18981
+      "jsGzipBytes": 8686,
+      "dtsBytes": 26053
     },
     "./indexes": {
       "kind": "core",
@@ -625,8 +645,8 @@
         "isEditorInteractionActive": "e1b5f4271efb6af0",
         "updateEditorInteractionPreview": "303ec130befa1484"
       },
-      "jsGzipBytes": 11599,
-      "dtsBytes": 20634
+      "jsGzipBytes": 13435,
+      "dtsBytes": 27706
     },
     "./operations": {
       "kind": "core",
@@ -660,8 +680,8 @@
         "serializeEditorOperationLog": "c73d7bbc57487da6",
         "undoEditorOperationRuntime": "93d45bbd08d5be6c"
       },
-      "jsGzipBytes": 11301,
-      "dtsBytes": 23354
+      "jsGzipBytes": 13137,
+      "dtsBytes": 30426
     },
     "./persistence": {
       "kind": "core",
@@ -688,7 +708,7 @@
         "EditorRevisionToken": "395c2f107a2a95d3",
         "EditorRuntimeConflictPersistenceControllerOptions": "89983da779fddd0d",
         "EditorRuntimePersistenceController": "95fece2d2b3d2762",
-        "EditorRuntimePersistenceControllerOptions": "394e42f7a5cb7773",
+        "EditorRuntimePersistenceControllerOptions": "e56440b291a0b9e7",
         "EditorRuntimeStateUpdater": "fd315fb5858a4301",
         "loadEditorRuntimeConflictPersistence": "2207325a4fce4751",
         "LoadEditorRuntimeConflictPersistenceOptions": "7270069869ed36a5",
@@ -705,8 +725,34 @@
         "SaveEditorRuntimePersistenceOptions": "5706f80b7e547420",
         "SaveEditorRuntimePersistenceResult": "7a6248dc94811815"
       },
-      "jsGzipBytes": 10722,
-      "dtsBytes": 27322
+      "jsGzipBytes": 12688,
+      "dtsBytes": 34555
+    },
+    "./telemetry": {
+      "kind": "core",
+      "api": {
+        "countEditorTelemetryIssues": "b52e592b0cbc9723",
+        "createEditorTelemetry": "f15602883faade02",
+        "createEditorTelemetryRecorder": "1000b1e8d44bb769",
+        "EditorTelemetry": "9d0fd5c023e6c0cf",
+        "EditorTelemetryEmitOptions": "e1e507e422c31dcf",
+        "EditorTelemetryEvent": "9bdac021d1f55142",
+        "EditorTelemetryEventMap": "b4fad7a9b4571b53",
+        "EditorTelemetryEventName": "9f9df1d3e8e332e3",
+        "EditorTelemetryIssueCounts": "06cd413f33894a46",
+        "EditorTelemetryOptions": "3528b935e2a7a032",
+        "EditorTelemetryProcessor": "aa95d3d5ba25d763",
+        "editorTelemetrySchemaVersion": "9294a62479b86beb",
+        "EditorTelemetrySink": "b6257d5fbdf4d254",
+        "emitEditorTelemetry": "8e8348e1f91a5db9",
+        "enrichEditorTelemetry": "18d592380c9657f0",
+        "filterEditorTelemetry": "75022993299ad5dd",
+        "getEditorTelemetryErrorName": "576d4ed0e1d4a02e",
+        "noopEditorTelemetrySink": "870b593960b9fa79",
+        "sampleEditorTelemetry": "94ed4c458069b2c4"
+      },
+      "jsGzipBytes": 1251,
+      "dtsBytes": 6869
     },
     "./session": {
       "kind": "core",
@@ -720,7 +766,7 @@
         "EditorSessionError": "ba903035ee228249",
         "EditorSessionErrorKind": "2468c5a3d13051d1",
         "EditorSessionLifecycle": "7c7b92a95e50c500",
-        "EditorSessionOptions": "895490ba574b755e",
+        "EditorSessionOptions": "e77d0faa8e29d132",
         "EditorSessionRecord": "05121ef5918c224f",
         "EditorSessionRecovery": "c75569a658058d0e",
         "EditorSessionSlot": "652d3c3a10451287",
@@ -730,8 +776,8 @@
         "LocalStorageEditorSessionStoreOptions": "88e3d3b772ec5ec7",
         "toEditorSessionError": "27469d22d6781501"
       },
-      "jsGzipBytes": 13735,
-      "dtsBytes": 29869
+      "jsGzipBytes": 15950,
+      "dtsBytes": 37265
     },
     "./patches": {
       "kind": "core",
@@ -760,8 +806,8 @@
         "resolveEditorPluginCommands": "059d77f7948c05ae",
         "resolveEditorPluginRuntimeOptions": "ec1a77be4831146b"
       },
-      "jsGzipBytes": 5603,
-      "dtsBytes": 27575
+      "jsGzipBytes": 7156,
+      "dtsBytes": 35008
     },
     "./selection": {
       "kind": "core",
@@ -855,8 +901,8 @@
         "UsePersistentEditorRuntimeOptions": "5eb7b6ad6adcdfec",
         "UsePersistentEditorRuntimeResult": "c47ab7255f27a82d"
       },
-      "jsGzipBytes": 13681,
-      "dtsBytes": 39353
+      "jsGzipBytes": 15648,
+      "dtsBytes": 46749
     }
   },
   "packedFiles": {
@@ -864,7 +910,7 @@
     "dist/aspects.js": 1,
     "dist/browser.d.ts": 1,
     "dist/browser.js": 1,
-    "dist/chunk-[hash].js": 20,
+    "dist/chunk-[hash].js": 21,
     "dist/commands.d.ts": 1,
     "dist/commands.js": 1,
     "dist/conformance.d.ts": 1,
@@ -905,6 +951,8 @@
     "dist/session-[hash].d.ts": 1,
     "dist/session.d.ts": 1,
     "dist/session.js": 1,
+    "dist/telemetry.d.ts": 1,
+    "dist/telemetry.js": 1,
     "dist/testing.d.ts": 1,
     "dist/testing.js": 1,
     "dist/tree.d.ts": 1,
@@ -916,6 +964,6 @@
     "package.json": 1,
     "README.md": 1
   },
-  "packedBytes": 52615,
-  "unpackedBytes": 273031
+  "packedBytes": 58449,
+  "unpackedBytes": 295307
 }

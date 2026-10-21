@@ -28,6 +28,10 @@ import type {
   RuntimePersistenceControllerOptions,
 } from "./controller-types.js";
 import { normalizeEditorAutosaveOptions } from "./controller-types.js";
+import {
+  observePersistenceTelemetry,
+  type EditorPersistenceTelemetryTrigger,
+} from "./controller-telemetry.js";
 
 export function createEditorRuntimePersistenceController<TDocument, TSelection = unknown>(
   options: EditorRuntimePersistenceControllerOptions<TDocument, TSelection>,
@@ -61,79 +65,16 @@ function createEditorRuntimePersistenceControllerCore<TDocument, TSelection>(
       }
 
       options.setPersistence((previous) => adapter.prepareLoad(previous));
-      const result = await adapter.load(options.getRuntime(), options);
+      const onEvent = observePersistenceTelemetry(options.telemetry, options.onEvent, "manual");
+      const result = await adapter.load(options.getRuntime(), { ...options, onEvent });
       if (isEditorPersistenceControllerDisposed(state)) {
         return;
       }
       options.setRuntime(result.runtime);
       options.setPersistence(result.persistence);
     },
-    async save(saveOptions: { force?: boolean } = {}) {
-      if (isEditorPersistenceControllerDisposed(state)) {
-        return false;
-      }
-
-      const snapshot = options.getRuntime();
-      const canSave = options.canSave ?? (() => true);
-      consumeSkippedLatestSaveRevision(state, snapshot.revision);
-
-      if (state.saveInFlightRevision !== null) {
-        options.onEvent?.({
-          reason: "in-flight",
-          revision: snapshot.revision,
-          type: "save-skipped",
-        });
-        return false;
-      }
-
-      if (!canSave(snapshot)) {
-        options.onEvent?.({
-          reason: "blocked",
-          revision: snapshot.revision,
-          type: "save-skipped",
-        });
-        return false;
-      }
-
-      if (snapshot.status === "clean" && !saveOptions.force) {
-        const result = await adapter.save(snapshot, withSaveOptions(options, saveOptions));
-        if (!isEditorPersistenceControllerDisposed(state)) {
-          options.setPersistence(result.persistence);
-        }
-        return result.saved;
-      }
-
-      beginEditorPersistenceSave(state, snapshot.revision);
-      options.setPersistence((previous) =>
-        adapter.prepareSave({
-          ...previous,
-          operation: "save",
-          savingRevision: snapshot.revision,
-          status: "saving",
-        }),
-      );
-
-      const result = await adapter.save(snapshot, withSaveOptions(options, saveOptions));
-      finishEditorPersistenceSave(state, {
-        failed: result.persistence.status === "error",
-        revision: result.revision,
-      });
-      if (isEditorPersistenceControllerDisposed(state)) {
-        return result.saved;
-      }
-
-      options.setRuntime((current) =>
-        current.revision === result.revision ? result.runtime : current,
-      );
-      options.setPersistence(result.persistence);
-
-      const autosave = normalizeEditorAutosaveOptions(options.autosave);
-      if (shouldRunPendingLatestSave(state, autosave)) {
-        consumePendingLatestSave(state);
-        controller.notifyRuntimeChanged();
-      }
-
-      return result.saved;
+    save(saveOptions: { force?: boolean } = {}) {
+      return saveRuntime(saveOptions, "manual");
     },
     notifyRuntimeChanged() {
       if (isEditorPersistenceControllerDisposed(state)) {
@@ -158,7 +99,11 @@ function createEditorRuntimePersistenceControllerCore<TDocument, TSelection>(
       }
 
       if (result.type === "emit-save-skipped") {
-        options.onEvent?.({
+        observePersistenceTelemetry(
+          options.telemetry,
+          options.onEvent,
+          "autosave",
+        )?.({
           reason: "in-flight",
           revision: result.revision,
           type: "save-skipped",
@@ -189,6 +134,79 @@ function createEditorRuntimePersistenceControllerCore<TDocument, TSelection>(
     },
   };
 
+  async function saveRuntime(
+    saveOptions: { force?: boolean },
+    trigger: EditorPersistenceTelemetryTrigger,
+  ): Promise<boolean> {
+    if (isEditorPersistenceControllerDisposed(state)) {
+      return false;
+    }
+
+    const onEvent = observePersistenceTelemetry(options.telemetry, options.onEvent, trigger);
+    const adapterOptions = { ...options, force: saveOptions.force, onEvent };
+    const snapshot = options.getRuntime();
+    const canSave = options.canSave ?? (() => true);
+    consumeSkippedLatestSaveRevision(state, snapshot.revision);
+
+    if (state.saveInFlightRevision !== null) {
+      onEvent?.({
+        reason: "in-flight",
+        revision: snapshot.revision,
+        type: "save-skipped",
+      });
+      return false;
+    }
+
+    if (!canSave(snapshot)) {
+      onEvent?.({
+        reason: "blocked",
+        revision: snapshot.revision,
+        type: "save-skipped",
+      });
+      return false;
+    }
+
+    if (snapshot.status === "clean" && !saveOptions.force) {
+      const result = await adapter.save(snapshot, adapterOptions);
+      if (!isEditorPersistenceControllerDisposed(state)) {
+        options.setPersistence(result.persistence);
+      }
+      return result.saved;
+    }
+
+    beginEditorPersistenceSave(state, snapshot.revision);
+    options.setPersistence((previous) =>
+      adapter.prepareSave({
+        ...previous,
+        operation: "save",
+        savingRevision: snapshot.revision,
+        status: "saving",
+      }),
+    );
+
+    const result = await adapter.save(snapshot, adapterOptions);
+    finishEditorPersistenceSave(state, {
+      failed: result.persistence.status === "error",
+      revision: result.revision,
+    });
+    if (isEditorPersistenceControllerDisposed(state)) {
+      return result.saved;
+    }
+
+    options.setRuntime((current) =>
+      current.revision === result.revision ? result.runtime : current,
+    );
+    options.setPersistence(result.persistence);
+
+    const autosave = normalizeEditorAutosaveOptions(options.autosave);
+    if (shouldRunPendingLatestSave(state, autosave)) {
+      consumePendingLatestSave(state);
+      controller.notifyRuntimeChanged();
+    }
+
+    return result.saved;
+  }
+
   async function saveWithAutosaveRetry(autosave: NormalizedEditorAutosaveOptions) {
     const revision = options.getRuntime().revision;
     let attemptsUsed = 0;
@@ -198,7 +216,7 @@ function createEditorRuntimePersistenceControllerCore<TDocument, TSelection>(
         return;
       }
 
-      const saved = await controller.save();
+      const saved = await saveRuntime({}, "autosave");
       if (
         shouldStopEditorPersistenceAutosaveRetry(state, {
           attemptsUsed,
@@ -220,16 +238,6 @@ function createEditorRuntimePersistenceControllerCore<TDocument, TSelection>(
   }
 
   return controller;
-}
-
-function withSaveOptions<TDocument, TSelection>(
-  options: RuntimePersistenceControllerOptions<TDocument, TSelection>,
-  saveOptions: { force?: boolean },
-): RuntimePersistenceControllerOptions<TDocument, TSelection> {
-  return {
-    ...options,
-    force: saveOptions.force,
-  };
 }
 
 function getScheduler<TDocument, TSelection>(

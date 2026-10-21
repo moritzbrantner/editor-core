@@ -195,6 +195,7 @@ export {
 ```ts
 import { EditorSnapshotHistory, EditorSnapshotHistoryOptions } from "./history.js";
 import { EditorCommandDefinition, EditorHotkeyMap, EditorHotkeyEvent } from "./hotkeys.js";
+import { EditorTelemetry } from "./telemetry.js";
 
 type EditorCommandDiagnostic<TId extends string = string> = {
   commandId: TId;
@@ -234,6 +235,8 @@ type EditorCommandRuntimeOptions<TId extends string> = {
   readOnly?: boolean;
   allowEditableTargets?: boolean;
   isInScope?: (event: EditorHotkeyEvent) => boolean;
+  /** Opt-in telemetry for command outcomes. */
+  telemetry?: EditorTelemetry;
 };
 type EditorCommandRuntimeMatch<TId extends string> = {
   command: EditorCommandDefinition<TId>;
@@ -588,11 +591,12 @@ export {
 };
 ```
 
-## controller-types-B4uWtBMO.d.ts
+## controller-types-lCZA_KuC.d.ts
 
 ```ts
 import { EditorStorageAdapter } from "./browser.js";
-import { a as EditorRuntimeSelection, b as EditorRuntimeState } from "./types-ue792Gw2.js";
+import { a as EditorRuntimeSelection, b as EditorRuntimeState } from "./types-B6LlmGUo.js";
+import { EditorTelemetry } from "./telemetry.js";
 
 type EditorRevisionToken = string | number;
 type EditorPersistenceStatus = "idle" | "loading" | "loaded" | "saving" | "saved" | "error";
@@ -762,6 +766,8 @@ type EditorRuntimePersistenceControllerOptions<TDocument, TSelection = unknown> 
   onError?: (error: unknown, context: EditorPersistenceErrorContext) => void;
   onEvent?: EditorPersistenceEventHandler;
   scheduler?: EditorPersistenceScheduler;
+  /** Opt-in telemetry for load, save and autosave outcomes and latency. */
+  telemetry?: EditorTelemetry;
 };
 type EditorRuntimeConflictPersistenceControllerOptions<TDocument, TSelection = unknown> = Omit<
   EditorRuntimePersistenceControllerOptions<TDocument, TSelection>,
@@ -1222,7 +1228,7 @@ export {
   k as ReplaceEditorOperationRuntimeCoreStateOptions,
   S as SerializedEditorOperation,
   l as SerializedEditorOperationLog,
-} from "./types-BL2yLq6F.js";
+} from "./types-BTCvOO9F.js";
 export {
   applyEditorInteractionOperation,
   applyEditorOperation,
@@ -1268,7 +1274,7 @@ export {
   x as SaveEditorRuntimePersistenceOptions,
   y as SaveEditorRuntimePersistenceResult,
   z as normalizeEditorAutosaveOptions,
-} from "./controller-types-B4uWtBMO.js";
+} from "./controller-types-lCZA_KuC.js";
 export {
   clearEditorPersistenceConflict,
   createEditorPersistenceState,
@@ -1310,7 +1316,7 @@ export {
   f as EditorRuntimeValidationIssue,
   g as EditorRuntimeValidator,
   R as ResetEditorRuntimeOptions,
-} from "./types-ue792Gw2.js";
+} from "./types-B6LlmGUo.js";
 export {
   EditorDocumentIoCommandId,
   EditorDocumentIoCommandsOptions,
@@ -1360,6 +1366,27 @@ export {
   readEditorDocument,
   serializeEditorDocument,
 } from "./serialization.js";
+export {
+  EditorTelemetry,
+  EditorTelemetryEmitOptions,
+  EditorTelemetryEvent,
+  EditorTelemetryEventMap,
+  EditorTelemetryEventName,
+  EditorTelemetryIssueCounts,
+  EditorTelemetryOptions,
+  EditorTelemetryProcessor,
+  EditorTelemetrySink,
+  countEditorTelemetryIssues,
+  createEditorTelemetry,
+  createEditorTelemetryRecorder,
+  editorTelemetrySchemaVersion,
+  emitEditorTelemetry,
+  enrichEditorTelemetry,
+  filterEditorTelemetry,
+  getEditorTelemetryErrorName,
+  noopEditorTelemetrySink,
+  sampleEditorTelemetry,
+} from "./telemetry.js";
 export {
   EditorAdapterCheckIssue,
   EditorAdapterCheckResult,
@@ -1444,12 +1471,13 @@ export {
 ## interaction.d.ts
 
 ```ts
-import { j as EditorOperationRuntimeState, E as EditorOperation } from "./types-BL2yLq6F.js";
+import { j as EditorOperationRuntimeState, E as EditorOperation } from "./types-BTCvOO9F.js";
 import "./aspects.js";
 import "./hotkeys.js";
 import "./history.js";
-import "./types-ue792Gw2.js";
+import "./types-B6LlmGUo.js";
 import "./serialization.js";
+import "./telemetry.js";
 
 type EditorInteractionSession<TDocument, TInteraction = unknown> = {
   committedDocument: TDocument;
@@ -1534,17 +1562,18 @@ import {
   S as SerializedEditorOperation,
   l as SerializedEditorOperationLog,
   d as EditorOperationLogMigrations,
-} from "./types-BL2yLq6F.js";
+} from "./types-BTCvOO9F.js";
 export {
   c as EditorOperationLogMigration,
   e as EditorOperationPreflightContext,
   f as EditorOperationPreflightIssue,
-} from "./types-BL2yLq6F.js";
+} from "./types-BTCvOO9F.js";
 import { EditorChangeOrigin } from "./aspects.js";
-import { b as EditorRuntimeState } from "./types-ue792Gw2.js";
+import { b as EditorRuntimeState } from "./types-B6LlmGUo.js";
 import { EditorCommandDefinition, EditorHotkeyMap } from "./hotkeys.js";
 import "./history.js";
 import "./serialization.js";
+import "./telemetry.js";
 
 declare function createEditorOperationRuntime<TDocument, TSelection = unknown>(
   options: EditorOperationRuntimeOptions<TDocument, TSelection>,
@@ -1713,7 +1742,7 @@ import {
   p as EditorRuntimeConflictPersistenceControllerOptions,
   q as EditorRuntimePersistenceController,
   r as EditorRuntimePersistenceControllerOptions,
-} from "./controller-types-B4uWtBMO.js";
+} from "./controller-types-lCZA_KuC.js";
 export {
   E as EditorAutosaveOptions,
   a as EditorAutosaveRetryOptions,
@@ -1732,9 +1761,10 @@ export {
   s as EditorRuntimeStateUpdater,
   N as NormalizedEditorAutosaveOptions,
   z as normalizeEditorAutosaveOptions,
-} from "./controller-types-B4uWtBMO.js";
+} from "./controller-types-lCZA_KuC.js";
 import { EditorStorageAdapter } from "./browser.js";
-import { b as EditorRuntimeState } from "./types-ue792Gw2.js";
+import { b as EditorRuntimeState } from "./types-B6LlmGUo.js";
+import "./telemetry.js";
 import "./aspects.js";
 import "./history.js";
 import "./serialization.js";
@@ -1811,10 +1841,11 @@ import {
 import {
   e as EditorOperationPreflightContext,
   f as EditorOperationPreflightIssue,
-} from "./types-BL2yLq6F.js";
-import { g as EditorRuntimeValidator, E as EditorRuntimeOptions } from "./types-ue792Gw2.js";
+} from "./types-BTCvOO9F.js";
+import { g as EditorRuntimeValidator, E as EditorRuntimeOptions } from "./types-B6LlmGUo.js";
 import "./history.js";
 import "./hotkeys.js";
+import "./telemetry.js";
 import "./serialization.js";
 
 type EditorPlugin<TDocument = unknown, TSelection = unknown> = {
@@ -1846,6 +1877,11 @@ declare function createEditorPluginRegistry<TDocument, TSelection>(
 declare function getEditorPluginDiagnostics<TDocument, TSelection>(
   registry: EditorPluginRegistry<TDocument, TSelection>,
 ): readonly (EditorPluginDiagnostic | EditorCommandDiagnostic<string>)[];
+/**
+ * Composes plugin validators, aspects and operation preflight into Runtime options. When
+ * `baseOptions.telemetry` is set, a throwing plugin hook is reported as `plugin.failure` and
+ * the error is rethrown unchanged.
+ */
 declare function resolveEditorPluginRuntimeOptions<TDocument, TSelection>(
   registry: EditorPluginRegistry<TDocument, TSelection>,
   baseOptions: EditorRuntimeOptions<TDocument, TSelection>,
@@ -1881,7 +1917,7 @@ import {
   C as CommitEditorRuntimeOptions,
   R as ResetEditorRuntimeOptions,
   a as EditorRuntimeSelection,
-} from "./types-ue792Gw2.js";
+} from "./types-B6LlmGUo.js";
 import { EditorStorageAdapter } from "./browser.js";
 import {
   E as EditorAutosaveOptions,
@@ -1889,14 +1925,15 @@ import {
   h as EditorPersistenceEventHandler,
   b as EditorConflictStorageAdapter,
   k as EditorPersistenceState,
-} from "./controller-types-B4uWtBMO.js";
-export { a as EditorAutosaveRetryOptions } from "./controller-types-B4uWtBMO.js";
-import { a as EditorSession, j as EditorSessionState } from "./session-DWhH4DCT.js";
+} from "./controller-types-lCZA_KuC.js";
+export { a as EditorAutosaveRetryOptions } from "./controller-types-lCZA_KuC.js";
+import { a as EditorSession, j as EditorSessionState } from "./session-C35AZC2G.js";
 import { EditorCommandDefinition } from "./hotkeys.js";
 import { EditorTreeState, EditorTreeNodeId } from "./tree.js";
 import "./aspects.js";
 import "./history.js";
 import "./serialization.js";
+import "./telemetry.js";
 
 type ControllableEditorStateOptions<T> = {
   value?: T;
@@ -2035,17 +2072,18 @@ import {
   E as EditorRuntimeOptions,
   R as ResetEditorRuntimeOptions,
   a as EditorRuntimeSelection,
-} from "./types-ue792Gw2.js";
+} from "./types-B6LlmGUo.js";
 export {
   c as EditorRuntimeStatus,
   e as EditorRuntimeUpdateContext,
   f as EditorRuntimeValidationIssue,
   g as EditorRuntimeValidator,
-} from "./types-ue792Gw2.js";
+} from "./types-B6LlmGUo.js";
 import { EditorChangeOrigin } from "./aspects.js";
 import { EditorHotkeyMap, EditorCommandDefinition } from "./hotkeys.js";
 import "./history.js";
 import "./serialization.js";
+import "./telemetry.js";
 
 declare function createEditorRuntime<TDocument, TSelection = unknown>(
   options: EditorRuntimeOptions<TDocument, TSelection>,
@@ -2335,7 +2373,7 @@ export {
 };
 ```
 
-## session-DWhH4DCT.d.ts
+## session-C35AZC2G.d.ts
 
 ```ts
 import {
@@ -2343,8 +2381,9 @@ import {
   s as EditorRuntimeStateUpdater,
   E as EditorAutosaveOptions,
   j as EditorPersistenceScheduler,
-} from "./controller-types-B4uWtBMO.js";
-import { b as EditorRuntimeState } from "./types-ue792Gw2.js";
+} from "./controller-types-lCZA_KuC.js";
+import { b as EditorRuntimeState } from "./types-B6LlmGUo.js";
+import { EditorTelemetry } from "./telemetry.js";
 
 type EditorSessionErrorKind =
   | "quota"
@@ -2451,6 +2490,8 @@ type EditorSessionOptions<TDocument, TSelection = unknown> = {
   journal?: boolean;
   scheduler?: EditorPersistenceScheduler;
   now?: () => string;
+  /** Opt-in telemetry for save/autosave, migration and recovery outcomes. */
+  telemetry?: EditorTelemetry;
 };
 type EditorSession<TDocument, TSelection = unknown> = {
   getState: () => EditorSessionState<TDocument, TSelection>;
@@ -2492,7 +2533,7 @@ export {
 ## session.d.ts
 
 ```ts
-import { E as EditorSessionStore } from "./session-DWhH4DCT.js";
+import { E as EditorSessionStore } from "./session-C35AZC2G.js";
 export {
   a as EditorSession,
   b as EditorSessionCodec,
@@ -2507,13 +2548,14 @@ export {
   k as createEditorSession,
   l as createMemoryEditorSessionStore,
   t as toEditorSessionError,
-} from "./session-DWhH4DCT.js";
-import "./controller-types-B4uWtBMO.js";
+} from "./session-C35AZC2G.js";
+import "./controller-types-lCZA_KuC.js";
 import "./browser.js";
-import "./types-ue792Gw2.js";
+import "./types-B6LlmGUo.js";
 import "./aspects.js";
 import "./history.js";
 import "./serialization.js";
+import "./telemetry.js";
 
 type LocalStorageEditorSessionStoreOptions = {
   /** Key prefix; each slot is stored under `${key}:${slot}`. */
@@ -2542,13 +2584,205 @@ export {
 };
 ```
 
+## telemetry.d.ts
+
+```ts
+/**
+ * Provider-neutral, opt-in editor telemetry.
+ *
+ * Editor Core never sends telemetry on its own. Hosts pass an `EditorTelemetry` created with
+ * `createEditorTelemetry` to the runtimes they want to observe; events carry metadata, counts and
+ * durations, never user-authored document content. Sink and processor failures are swallowed so
+ * telemetry can never break an editor operation.
+ */
+declare const editorTelemetrySchemaVersion = 1;
+type EditorTelemetryIssueCounts = {
+  issueCount: number;
+  errorCount: number;
+  warningCount: number;
+};
+/** Attributes for every event name Editor Core defines. */
+type EditorTelemetryEventMap = {
+  /** A semantic operation was applied, rejected by preflight, or left the document unchanged. */
+  "operation.apply": EditorTelemetryIssueCounts & {
+    operationId: string;
+    status: "applied" | "rejected" | "unchanged";
+    merged: boolean;
+    revision: number;
+  };
+  "operation.undo": {
+    status: "applied" | "empty";
+    revision: number;
+  };
+  "operation.redo": {
+    status: "applied" | "empty";
+    revision: number;
+  };
+  /** A command runtime handled a key event. */
+  "command.run": {
+    status: "ran" | "ignored" | "failed";
+    commandId?: string;
+    reason?: string;
+    errorName?: string;
+  };
+  /** A Runtime validator produced a summary for one document revision. */
+  "validation.summary": EditorTelemetryIssueCounts & {
+    revision: number;
+  };
+  "persistence.load": {
+    status: "loaded" | "failed";
+    revision: number;
+    errorName?: string;
+  };
+  "persistence.save": {
+    status: "saved" | "skipped" | "failed" | "conflict";
+    trigger: "manual" | "autosave";
+    revision: number;
+    reason?: "clean" | "blocked" | "in-flight";
+    errorName?: string;
+  };
+  /** A stored payload was migrated to the current document shape, or could not be. */
+  "session.migration": {
+    status: "migrated" | "failed";
+    slot: string;
+  };
+  /** A session found, restored or discarded recoverable work. */
+  "session.recovery": {
+    status: "found" | "restored" | "discarded";
+    kind: "unsaved" | "corrupt";
+    errorKind?: string;
+  };
+  /** A plugin validator or operation preflight threw. The error is rethrown unchanged. */
+  "plugin.failure": {
+    pluginId: string;
+    hook: "validator" | "preflight";
+    errorName: string;
+  };
+  /** Host-measured interaction timing, such as a drag or resize gesture. */
+  "interaction.performance": {
+    interaction: string;
+    outcome: "committed" | "cancelled";
+    frameCount?: number;
+  };
+  /** Host-measured document size, as counts rather than content. */
+  "document.measurement": {
+    metric: string;
+    value: number;
+    unit?: string;
+  };
+  /** Host-measured viewport rendering performance. */
+  "viewport.measurement": {
+    metric: string;
+    value: number;
+    unit?: string;
+  };
+};
+type EditorTelemetryEventName = keyof EditorTelemetryEventMap;
+type EditorTelemetryEvent<TName extends EditorTelemetryEventName = EditorTelemetryEventName> = {
+  [Name in TName]: {
+    schemaVersion: typeof editorTelemetrySchemaVersion;
+    name: Name;
+    /** Milliseconds since the Unix epoch. */
+    timestamp: number;
+    correlationId: string;
+    durationMs?: number;
+    attributes: EditorTelemetryEventMap[Name];
+    /** Host-owned enrichment added by processors. */
+    context?: Record<string, unknown>;
+  };
+}[TName];
+type EditorTelemetrySink = (event: EditorTelemetryEvent) => void;
+/** Returns the event to deliver, a changed copy (redact/enrich), or `null` to drop it. */
+type EditorTelemetryProcessor = (event: EditorTelemetryEvent) => EditorTelemetryEvent | null;
+type EditorTelemetryEmitOptions = {
+  correlationId?: string;
+  durationMs?: number;
+};
+type EditorTelemetry = {
+  emit: <TName extends EditorTelemetryEventName>(
+    name: TName,
+    attributes: EditorTelemetryEventMap[TName],
+    options?: EditorTelemetryEmitOptions,
+  ) => void;
+  /** Creates a correlation ID for a group of related events. */
+  correlationId: () => string;
+  /** Monotonic milliseconds for measuring durations. */
+  now: () => number;
+};
+type EditorTelemetryOptions = {
+  sink: EditorTelemetrySink;
+  processors?: readonly EditorTelemetryProcessor[];
+  /** Wall-clock milliseconds for event timestamps. Defaults to `Date.now`. */
+  clock?: () => number;
+  /** Monotonic milliseconds for durations. Defaults to `performance.now` when available. */
+  now?: () => number;
+  createCorrelationId?: () => string;
+  /** Receives sink and processor failures, which are otherwise swallowed. */
+  onError?: (error: unknown) => void;
+};
+declare const noopEditorTelemetrySink: EditorTelemetrySink;
+declare function createEditorTelemetry(options: EditorTelemetryOptions): EditorTelemetry;
+/** Keeps a random `rate` (0–1) share of events. */
+declare function sampleEditorTelemetry(
+  rate: number,
+  random?: () => number,
+): EditorTelemetryProcessor;
+/** Drops events whose name is not listed. */
+declare function filterEditorTelemetry(
+  names: readonly EditorTelemetryEventName[],
+): EditorTelemetryProcessor;
+/** Merges host context, such as an app version or editor kind, into every event. */
+declare function enrichEditorTelemetry(
+  context: Record<string, unknown> | (() => Record<string, unknown>),
+): EditorTelemetryProcessor;
+/** Collects events in memory, for tests and local debugging. */
+declare function createEditorTelemetryRecorder(): {
+  sink: EditorTelemetrySink;
+  events: EditorTelemetryEvent[];
+  clear: () => void;
+};
+/** Emits only when the host opted in. Used by Editor Core integrations. */
+declare function emitEditorTelemetry<TName extends EditorTelemetryEventName>(
+  telemetry: EditorTelemetry | undefined,
+  name: TName,
+  attributes: EditorTelemetryEventMap[TName],
+  options?: EditorTelemetryEmitOptions,
+): void;
+/** Counts issues by severity; issues without a severity count as errors. */
+declare function countEditorTelemetryIssues(issues: readonly object[]): EditorTelemetryIssueCounts;
+/** The error's name only; messages may echo document content. */
+declare function getEditorTelemetryErrorName(error: unknown): string;
+
+export {
+  type EditorTelemetry,
+  type EditorTelemetryEmitOptions,
+  type EditorTelemetryEvent,
+  type EditorTelemetryEventMap,
+  type EditorTelemetryEventName,
+  type EditorTelemetryIssueCounts,
+  type EditorTelemetryOptions,
+  type EditorTelemetryProcessor,
+  type EditorTelemetrySink,
+  countEditorTelemetryIssues,
+  createEditorTelemetry,
+  createEditorTelemetryRecorder,
+  editorTelemetrySchemaVersion,
+  emitEditorTelemetry,
+  enrichEditorTelemetry,
+  filterEditorTelemetry,
+  getEditorTelemetryErrorName,
+  noopEditorTelemetrySink,
+  sampleEditorTelemetry,
+};
+```
+
 ## testing.d.ts
 
 ```ts
 import {
   d as EditorOperationLogMigrations,
   b as EditorOperationLogAdapter,
-} from "./types-BL2yLq6F.js";
+} from "./types-BTCvOO9F.js";
 import {
   EditorDocumentMigrations,
   EditorParseIssue,
@@ -2557,7 +2791,8 @@ import {
 import "./aspects.js";
 import "./hotkeys.js";
 import "./history.js";
-import "./types-ue792Gw2.js";
+import "./types-B6LlmGUo.js";
+import "./telemetry.js";
 
 type EditorAdapterCheckSeverity = "error" | "warning";
 type EditorAdapterCheckIssue = {
@@ -2744,13 +2979,92 @@ export {
 };
 ```
 
-## types-BL2yLq6F.d.ts
+## types-B6LlmGUo.d.ts
+
+```ts
+import { EditorChangeOrigin, EditorAspectSnapshot, EditorAspectDefinition } from "./aspects.js";
+import { EditorSnapshotHistory, EditorSnapshotHistoryOptions } from "./history.js";
+import { EditorParseIssue } from "./serialization.js";
+import { EditorTelemetry } from "./telemetry.js";
+
+type EditorRuntimeStatus = "clean" | "dirty";
+type EditorRuntimeSelection<TSelection = unknown> = TSelection | null;
+type EditorRuntimeUpdateContext<TDocument, TSelection = unknown> = {
+  readonly document: TDocument;
+  readonly selection: EditorRuntimeSelection<TSelection>;
+  readonly revision: number;
+};
+type EditorRuntimeUpdate<TDocument, TSelection = unknown> =
+  | TDocument
+  | ((context: EditorRuntimeUpdateContext<TDocument, TSelection>) => TDocument);
+type EditorRuntimeValidationIssue = EditorParseIssue;
+type EditorRuntimeValidator<TDocument> = (
+  document: TDocument,
+) => readonly EditorRuntimeValidationIssue[];
+type EditorRuntimeOptions<TDocument, TSelection = unknown> = {
+  initialDocument: TDocument;
+  initialSelection?: EditorRuntimeSelection<TSelection>;
+  history?: EditorSnapshotHistoryOptions<TDocument>;
+  validate?: EditorRuntimeValidator<TDocument>;
+  aspects?: readonly EditorAspectDefinition<TDocument, unknown>[];
+  origin?: EditorChangeOrigin;
+  /** Opt-in telemetry for validation summaries and the operations built on this Runtime. */
+  telemetry?: EditorTelemetry;
+};
+declare class EditorRuntimeStateIdentity {
+  private readonly __editorRuntimeStateIdentity;
+}
+/**
+ * Opaque Runtime state created and changed through the Runtime factory and transitions.
+ *
+ * Do not construct, copy with object spread, or deserialize Runtime state. Persistence restores
+ * documents through Runtime transitions instead of restoring this state value.
+ */
+type EditorRuntimeState<TDocument, TSelection = unknown> = EditorRuntimeStateIdentity & {
+  readonly document: TDocument;
+  readonly selection: EditorRuntimeSelection<TSelection>;
+  readonly history: EditorSnapshotHistory<TDocument>;
+  readonly revision: number;
+  readonly savedRevision: number;
+  readonly status: EditorRuntimeStatus;
+  readonly canUndo: boolean;
+  readonly canRedo: boolean;
+  readonly issues: readonly EditorRuntimeValidationIssue[];
+  readonly aspectSnapshot: EditorAspectSnapshot<TDocument>;
+  readonly origin?: EditorChangeOrigin;
+};
+type CommitEditorRuntimeOptions<TSelection = unknown> = {
+  selection?: EditorRuntimeSelection<TSelection>;
+  origin?: EditorChangeOrigin;
+  markSaved?: boolean;
+};
+type ResetEditorRuntimeOptions<TSelection = unknown> = {
+  selection?: EditorRuntimeSelection<TSelection>;
+  origin?: EditorChangeOrigin;
+  markSaved?: boolean;
+};
+
+export type {
+  CommitEditorRuntimeOptions as C,
+  EditorRuntimeOptions as E,
+  ResetEditorRuntimeOptions as R,
+  EditorRuntimeSelection as a,
+  EditorRuntimeState as b,
+  EditorRuntimeStatus as c,
+  EditorRuntimeUpdate as d,
+  EditorRuntimeUpdateContext as e,
+  EditorRuntimeValidationIssue as f,
+  EditorRuntimeValidator as g,
+};
+```
+
+## types-BTCvOO9F.d.ts
 
 ```ts
 import { EditorChangeOrigin } from "./aspects.js";
 import { EditorHotkeyMap } from "./hotkeys.js";
 import { EditorTransactionHistory } from "./history.js";
-import { b as EditorRuntimeState, E as EditorRuntimeOptions } from "./types-ue792Gw2.js";
+import { b as EditorRuntimeState, E as EditorRuntimeOptions } from "./types-B6LlmGUo.js";
 import { EditorParseIssue } from "./serialization.js";
 
 type EditorOperation<TDocument, TSelection = unknown> = {
@@ -2889,82 +3203,6 @@ export type {
   EditorOperationRuntimeState as j,
   ReplaceEditorOperationRuntimeCoreStateOptions as k,
   SerializedEditorOperationLog as l,
-};
-```
-
-## types-ue792Gw2.d.ts
-
-```ts
-import { EditorChangeOrigin, EditorAspectSnapshot, EditorAspectDefinition } from "./aspects.js";
-import { EditorSnapshotHistory, EditorSnapshotHistoryOptions } from "./history.js";
-import { EditorParseIssue } from "./serialization.js";
-
-type EditorRuntimeStatus = "clean" | "dirty";
-type EditorRuntimeSelection<TSelection = unknown> = TSelection | null;
-type EditorRuntimeUpdateContext<TDocument, TSelection = unknown> = {
-  readonly document: TDocument;
-  readonly selection: EditorRuntimeSelection<TSelection>;
-  readonly revision: number;
-};
-type EditorRuntimeUpdate<TDocument, TSelection = unknown> =
-  | TDocument
-  | ((context: EditorRuntimeUpdateContext<TDocument, TSelection>) => TDocument);
-type EditorRuntimeValidationIssue = EditorParseIssue;
-type EditorRuntimeValidator<TDocument> = (
-  document: TDocument,
-) => readonly EditorRuntimeValidationIssue[];
-type EditorRuntimeOptions<TDocument, TSelection = unknown> = {
-  initialDocument: TDocument;
-  initialSelection?: EditorRuntimeSelection<TSelection>;
-  history?: EditorSnapshotHistoryOptions<TDocument>;
-  validate?: EditorRuntimeValidator<TDocument>;
-  aspects?: readonly EditorAspectDefinition<TDocument, unknown>[];
-  origin?: EditorChangeOrigin;
-};
-declare class EditorRuntimeStateIdentity {
-  private readonly __editorRuntimeStateIdentity;
-}
-/**
- * Opaque Runtime state created and changed through the Runtime factory and transitions.
- *
- * Do not construct, copy with object spread, or deserialize Runtime state. Persistence restores
- * documents through Runtime transitions instead of restoring this state value.
- */
-type EditorRuntimeState<TDocument, TSelection = unknown> = EditorRuntimeStateIdentity & {
-  readonly document: TDocument;
-  readonly selection: EditorRuntimeSelection<TSelection>;
-  readonly history: EditorSnapshotHistory<TDocument>;
-  readonly revision: number;
-  readonly savedRevision: number;
-  readonly status: EditorRuntimeStatus;
-  readonly canUndo: boolean;
-  readonly canRedo: boolean;
-  readonly issues: readonly EditorRuntimeValidationIssue[];
-  readonly aspectSnapshot: EditorAspectSnapshot<TDocument>;
-  readonly origin?: EditorChangeOrigin;
-};
-type CommitEditorRuntimeOptions<TSelection = unknown> = {
-  selection?: EditorRuntimeSelection<TSelection>;
-  origin?: EditorChangeOrigin;
-  markSaved?: boolean;
-};
-type ResetEditorRuntimeOptions<TSelection = unknown> = {
-  selection?: EditorRuntimeSelection<TSelection>;
-  origin?: EditorChangeOrigin;
-  markSaved?: boolean;
-};
-
-export type {
-  CommitEditorRuntimeOptions as C,
-  EditorRuntimeOptions as E,
-  ResetEditorRuntimeOptions as R,
-  EditorRuntimeSelection as a,
-  EditorRuntimeState as b,
-  EditorRuntimeStatus as c,
-  EditorRuntimeUpdate as d,
-  EditorRuntimeUpdateContext as e,
-  EditorRuntimeValidationIssue as f,
-  EditorRuntimeValidator as g,
 };
 ```
 
