@@ -157,6 +157,7 @@
     "api:update": "bun run build && node scripts/check-api-snapshot.mjs --write",
     "size:check": "bun run build && bun run pack:check",
     "smoke:package": "node scripts/smoke-package-exports.mjs",
+    "test:consumers": "bun run build && node scripts/clean-consumers.mjs",
     "pack:check": "bun pm pack --dry-run",
     "prepare": "bun ./scripts/prepare-git-install.ts",
     "verify:git-install": "bun ./scripts/verify-git-install.ts",
@@ -191,6 +192,14 @@
     "unlighthouse": "0.19.1",
     "vite": "8.3.4",
     "vitest": "4.1.12"
+  },
+  "peerDependencies": {
+    "react": "^19.0.0"
+  },
+  "peerDependenciesMeta": {
+    "react": {
+      "optional": true
+    }
   },
   "engines": {
     "node": ">=20.19"

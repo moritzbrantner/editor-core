@@ -6,6 +6,8 @@ This package follows semver. While the package is in `0.x`, breaking changes may
 
 ## Unreleased
 
+- Fixed: `@moenarch/editor-core/react` bundled its own copy of React, so its hooks failed with an invalid hook call in real React apps. React is now an optional peer dependency (`^19.0.0`) and is imported, not bundled.
+- Added `bun run test:consumers`: packed-tarball clean-consumer fixtures for core-only Node, a TypeScript React library, Vite + React, Next.js App Router (server/client boundary) and a Tauri frontend build, with a duplicate/incompatible editor-core/UI dependency assertion and retained logs. CI runs them in the `clean-consumers` job.
 - Added `@moenarch/editor-core/session`: `createEditorSession` composes a Runtime with the conflict-aware persistence controller into one headless session with `idle`/`dirty`/`saving`/`saved`/`failed`/`conflicted`/`recoverable` lifecycle, debounced/cancellable/flushable autosave, compare-and-swap revision tokens, a last-known-good snapshot, quarantine of corrupt or unmigratable payloads, optional journaling of unsaved work, and typed `EditorSessionError` diagnostics (`quota`, `permission`, `migration`, `validation`, `serialization`, `conflict`, `storage`). Memory, localStorage and IndexedDB stores share one contract. React gains `useEditorSession`.
 - Persistence controllers gain `cancelAutosave()`.
 

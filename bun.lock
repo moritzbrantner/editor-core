@@ -31,6 +31,12 @@
         "vite": "8.3.4",
         "vitest": "4.1.12",
       },
+      "peerDependencies": {
+        "react": "^19.0.0",
+      },
+      "optionalPeers": [
+        "react",
+      ],
     },
   },
   "packages": {
