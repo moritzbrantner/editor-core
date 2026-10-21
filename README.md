@@ -76,6 +76,7 @@ A useful test for a proposed core API is: **would it still make sense for an edi
 | `/commands`             | Command definitions, runtime policy, diagnostics                |
 | `/persistence`          | Load/save, autosave, conflicts, revision tokens                 |
 | `/session`              | Autosave session, recovery, typed storage diagnostics           |
+| `/telemetry`            | Opt-in, provider-neutral telemetry sink and processors          |
 | `/entities`             | Generic entity IDs, hierarchy, bounds, ID helpers               |
 | `/indexes`              | Generic entity hierarchy and validation indexes                 |
 | `/selection`            | Generic entity/range selection helpers                          |
@@ -178,6 +179,38 @@ session.update((runtime) => commitEditorRuntime(runtime, nextDocument));
 - A stored payload that fails to parse, migrate or validate is copied to `quarantine` and reported as `recovery: { kind: "corrupt", payload, error }`; the session loads the snapshot instead. Export `payload`, then call `discardRecovery()`.
 - With `journal: true` each unsaved revision is written to the `journal`. After an interruption, `load()` reports `recovery: { kind: "unsaved", document }`; `restoreRecovery()` applies it as a dirty edit.
 - `flush()` saves now, `cancelAutosave()` drops a scheduled autosave. React components subscribe with `useEditorSession(session)` from `/react`.
+
+## Telemetry
+
+Telemetry is opt-in and provider-neutral: Editor Core never sends anything and adds no analytics dependency. Create an `EditorTelemetry` with your own sink and pass it as `telemetry` to the Runtime/Operation Runtime, `createEditorCommandRuntime`, the persistence controllers, `createEditorSession`, or the base options of `resolveEditorPluginRuntimeOptions`.
+
+```ts
+import {
+  createEditorTelemetry,
+  enrichEditorTelemetry,
+  noopEditorTelemetrySink,
+  sampleEditorTelemetry,
+} from "@moenarch/editor-core/telemetry";
+
+// Explicit no-op: same as passing no telemetry at all.
+const off = createEditorTelemetry({ sink: noopEditorTelemetrySink });
+
+const telemetry = createEditorTelemetry({
+  sink: (event) => console.debug(event.name, event.durationMs, event.attributes),
+  processors: [
+    sampleEditorTelemetry(0.1),
+    enrichEditorTelemetry({ editor: "graph" }),
+    (event) => (event.name === "command.run" ? null : event), // drop or redact anything
+  ],
+});
+
+const runtime = createEditorOperationRuntime({ initialDocument, validate, telemetry });
+```
+
+- Every event is `{ schemaVersion: 1, name, timestamp, correlationId, durationMs?, attributes, context? }`. Names: `operation.apply`, `operation.undo`, `operation.redo`, `command.run`, `validation.summary`, `persistence.load`, `persistence.save` (with `trigger: "manual" | "autosave"`), `session.migration`, `session.recovery`, `plugin.failure`, and the host-emitted `interaction.performance`, `document.measurement` and `viewport.measurement` (`telemetry.emit(...)`).
+- Attributes are ids, statuses, counts and error names. Document content, issue messages and error messages are never included.
+- Sink and processor failures are swallowed (pass `onError` to see them). Command and plugin failures are reported and then rethrown unchanged.
+- `createEditorTelemetryRecorder()` collects events in memory for tests.
 
 ## Generic 2D helpers
 

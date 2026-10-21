@@ -15,6 +15,7 @@ export * from "./plugins.js";
 export * from "./runtime.js";
 export * from "./selection.js";
 export * from "./serialization.js";
+export * from "./telemetry.js";
 export * from "./testing.js";
 export * from "./tree.js";
 export * from "./viewport.js";

@@ -17,6 +17,7 @@ import type {
   EditorRuntimeValidationIssue,
   EditorRuntimeValidator,
 } from "./runtime.js";
+import { getEditorTelemetryErrorName, type EditorTelemetry } from "./telemetry.js";
 
 export type EditorPlugin<TDocument = unknown, TSelection = unknown> = {
   id: string;
@@ -100,6 +101,11 @@ export function getEditorPluginDiagnostics<TDocument, TSelection>(
   return diagnostics;
 }
 
+/**
+ * Composes plugin validators, aspects and operation preflight into Runtime options. When
+ * `baseOptions.telemetry` is set, a throwing plugin hook is reported as `plugin.failure` and
+ * the error is rethrown unchanged.
+ */
 export function resolveEditorPluginRuntimeOptions<TDocument, TSelection>(
   registry: EditorPluginRegistry<TDocument, TSelection>,
   baseOptions: EditorRuntimeOptions<TDocument, TSelection>,
@@ -108,15 +114,48 @@ export function resolveEditorPluginRuntimeOptions<TDocument, TSelection>(
     context: EditorOperationPreflightContext<TDocument, TSelection>,
   ) => readonly EditorOperationPreflightIssue[];
 } {
-  const preflight = registry.plugins.flatMap((plugin) => plugin.operationPreflight ?? []);
+  const { telemetry } = baseOptions;
+  const preflight = registry.plugins.flatMap((plugin) =>
+    (plugin.operationPreflight ?? []).map((hook) =>
+      observeEditorPluginHook(telemetry, plugin.id, "preflight", hook),
+    ),
+  );
+  const validators = registry.plugins.flatMap((plugin) =>
+    (plugin.validators ?? []).map((hook) =>
+      observeEditorPluginHook(telemetry, plugin.id, "validator", hook),
+    ),
+  );
 
   return {
     ...baseOptions,
     aspects: [...(baseOptions.aspects ?? []), ...registry.aspects],
-    validate: composeEditorPluginValidators(baseOptions.validate, registry.validators),
+    validate: composeEditorPluginValidators(baseOptions.validate, validators),
     preflight(context) {
       return preflight.flatMap((validateOperation) => validateOperation(context));
     },
+  };
+}
+
+function observeEditorPluginHook<TArgument, TResult>(
+  telemetry: EditorTelemetry | undefined,
+  pluginId: string,
+  hook: "preflight" | "validator",
+  run: (argument: TArgument) => TResult,
+): (argument: TArgument) => TResult {
+  if (!telemetry) {
+    return run;
+  }
+  return (argument) => {
+    try {
+      return run(argument);
+    } catch (error) {
+      telemetry.emit("plugin.failure", {
+        errorName: getEditorTelemetryErrorName(error),
+        hook,
+        pluginId,
+      });
+      throw error;
+    }
   };
 }
 

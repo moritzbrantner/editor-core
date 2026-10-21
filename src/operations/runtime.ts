@@ -14,6 +14,11 @@ import {
   type EditorRuntimeSelection,
   type EditorRuntimeState,
 } from "../runtime.js";
+import {
+  countEditorTelemetryIssues,
+  type EditorTelemetry,
+  type EditorTelemetryEventMap,
+} from "../telemetry.js";
 import type {
   ApplyEditorInteractionOperationOptions,
   ApplyEditorOperationOptions,
@@ -78,14 +83,33 @@ export function applyEditorOperation<TDocument, TSelection = unknown>(
   options: ApplyEditorOperationOptions = {},
 ): EditorOperationRuntimeState<TDocument, TSelection> {
   const runtimeOptions = getOperationRuntimeOptions(state);
+  const { telemetry } = runtimeOptions;
+  const startedAt = telemetry?.now();
+  const report = (
+    status: "applied" | "rejected" | "unchanged",
+    next: EditorOperationRuntimeState<TDocument, TSelection>,
+    merged = false,
+  ) => {
+    reportOperationApply(telemetry, startedAt, {
+      ...countEditorTelemetryIssues(issues),
+      merged,
+      operationId: operation.id,
+      revision: next.runtime.revision,
+      status,
+    });
+    return next;
+  };
   const issues = preflightEditorOperation(state, operation);
   if (issues.some((issue) => issue.severity !== "warning")) {
-    return withOperationRuntimeFlags(
-      {
-        ...state,
-        issues,
-      },
-      runtimeOptions,
+    return report(
+      "rejected",
+      withOperationRuntimeFlags(
+        {
+          ...state,
+          issues,
+        },
+        runtimeOptions,
+      ),
     );
   }
 
@@ -105,14 +129,17 @@ export function applyEditorOperation<TDocument, TSelection = unknown>(
   const documentChanged = runtime.revision !== state.runtime.revision;
   const selectionChanged = runtime.selection !== state.runtime.selection;
   if (!documentChanged && !selectionChanged) {
-    return withOperationRuntimeFlags(
-      {
-        ...state,
-        issues,
-        lastMergeKey: operation.mergeKey ?? null,
-        runtime,
-      },
-      runtimeOptions,
+    return report(
+      "unchanged",
+      withOperationRuntimeFlags(
+        {
+          ...state,
+          issues,
+          lastMergeKey: operation.mergeKey ?? null,
+          runtime,
+        },
+        runtimeOptions,
+      ),
     );
   }
 
@@ -126,17 +153,22 @@ export function applyEditorOperation<TDocument, TSelection = unknown>(
     selectionBefore,
   };
 
-  return withOperationRuntimeFlags(
-    {
-      issues,
-      lastMergeKey: operation.mergeKey ?? null,
-      operationHistory:
-        options.recordHistory === false
-          ? state.operationHistory
-          : pushOrMergeOperationTransaction(state, transaction, options),
-      runtime,
-    },
-    runtimeOptions,
+  const recorded =
+    options.recordHistory === false
+      ? { history: state.operationHistory, merged: false }
+      : pushOrMergeOperationTransaction(state, transaction, options);
+  return report(
+    "applied",
+    withOperationRuntimeFlags(
+      {
+        issues,
+        lastMergeKey: operation.mergeKey ?? null,
+        operationHistory: recorded.history,
+        runtime,
+      },
+      runtimeOptions,
+    ),
+    recorded.merged,
   );
 }
 
@@ -160,10 +192,14 @@ export function undoEditorOperationRuntime<TDocument, TSelection = unknown>(
     state.runtime.selection as TSelection | undefined,
   );
   if (undone.document === undefined) {
+    runtimeOptions.telemetry?.emit("operation.undo", {
+      revision: state.runtime.revision,
+      status: "empty",
+    });
     return withOperationRuntimeFlags(state, runtimeOptions);
   }
 
-  return withOperationRuntimeFlags(
+  const next = withOperationRuntimeFlags(
     {
       issues: [],
       lastMergeKey: null,
@@ -175,6 +211,11 @@ export function undoEditorOperationRuntime<TDocument, TSelection = unknown>(
     },
     runtimeOptions,
   );
+  runtimeOptions.telemetry?.emit("operation.undo", {
+    revision: next.runtime.revision,
+    status: "applied",
+  });
+  return next;
 }
 
 export function redoEditorOperationRuntime<TDocument, TSelection = unknown>(
@@ -187,10 +228,14 @@ export function redoEditorOperationRuntime<TDocument, TSelection = unknown>(
     state.runtime.selection as TSelection | undefined,
   );
   if (redone.document === undefined) {
+    runtimeOptions.telemetry?.emit("operation.redo", {
+      revision: state.runtime.revision,
+      status: "empty",
+    });
     return withOperationRuntimeFlags(state, runtimeOptions);
   }
 
-  return withOperationRuntimeFlags(
+  const next = withOperationRuntimeFlags(
     {
       issues: [],
       lastMergeKey: null,
@@ -202,6 +247,11 @@ export function redoEditorOperationRuntime<TDocument, TSelection = unknown>(
     },
     runtimeOptions,
   );
+  runtimeOptions.telemetry?.emit("operation.redo", {
+    revision: next.runtime.revision,
+    status: "applied",
+  });
+  return next;
 }
 
 function withOperationOrigin<TDocument, TSelection>(
@@ -215,7 +265,7 @@ function pushOrMergeOperationTransaction<TDocument, TSelection>(
   state: EditorOperationRuntimeState<TDocument, TSelection>,
   transaction: EditorTransaction<TDocument, TSelection>,
   options: ApplyEditorOperationOptions,
-): EditorTransactionHistory<TDocument, TSelection> {
+): { history: EditorTransactionHistory<TDocument, TSelection>; merged: boolean } {
   const shouldMerge =
     options.merge !== false &&
     Boolean(transaction.mergeKey) &&
@@ -239,8 +289,11 @@ function pushOrMergeOperationTransaction<TDocument, TSelection>(
     const undoStack = state.operationHistory.undoStack.slice(0, -1);
     undoStack.push(mergedTransaction);
     return {
-      redoStack: [],
-      undoStack,
+      history: {
+        redoStack: [],
+        undoStack,
+      },
+      merged: true,
     };
   }
 
@@ -248,7 +301,20 @@ function pushOrMergeOperationTransaction<TDocument, TSelection>(
     0,
     Math.trunc(getOperationRuntimeOptions(state).operationHistoryLimit ?? 100),
   );
-  return pushEditorTransactionHistory(state.operationHistory, transaction, { limit });
+  return {
+    history: pushEditorTransactionHistory(state.operationHistory, transaction, { limit }),
+    merged: false,
+  };
+}
+
+function reportOperationApply(
+  telemetry: EditorTelemetry | undefined,
+  startedAt: number | undefined,
+  attributes: EditorTelemetryEventMap["operation.apply"],
+): void {
+  if (telemetry && startedAt !== undefined) {
+    telemetry.emit("operation.apply", attributes, { durationMs: telemetry.now() - startedAt });
+  }
 }
 
 function preflightEditorOperation<TDocument, TSelection>(

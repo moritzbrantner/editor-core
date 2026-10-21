@@ -6,6 +6,7 @@ This package follows semver. While the package is in `0.x`, breaking changes may
 
 ## Unreleased
 
+- Added `@moenarch/editor-core/telemetry`: opt-in, provider-neutral telemetry. `createEditorTelemetry({ sink, processors })` delivers versioned event envelopes (schema version, name, timestamp, correlation ID, duration) with content-free attributes; `sampleEditorTelemetry`, `filterEditorTelemetry` and `enrichEditorTelemetry` (or any processor returning `null`) sample, drop, redact and enrich. Runtime/Operation Runtime, Command Runtime, persistence controllers, editor sessions and plugin runtime options accept `telemetry` and report validation summaries, operation/undo/redo, command, load/save/autosave, migration, recovery and plugin-failure outcomes. Sink failures never affect the editor.
 - Added `@moenarch/editor-core/session`: `createEditorSession` composes a Runtime with the conflict-aware persistence controller into one headless session with `idle`/`dirty`/`saving`/`saved`/`failed`/`conflicted`/`recoverable` lifecycle, debounced/cancellable/flushable autosave, compare-and-swap revision tokens, a last-known-good snapshot, quarantine of corrupt or unmigratable payloads, optional journaling of unsaved work, and typed `EditorSessionError` diagnostics (`quota`, `permission`, `migration`, `validation`, `serialization`, `conflict`, `storage`). Memory, localStorage and IndexedDB stores share one contract. React gains `useEditorSession`.
 - Persistence controllers gain `cancelAutosave()`.
 

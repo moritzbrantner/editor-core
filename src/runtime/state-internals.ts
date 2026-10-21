@@ -42,7 +42,7 @@ export function rebuildEditorRuntimeState<TDocument, TSelection>(
       ),
       history: next.history,
       document: next.history.present,
-      issues: validateRuntimeDocument(next.history.present, runtimeOptions),
+      issues: validateRuntimeDocument(next.history.present, runtimeOptions, next.revision),
       origin: next.origin,
       revision: next.revision,
       savedRevision: next.savedRevision,
@@ -60,6 +60,7 @@ export function toRuntimeStateOptions<TDocument, TSelection>(
     history: options.history,
     origin: options.origin,
     validate: options.validate,
+    telemetry: options.telemetry,
   };
 }
 

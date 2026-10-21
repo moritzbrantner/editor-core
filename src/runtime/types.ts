@@ -5,6 +5,7 @@ import type {
 } from "../aspects.js";
 import type { EditorSnapshotHistory, EditorSnapshotHistoryOptions } from "../history.js";
 import type { EditorParseIssue } from "../serialization.js";
+import type { EditorTelemetry } from "../telemetry.js";
 
 export type EditorRuntimeStatus = "clean" | "dirty";
 
@@ -33,6 +34,8 @@ export type EditorRuntimeOptions<TDocument, TSelection = unknown> = {
   validate?: EditorRuntimeValidator<TDocument>;
   aspects?: readonly EditorAspectDefinition<TDocument, unknown>[];
   origin?: EditorChangeOrigin;
+  /** Opt-in telemetry for validation summaries and the operations built on this Runtime. */
+  telemetry?: EditorTelemetry;
 };
 
 export type EditorRuntimeStateOptions<TDocument, TSelection = unknown> = Omit<
