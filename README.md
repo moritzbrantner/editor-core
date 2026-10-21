@@ -75,6 +75,7 @@ A useful test for a proposed core API is: **would it still make sense for an edi
 | `/history`              | Snapshot and transaction history helpers                        |
 | `/commands`             | Command definitions, runtime policy, diagnostics                |
 | `/persistence`          | Load/save, autosave, conflicts, revision tokens                 |
+| `/session`              | Autosave session, recovery, typed storage diagnostics           |
 | `/entities`             | Generic entity IDs, hierarchy, bounds, ID helpers               |
 | `/indexes`              | Generic entity hierarchy and validation indexes                 |
 | `/selection`            | Generic entity/range selection helpers                          |
@@ -150,6 +151,33 @@ import {
   createEditorPersistenceState,
 } from "@moenarch/editor-core/persistence";
 ```
+
+### Editor session
+
+`createEditorSession` bundles a Runtime, the conflict-aware persistence controller and a revisioned store into one headless session. Its `lifecycle` is `idle`, `dirty`, `saving`, `saved`, `failed`, `conflicted` or `recoverable`; failures surface as `EditorSessionError` with a `kind` of `quota`, `permission`, `migration`, `validation`, `serialization`, `conflict` or `storage`.
+
+```ts
+import {
+  createEditorSession,
+  createIndexedDbEditorSessionStore,
+} from "@moenarch/editor-core/session";
+
+const session = createEditorSession({
+  runtime: createEditorRuntime({ initialDocument }),
+  store: createIndexedDbEditorSessionStore({ databaseName: "my-editor" }),
+  codec: { parse: parseDocument, migrate: migratePayload },
+  autosave: { delayMs: 750 },
+  journal: true,
+});
+await session.load();
+session.update((runtime) => commitEditorRuntime(runtime, nextDocument));
+```
+
+- Stores (`createMemoryEditorSessionStore`, `createLocalStorageEditorSessionStore`, `createIndexedDbEditorSessionStore`, or your own `EditorSessionStore`) keep `document`, `snapshot`, `journal` and `quarantine` slots and reject stale writes by revision, so a second tab saving over newer work becomes `conflicted` instead of overwriting it. The browser stores only touch `localStorage`/`indexedDB` when called.
+- Every successful save also writes the last-known-good `snapshot`. A failed save keeps the dirty document in memory and the snapshot in storage.
+- A stored payload that fails to parse, migrate or validate is copied to `quarantine` and reported as `recovery: { kind: "corrupt", payload, error }`; the session loads the snapshot instead. Export `payload`, then call `discardRecovery()`.
+- With `journal: true` each unsaved revision is written to the `journal`. After an interruption, `load()` reports `recovery: { kind: "unsaved", document }`; `restoreRecovery()` applies it as a dirty edit.
+- `flush()` saves now, `cancelAutosave()` drops a scheduled autosave. React components subscribe with `useEditorSession(session)` from `/react`.
 
 ## Generic 2D helpers
 

@@ -6,6 +6,9 @@ This package follows semver. While the package is in `0.x`, breaking changes may
 
 ## Unreleased
 
+- Added `@moenarch/editor-core/session`: `createEditorSession` composes a Runtime with the conflict-aware persistence controller into one headless session with `idle`/`dirty`/`saving`/`saved`/`failed`/`conflicted`/`recoverable` lifecycle, debounced/cancellable/flushable autosave, compare-and-swap revision tokens, a last-known-good snapshot, quarantine of corrupt or unmigratable payloads, optional journaling of unsaved work, and typed `EditorSessionError` diagnostics (`quota`, `permission`, `migration`, `validation`, `serialization`, `conflict`, `storage`). Memory, localStorage and IndexedDB stores share one contract. React gains `useEditorSession`.
+- Persistence controllers gain `cancelAutosave()`.
+
 - Conformance suites can verify that registered commands cannot change a read-only document (`readOnly`), that dirty/saved state changes only through semantic document edits (`dirtyState`), and that cancelled drag/resize interactions neither change the document nor enter history (`interactions`). `EditorConformanceSuite` gains an optional trailing `TDirtyState` type parameter.
 - Expanded the editor-family conformance API with normalization and migration checks, selection restoration, named serialization and persistence roundtrip cases, and invalid-import diagnostics with state-preservation checks.
 - The package builds in a `prepare` script so consumers can install it as a commit-pinned git dependency (`git+https://github.com/moritzbrantner/editor-core.git#<sha>` listed in `trustedDependencies`).

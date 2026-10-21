@@ -70,6 +70,8 @@ export type EditorRuntimePersistenceController<TDocument, TSelection = unknown> 
   load: () => Promise<void>;
   save: (options?: { force?: boolean }) => Promise<boolean>;
   notifyRuntimeChanged: () => void;
+  /** Drops a scheduled autosave without saving; the runtime stays dirty. */
+  cancelAutosave: () => void;
   updateOptions: (
     options: Partial<
       | EditorRuntimePersistenceControllerOptions<TDocument, TSelection>
