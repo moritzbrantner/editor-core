@@ -79,7 +79,7 @@ jobs:
     with:
       bun_version: "1.4.0"
       install_command: "bun install --frozen-lockfile"
-      build_command: "bun run example:build"
+      build_command: "bun run build && bun run example:build"
       install_playwright: true
       e2e_command: "bun run test:e2e:run"
       artifact_paths: |
