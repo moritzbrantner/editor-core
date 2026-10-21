@@ -12,6 +12,12 @@ History adapters can also expose `getSelection`. When they do, the harness finge
 
 Normalization remains consumer-owned: the harness only requires that normalizing an already normalized document does not change the semantic result. Migration cases likewise keep versioning and envelope policy in the specialized editor; each case supplies serialized legacy input, the expected current document, and the consumer-owned migrate/parse functions needed to prove that boundary.
 
+Three optional adapters cover editor behavior beyond the document transition:
+
+- **`readOnly`**: `execute(document, action)` runs the consumer's registered commands while the editor is read-only. Every suite action must leave the document semantically unchanged and unmutated.
+- **`dirtyState`**: wraps the consumer's dirty/saved state with `create`, `apply`, `markSaved`, `isDirty` and `getDocument`. A new state is clean. A suite action that edits the document semantically must leave the state dirty, and an action without a semantic edit, such as a selection change, must not change the flag. `markSaved` clears it.
+- **`interactions.cancelled`**: names drag, resize or other interactions that start and are cancelled on top of the history produced by the suite actions. This needs `history`. A cancelled interaction must leave the document unchanged and must not enter history: undo still reverts the last suite action.
+
 Graph, workflow, timeline, layer, and later editor packages should run this harness against public package APIs. Domain rules remain in those downstream packages; the conformance layer only checks generic mechanics.
 
 Source-mode and packed-consumer compatibility remain repository/distribution concerns. They should continue to be enforced by each repository's deterministic validation contract alongside this semantic conformance suite rather than being represented as runtime editor APIs.

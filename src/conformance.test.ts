@@ -428,3 +428,152 @@ describe("editor conformance", () => {
     );
   });
 });
+
+describe("read-only, dirty-state and cancelled-interaction conformance", () => {
+  type DirtyState = { document: Document; dirty: boolean };
+  type DeltaAction = { delta: number };
+
+  function createBehaviorSuite(): EditorConformanceSuite<
+    Document,
+    DeltaAction,
+    History,
+    never,
+    never,
+    never,
+    never,
+    DirtyState
+  > {
+    return {
+      createDocument: (): Document => ({ value: 0 }),
+      // `delta: 0` is an action without a semantic edit, such as a selection change.
+      actions: [{ delta: 1 }, { delta: 0 }, { delta: 2 }],
+      apply: applyAction,
+      history: {
+        create: (document: Document) => createEditorSnapshotHistory(document),
+        apply: (history: History, action: DeltaAction) =>
+          commitEditorSnapshotHistory(history, applyAction(history.present, action)),
+        undo: undoEditorSnapshotHistory,
+        redo: redoEditorSnapshotHistory,
+        getDocument: (history: History) => history.present,
+      },
+      readOnly: { execute: (document) => document },
+      dirtyState: {
+        create: (document) => ({ document, dirty: false }),
+        apply(state, action) {
+          const document = applyAction(state.document, action);
+          return { document, dirty: state.dirty || document.value !== state.document.value };
+        },
+        markSaved: (state) => ({ ...state, dirty: false }),
+        isDirty: (state) => state.dirty,
+        getDocument: (state) => state.document,
+      },
+      interactions: {
+        // A drag previews on a copy and is dropped on cancel; history is untouched.
+        cancelled: [{ name: "drag", cancel: (history) => history }],
+      },
+    };
+  }
+
+  function issuesFor(capability: string, suite: ReturnType<typeof createBehaviorSuite>) {
+    return checkEditorConformanceSuite(suite).issues.filter(
+      (issue) => issue.capability === capability,
+    );
+  }
+
+  test("accepts conforming read-only, dirty-state and interaction behavior", () => {
+    expect(checkEditorConformanceSuite(createBehaviorSuite())).toEqual({ ok: true, issues: [] });
+  });
+
+  test("reports read-only commands that change or mutate the document", () => {
+    const changing = createBehaviorSuite();
+    changing.readOnly = { execute: (document, action) => applyAction(document, action) };
+    expect(issuesFor("readOnly", changing)).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          message: expect.stringContaining("changed the read-only"),
+          path: "actions[0]",
+        }),
+      ]),
+    );
+
+    const mutating = createBehaviorSuite();
+    mutating.readOnly = {
+      execute(document, action) {
+        document.value += action.delta;
+        return { ...document, value: document.value - action.delta };
+      },
+    };
+    expect(issuesFor("readOnly", mutating)).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ message: expect.stringContaining("in place") }),
+      ]),
+    );
+  });
+
+  test("reports dirty flags that change without a semantic edit or survive saving", () => {
+    const base = createBehaviorSuite();
+    const adapter = base.dirtyState!;
+    const alwaysDirty = createBehaviorSuite();
+    alwaysDirty.dirtyState = { ...adapter, create: (document) => ({ document, dirty: true }) };
+    expect(issuesFor("dirtyState", alwaysDirty).map((issue) => issue.message)).toEqual(
+      expect.arrayContaining([expect.stringContaining("starts dirty")]),
+    );
+
+    const noOpMarksDirty = createBehaviorSuite();
+    noOpMarksDirty.dirtyState = {
+      ...adapter,
+      // A selection change clears the flag, and saving does nothing.
+      apply: (state, action) => ({
+        document: applyAction(state.document, action),
+        dirty: action.delta !== 0,
+      }),
+      markSaved: (state) => state,
+    };
+    const messages = issuesFor("dirtyState", noOpMarksDirty).map((issue) => issue.message);
+    expect(messages).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining("without a semantic document edit"),
+        expect.stringContaining("left it dirty"),
+      ]),
+    );
+
+    const neverDirty = createBehaviorSuite();
+    neverDirty.dirtyState = {
+      ...adapter,
+      apply: (state, action) => ({ document: applyAction(state.document, action), dirty: false }),
+    };
+    expect(issuesFor("dirtyState", neverDirty)).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          message: expect.stringContaining("did not mark"),
+          path: "actions[0]",
+        }),
+      ]),
+    );
+  });
+
+  test("reports cancelled interactions that change the document or enter history", () => {
+    const committing = createBehaviorSuite();
+    committing.interactions = {
+      cancelled: [
+        {
+          name: "drag",
+          cancel: (history) =>
+            commitEditorSnapshotHistory(history, { value: history.present.value + 5 }),
+        },
+      ],
+    };
+    expect(issuesFor("interaction", committing).map((issue) => issue.message)).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining("changed the document"),
+        expect.stringContaining("entered history"),
+      ]),
+    );
+
+    const withoutHistory = createBehaviorSuite();
+    delete withoutHistory.history;
+    expect(issuesFor("interaction", withoutHistory)).toEqual([
+      expect.objectContaining({ message: expect.stringContaining("need a history adapter") }),
+    ]);
+  });
+});
