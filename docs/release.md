@@ -28,6 +28,13 @@ a scratch consumer and checks every export target, and CI runs it in package val
   a named version; while the package is `0.x`, breaking changes may land in minor versions.
 - Update `docs/api-report.md` (`bun run api:update`) for intentional public type changes and
   `docs/performance-baselines.json` only for verified benchmark changes.
+- `bun run release:report` compares exports, the export map, packed files and per-entrypoint
+  gzip/declaration sizes against `docs/release-baseline.json` and writes
+  `test-results/release-report/release-report.{json,md}` (CI keeps them as artifacts of the
+  performance job). Added exports are only reported; removed exports, changed or removed
+  export-map entries, and size growth beyond the budget (5% and 512 bytes by default, set in the
+  baseline's `budget`) fail. After an intentional change run `bun run release:baseline` and
+  note it in `CHANGELOG.md`.
 
 Run the release gate before merging public package changes:
 
