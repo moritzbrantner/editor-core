@@ -54,6 +54,7 @@ async function smokeHeadlessConsumer(tarball) {
       import { stableEditorJsonStringify } from "@moenarch/editor-core/json";
       import { serializeEditorDocument } from "@moenarch/editor-core/serialization";
       import { checkEditorDocumentAdapter } from "@moenarch/editor-core/testing";
+      import { checkEditorConformanceSuite } from "@moenarch/editor-core/conformance";
       import { projectEditorTree } from "@moenarch/editor-core/tree";
       import { createEditorEntityDocument, createUniqueEditorId } from "@moenarch/editor-core/entities";
       import { createEditorEntityIndexes } from "@moenarch/editor-core/indexes";
@@ -132,6 +133,57 @@ async function smokeHeadlessConsumer(tarball) {
       const conflict = new EditorPersistenceConflictError("stale revision", {
         local: { document: history.present, revisionToken: "server-1" },
       });
+
+      // Packed-consumer conformance: every capability of the shared suite runs from the tarball.
+      const addValue = (document, action) => ({ ...document, value: document.value + action.amount });
+      const createHistory = (document) => ({ past: [], present: document, future: [] });
+      const historyAdapter = {
+        create: createHistory,
+        apply: (state, action) => ({
+          past: [...state.past, state.present],
+          present: addValue(state.present, action),
+          future: [],
+        }),
+        undo: (state) =>
+          state.past.length === 0
+            ? state
+            : { past: state.past.slice(0, -1), present: state.past.at(-1), future: [state.present, ...state.future] },
+        redo: (state) =>
+          state.future.length === 0
+            ? state
+            : { past: [...state.past, state.present], present: state.future[0], future: state.future.slice(1) },
+        getDocument: (state) => state.present,
+      };
+      const conformance = checkEditorConformanceSuite({
+        createDocument: () => ({ value: 0, custom: { keep: true } }),
+        actions: [{ amount: 1 }, { amount: 0 }, { amount: 2 }],
+        apply: addValue,
+        normalization: { normalize: (document) => ({ ...document }) },
+        history: historyAdapter,
+        serialization: { serialize: JSON.stringify, parse: JSON.parse },
+        migration: {
+          cases: [{ input: '{"count":3}', expectedDocument: { value: 3 } }],
+          migrate: (input) => JSON.stringify({ value: JSON.parse(input).count }),
+          parse: JSON.parse,
+        },
+        persistence: { serialize: (document) => ({ ...document }), parse: (stored) => ({ ...stored }) },
+        invalidImports: {
+          cases: [{ input: "{", name: "truncated" }],
+          attempt: (document) => ({ document, diagnostics: [{ message: "Invalid JSON" }] }),
+        },
+        readOnly: { execute: (document) => document },
+        dirtyState: {
+          create: (document) => ({ document, saved: document }),
+          apply: (state, action) => ({ ...state, document: addValue(state.document, action) }),
+          markSaved: (state) => ({ ...state, saved: state.document }),
+          isDirty: (state) => state.document.value !== state.saved.value,
+          getDocument: (state) => state.document,
+        },
+        interactions: { cancelled: [{ name: "cancelled-drag", cancel: (state) => state }] },
+      });
+      if (!conformance.ok) {
+        throw new Error("Packed conformance suite failed: " + JSON.stringify(conformance.issues));
+      }
 
       if (
         tree.root.id !== "document" ||

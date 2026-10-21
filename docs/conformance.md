@@ -20,4 +20,4 @@ Three optional adapters cover editor behavior beyond the document transition:
 
 Graph, workflow, timeline, layer, and later editor packages should run this harness against public package APIs. Domain rules remain in those downstream packages; the conformance layer only checks generic mechanics.
 
-Source-mode and packed-consumer compatibility remain repository/distribution concerns. They should continue to be enforced by each repository's deterministic validation contract alongside this semantic conformance suite rather than being represented as runtime editor APIs.
+Source-mode and packed-consumer compatibility remain repository/distribution concerns. They should continue to be enforced by each repository's deterministic validation contract alongside this semantic conformance suite rather than being represented as runtime editor APIs. In this repository, `bun run smoke:package` installs the packed tarball into a clean consumer and runs a reference suite exercising every capability through `@moenarch/editor-core/conformance`.
