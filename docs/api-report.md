@@ -376,7 +376,10 @@ type EditorConformanceCapability =
   | "serialization"
   | "migration"
   | "persistence"
-  | "import";
+  | "import"
+  | "readOnly"
+  | "dirtyState"
+  | "interaction";
 type EditorConformanceIssue = {
   capability: EditorConformanceCapability;
   message: string;
@@ -395,6 +398,35 @@ type EditorConformanceHistoryAdapter<TDocument, TAction, THistory, TSelection = 
   getSelection?: (history: THistory) => TSelection;
   selectionFingerprint?: (selection: TSelection) => string;
 };
+
+/**
+ * Executes the consumer's registered commands while the editor is read-only. Every suite action
+ * must leave the document semantically and physically unchanged.
+ */
+type EditorConformanceReadOnlyAdapter<TDocument, TAction> = {
+  execute: (document: TDocument, action: TAction) => TDocument;
+};
+/**
+ * The consumer's dirty/saved state. Dirty may change only through a semantic document edit:
+ * a suite action that leaves the document semantically unchanged must keep the flag, an edit
+ * must set it, and `markSaved` must clear it.
+ */
+type EditorConformanceDirtyStateAdapter<TDocument, TAction, TState> = {
+  create: (document: TDocument) => TState;
+  apply: (state: TState, action: TAction) => TState;
+  markSaved: (state: TState) => TState;
+  isDirty: (state: TState) => boolean;
+  getDocument: (state: TState) => TDocument;
+};
+/** A drag, resize or other interaction that starts and is cancelled on top of a history. */
+type EditorConformanceCancelledInteractionCase<THistory> = {
+  cancel: (history: THistory) => THistory;
+  name?: string;
+};
+type EditorConformanceInteractionAdapter<THistory> = {
+  cancelled: readonly EditorConformanceCancelledInteractionCase<THistory>[];
+};
+
 type EditorConformanceRoundtripCase<TDocument> = {
   document: TDocument;
   name?: string;
@@ -441,6 +473,7 @@ type EditorConformanceSuite<
   TPersisted = never,
   TSelection = never,
   TImportInput = never,
+  TDirtyState = never,
 > = {
   createDocument: () => TDocument;
   actions: readonly TAction[];
@@ -451,6 +484,10 @@ type EditorConformanceSuite<
   migration?: EditorConformanceMigrationAdapter<TDocument, TSerialized>;
   persistence?: EditorConformanceRoundtripAdapter<TDocument, TPersisted>;
   invalidImports?: EditorConformanceInvalidImportAdapter<TDocument, TImportInput>;
+  readOnly?: EditorConformanceReadOnlyAdapter<TDocument, TAction>;
+  dirtyState?: EditorConformanceDirtyStateAdapter<TDocument, TAction, TDirtyState>;
+  /** Requires `history`: cancelled interactions must not enter it. */
+  interactions?: EditorConformanceInteractionAdapter<THistory>;
   equals?: (left: TDocument, right: TDocument) => boolean;
 };
 declare class EditorConformanceError extends Error {
@@ -465,6 +502,7 @@ declare function checkEditorConformanceSuite<
   TPersisted = never,
   TSelection = never,
   TImportInput = never,
+  TDirtyState = never,
 >(
   suite: EditorConformanceSuite<
     TDocument,
@@ -473,7 +511,8 @@ declare function checkEditorConformanceSuite<
     TSerialized,
     TPersisted,
     TSelection,
-    TImportInput
+    TImportInput,
+    TDirtyState
   >,
 ): EditorConformanceResult;
 declare function assertEditorConformanceSuite<
@@ -484,6 +523,7 @@ declare function assertEditorConformanceSuite<
   TPersisted = never,
   TSelection = never,
   TImportInput = never,
+  TDirtyState = never,
 >(
   suite: EditorConformanceSuite<
     TDocument,
@@ -492,15 +532,19 @@ declare function assertEditorConformanceSuite<
     TSerialized,
     TPersisted,
     TSelection,
-    TImportInput
+    TImportInput,
+    TDirtyState
   >,
 ): void;
 
 export {
+  type EditorConformanceCancelledInteractionCase,
   type EditorConformanceCapability,
+  type EditorConformanceDirtyStateAdapter,
   EditorConformanceError,
   type EditorConformanceHistoryAdapter,
   type EditorConformanceImportDiagnostic,
+  type EditorConformanceInteractionAdapter,
   type EditorConformanceInvalidImportAdapter,
   type EditorConformanceInvalidImportCase,
   type EditorConformanceInvalidImportResult,
@@ -508,6 +552,7 @@ export {
   type EditorConformanceMigrationAdapter,
   type EditorConformanceMigrationCase,
   type EditorConformanceNormalizationAdapter,
+  type EditorConformanceReadOnlyAdapter,
   type EditorConformanceResult,
   type EditorConformanceRoundtripAdapter,
   type EditorConformanceRoundtripCase,

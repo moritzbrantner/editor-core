@@ -6,6 +6,7 @@ This package follows semver. While the package is in `0.x`, breaking changes may
 
 ## Unreleased
 
+- Conformance suites can verify that registered commands cannot change a read-only document (`readOnly`), that dirty/saved state changes only through semantic document edits (`dirtyState`), and that cancelled drag/resize interactions neither change the document nor enter history (`interactions`). `EditorConformanceSuite` gains an optional trailing `TDirtyState` type parameter.
 - Expanded the editor-family conformance API with normalization and migration checks, selection restoration, named serialization and persistence roundtrip cases, and invalid-import diagnostics with state-preservation checks.
 - The package builds in a `prepare` script so consumers can install it as a commit-pinned git dependency (`git+https://github.com/moritzbrantner/editor-core.git#<sha>` listed in `trustedDependencies`).
 - Retired npm publishing: removed the tag-triggered publish workflow and changesets. Releases are commits on `main`.

@@ -1,34 +1,30 @@
+import {
+  checkDirtyStateConformance,
+  checkInteractionConformance,
+  checkReadOnlyConformance,
+  type EditorConformanceDirtyStateAdapter,
+  type EditorConformanceInteractionAdapter,
+  type EditorConformanceReadOnlyAdapter,
+} from "./conformance/behavior.js";
 import { createStableEditorJsonEquals, stableEditorJsonStringify } from "./json.js";
+import type {
+  EditorConformanceHistoryAdapter,
+  EditorConformanceIssue,
+  EditorConformanceResult,
+} from "./conformance/types.js";
 
-export type EditorConformanceCapability =
-  | "transition"
-  | "normalization"
-  | "history"
-  | "serialization"
-  | "migration"
-  | "persistence"
-  | "import";
-
-export type EditorConformanceIssue = {
-  capability: EditorConformanceCapability;
-  message: string;
-  path?: string;
-};
-
-export type EditorConformanceResult = {
-  ok: boolean;
-  issues: readonly EditorConformanceIssue[];
-};
-
-export type EditorConformanceHistoryAdapter<TDocument, TAction, THistory, TSelection = never> = {
-  create: (document: TDocument) => THistory;
-  apply: (history: THistory, action: TAction) => THistory;
-  undo: (history: THistory) => THistory;
-  redo: (history: THistory) => THistory;
-  getDocument: (history: THistory) => TDocument;
-  getSelection?: (history: THistory) => TSelection;
-  selectionFingerprint?: (selection: TSelection) => string;
-};
+export type {
+  EditorConformanceCapability,
+  EditorConformanceHistoryAdapter,
+  EditorConformanceIssue,
+  EditorConformanceResult,
+} from "./conformance/types.js";
+export type {
+  EditorConformanceCancelledInteractionCase,
+  EditorConformanceDirtyStateAdapter,
+  EditorConformanceInteractionAdapter,
+  EditorConformanceReadOnlyAdapter,
+} from "./conformance/behavior.js";
 
 export type EditorConformanceRoundtripCase<TDocument> = {
   document: TDocument;
@@ -85,6 +81,7 @@ export type EditorConformanceSuite<
   TPersisted = never,
   TSelection = never,
   TImportInput = never,
+  TDirtyState = never,
 > = {
   createDocument: () => TDocument;
   actions: readonly TAction[];
@@ -95,6 +92,10 @@ export type EditorConformanceSuite<
   migration?: EditorConformanceMigrationAdapter<TDocument, TSerialized>;
   persistence?: EditorConformanceRoundtripAdapter<TDocument, TPersisted>;
   invalidImports?: EditorConformanceInvalidImportAdapter<TDocument, TImportInput>;
+  readOnly?: EditorConformanceReadOnlyAdapter<TDocument, TAction>;
+  dirtyState?: EditorConformanceDirtyStateAdapter<TDocument, TAction, TDirtyState>;
+  /** Requires `history`: cancelled interactions must not enter it. */
+  interactions?: EditorConformanceInteractionAdapter<THistory>;
   equals?: (left: TDocument, right: TDocument) => boolean;
 };
 
@@ -116,6 +117,7 @@ export function checkEditorConformanceSuite<
   TPersisted = never,
   TSelection = never,
   TImportInput = never,
+  TDirtyState = never,
 >(
   suite: EditorConformanceSuite<
     TDocument,
@@ -124,7 +126,8 @@ export function checkEditorConformanceSuite<
     TSerialized,
     TPersisted,
     TSelection,
-    TImportInput
+    TImportInput,
+    TDirtyState
   >,
 ): EditorConformanceResult {
   const issues: EditorConformanceIssue[] = [];
@@ -173,6 +176,18 @@ export function checkEditorConformanceSuite<
     checkInvalidImportConformance(suite, suite.invalidImports, equals, issues);
   }
 
+  if (suite.readOnly) {
+    checkReadOnlyConformance(suite, suite.readOnly, equals, issues);
+  }
+
+  if (suite.dirtyState) {
+    checkDirtyStateConformance(suite, suite.dirtyState, equals, issues);
+  }
+
+  if (suite.interactions) {
+    checkInteractionConformance(suite, suite.interactions, equals, issues);
+  }
+
   return { ok: issues.length === 0, issues };
 }
 
@@ -184,6 +199,7 @@ export function assertEditorConformanceSuite<
   TPersisted = never,
   TSelection = never,
   TImportInput = never,
+  TDirtyState = never,
 >(
   suite: EditorConformanceSuite<
     TDocument,
@@ -192,7 +208,8 @@ export function assertEditorConformanceSuite<
     TSerialized,
     TPersisted,
     TSelection,
-    TImportInput
+    TImportInput,
+    TDirtyState
   >,
 ): void {
   const result = checkEditorConformanceSuite(suite);
@@ -238,6 +255,7 @@ function checkHistoryConformance<
   TPersisted,
   TSelection,
   TImportInput,
+  TDirtyState,
 >(
   suite: EditorConformanceSuite<
     TDocument,
@@ -246,7 +264,8 @@ function checkHistoryConformance<
     TSerialized,
     TPersisted,
     TSelection,
-    TImportInput
+    TImportInput,
+    TDirtyState
   >,
   expectedFinal: TDocument,
   equals: (left: TDocument, right: TDocument) => boolean,
@@ -395,6 +414,7 @@ function checkInvalidImportConformance<
   TPersisted,
   TSelection,
   TImportInput,
+  TDirtyState,
 >(
   suite: EditorConformanceSuite<
     TDocument,
@@ -403,7 +423,8 @@ function checkInvalidImportConformance<
     TSerialized,
     TPersisted,
     TSelection,
-    TImportInput
+    TImportInput,
+    TDirtyState
   >,
   adapter: EditorConformanceInvalidImportAdapter<TDocument, TImportInput>,
   equals: (left: TDocument, right: TDocument) => boolean,
