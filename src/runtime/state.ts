@@ -37,7 +37,7 @@ export function createEditorRuntime<TDocument, TSelection = unknown>(
       aspectSnapshot,
       history,
       document: history.present,
-      issues: validateRuntimeDocument(history.present, runtimeOptions),
+      issues: validateRuntimeDocument(history.present, runtimeOptions, 0),
       origin: options.origin,
       revision: 0,
       savedRevision: 0,
@@ -197,7 +197,7 @@ export function validateEditorRuntime<TDocument, TSelection = unknown>(
   return withRuntimeFlags(
     {
       ...state,
-      issues: validateRuntimeDocument(state.document, runtimeOptions),
+      issues: validateRuntimeDocument(state.document, runtimeOptions, state.revision),
     },
     runtimeOptions,
   );

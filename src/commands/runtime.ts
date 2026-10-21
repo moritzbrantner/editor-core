@@ -4,6 +4,11 @@ import {
   type EditorCommandDefinition,
   type EditorHotkeyEvent,
 } from "../hotkeys.js";
+import {
+  getEditorTelemetryErrorName,
+  type EditorTelemetry,
+  type EditorTelemetryEventMap,
+} from "../telemetry.js";
 import { getEditorCommandDiagnostics, type EditorCommandDiagnostic } from "./diagnostics.js";
 
 export type EditorCommandRuntimeEvent = EditorHotkeyEvent & {
@@ -16,6 +21,8 @@ export type EditorCommandRuntimeOptions<TId extends string> = {
   readOnly?: boolean;
   allowEditableTargets?: boolean;
   isInScope?: (event: EditorHotkeyEvent) => boolean;
+  /** Opt-in telemetry for command outcomes. */
+  telemetry?: EditorTelemetry;
 };
 
 export type EditorCommandRuntimeMatch<TId extends string> = {
@@ -85,40 +92,72 @@ export function createEditorCommandRuntime<TId extends string>(
     },
     resolve,
     async run(event) {
-      const ignoredReason = getRuntimeIgnoredReason(options, event);
-      if (ignoredReason) {
-        return {
-          reason: ignoredReason,
-          status: "ignored",
-        };
+      const { telemetry } = options;
+      if (!telemetry) {
+        return runEditorCommand(event);
       }
-
-      const match = resolve(event);
-      if (!match) {
-        return {
-          reason: "no-match",
-          status: "ignored",
-        };
+      const startedAt = telemetry.now();
+      const report = (attributes: EditorTelemetryEventMap["command.run"]) =>
+        telemetry.emit("command.run", attributes, { durationMs: telemetry.now() - startedAt });
+      let result: EditorCommandRuntimeRunResult<TId>;
+      try {
+        result = await runEditorCommand(event);
+      } catch (error) {
+        report({
+          commandId: resolve(event)?.commandId,
+          errorName: getEditorTelemetryErrorName(error),
+          status: "failed",
+        });
+        throw error;
       }
-
-      if (!match.command.run) {
-        return {
-          commandId: match.commandId,
-          reason: "missing-run",
-          status: "ignored",
-        };
+      if (result.status === "ignored" && result.reason === "no-match") {
+        return result;
       }
-
-      event.preventDefault?.();
-      await match.command.run(event);
-      return {
-        command: match.command,
-        commandId: match.commandId,
-        hotkey: match.hotkey,
-        status: "ran",
-      };
+      report(
+        result.status === "ran"
+          ? { commandId: result.commandId, status: "ran" }
+          : { commandId: result.commandId, reason: result.reason, status: "ignored" },
+      );
+      return result;
     },
   };
+
+  async function runEditorCommand(
+    event: EditorCommandRuntimeEvent,
+  ): Promise<EditorCommandRuntimeRunResult<TId>> {
+    const ignoredReason = getRuntimeIgnoredReason(options, event);
+    if (ignoredReason) {
+      return {
+        reason: ignoredReason,
+        status: "ignored",
+      };
+    }
+
+    const match = resolve(event);
+    if (!match) {
+      return {
+        reason: "no-match",
+        status: "ignored",
+      };
+    }
+
+    if (!match.command.run) {
+      return {
+        commandId: match.commandId,
+        reason: "missing-run",
+        status: "ignored",
+      };
+    }
+
+    event.preventDefault?.();
+    await match.command.run(event);
+    return {
+      command: match.command,
+      commandId: match.commandId,
+      hotkey: match.hotkey,
+      status: "ran",
+    };
+  }
 }
 
 function getRuntimeIgnoredReason<TId extends string>(

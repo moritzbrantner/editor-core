@@ -1,5 +1,6 @@
 import type { EditorStorageAdapter } from "../browser.js";
 import type { EditorRuntimeState } from "../runtime.js";
+import type { EditorTelemetry } from "../telemetry.js";
 import type { EditorConflictStorageAdapter } from "./conflict.js";
 import type {
   EditorPersistenceErrorContext,
@@ -57,6 +58,8 @@ export type EditorRuntimePersistenceControllerOptions<TDocument, TSelection = un
   onError?: (error: unknown, context: EditorPersistenceErrorContext) => void;
   onEvent?: EditorPersistenceEventHandler;
   scheduler?: EditorPersistenceScheduler;
+  /** Opt-in telemetry for load, save and autosave outcomes and latency. */
+  telemetry?: EditorTelemetry;
 };
 
 export type EditorRuntimeConflictPersistenceControllerOptions<

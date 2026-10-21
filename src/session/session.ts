@@ -10,13 +10,14 @@ import {
   type EditorRuntimeStateUpdater,
 } from "../persistence.js";
 import { commitEditorRuntime, type EditorRuntimeState } from "../runtime.js";
+import type { EditorTelemetry, EditorTelemetryEventMap } from "../telemetry.js";
 import {
   decodeEditorSessionPayload,
   encodeEditorSessionPayload,
   type EditorSessionCodec,
 } from "./codec.js";
 import { toEditorSessionError, type EditorSessionError } from "./errors.js";
-import type { EditorSessionStore } from "./store.js";
+import type { EditorSessionSlot, EditorSessionStore } from "./store.js";
 
 export type EditorSessionLifecycle =
   | "idle"
@@ -54,6 +55,8 @@ export type EditorSessionOptions<TDocument, TSelection = unknown> = {
   journal?: boolean;
   scheduler?: EditorPersistenceScheduler;
   now?: () => string;
+  /** Opt-in telemetry for save/autosave, migration and recovery outcomes. */
+  telemetry?: EditorTelemetry;
 };
 
 export type EditorSession<TDocument, TSelection = unknown> = {
@@ -101,10 +104,12 @@ export function createEditorSession<TDocument, TSelection = unknown>(
     }
   };
 
-  const decode = (value: string) => decodeEditorSessionPayload(codec, value);
-  const tryDecode = (value: string | undefined): TDocument | null => {
+  const { telemetry } = options;
+  const decode = (value: string, slot: EditorSessionSlot) =>
+    decodeEditorSessionPayload(observeEditorSessionMigration(codec, telemetry, slot), value);
+  const tryDecode = (value: string | undefined, slot: EditorSessionSlot): TDocument | null => {
     try {
-      return value === undefined ? null : decode(value);
+      return value === undefined ? null : decode(value, slot);
     } catch {
       return null;
     }
@@ -116,6 +121,15 @@ export function createEditorSession<TDocument, TSelection = unknown>(
       setState({ storeError: toEditorSessionError(error) });
     }
   };
+  const reportRecovery = (
+    status: EditorTelemetryEventMap["session.recovery"]["status"],
+    recovery: EditorSessionRecovery<TDocument>,
+  ) =>
+    telemetry?.emit("session.recovery", {
+      kind: recovery.kind,
+      status,
+      ...(recovery.kind === "corrupt" ? { errorKind: recovery.error.kind } : {}),
+    });
   const quarantine = async (payload: string, error: unknown) => {
     await store.write("quarantine", payload);
     return { error: toEditorSessionError(error), kind: "corrupt", payload } as const;
@@ -128,19 +142,22 @@ export function createEditorSession<TDocument, TSelection = unknown>(
       let document: TDocument | null = null;
       if (record) {
         try {
-          document = decode(record.value);
+          document = decode(record.value, "document");
         } catch (error) {
           recovery = await quarantine(record.value, error);
-          document = tryDecode((await store.read("snapshot"))?.value);
+          document = tryDecode((await store.read("snapshot"))?.value, "snapshot");
         }
       }
       const journal = recovery ? null : await store.read("journal");
       if (journal) {
         try {
-          recovery = { document: decode(journal.value), kind: "unsaved" };
+          recovery = { document: decode(journal.value, "journal"), kind: "unsaved" };
         } catch (error) {
           recovery = await quarantine(journal.value, error);
         }
+      }
+      if (recovery) {
+        reportRecovery("found", recovery);
       }
       setState({ recovery, storeError: null });
       return record
@@ -158,7 +175,7 @@ export function createEditorSession<TDocument, TSelection = unknown>(
           throw sessionError;
         }
         const remote = await store.read("document").catch(() => null);
-        const remoteDocument = tryDecode(remote?.value);
+        const remoteDocument = tryDecode(remote?.value, "document");
         throw new EditorPersistenceConflictError(sessionError.message, {
           local: value,
           ...(remote && remoteDocument !== null
@@ -180,6 +197,7 @@ export function createEditorSession<TDocument, TSelection = unknown>(
     getRuntime: () => state.runtime,
     ...(options.now ? { now: options.now } : {}),
     ...(options.scheduler ? { scheduler: options.scheduler } : {}),
+    ...(telemetry ? { telemetry } : {}),
     setPersistence: (updater) =>
       setState({
         persistence: typeof updater === "function" ? updater(state.persistence) : updater,
@@ -225,9 +243,13 @@ export function createEditorSession<TDocument, TSelection = unknown>(
         return;
       }
       setState({ recovery: null, runtime: commitEditorRuntime(state.runtime, recovery.document) });
+      reportRecovery("restored", recovery);
       changed();
     },
     async discardRecovery() {
+      if (state.recovery) {
+        reportRecovery("discarded", state.recovery);
+      }
       await maintain(async () => {
         await store.remove("journal");
         await store.remove("quarantine");
@@ -273,4 +295,29 @@ function toStoreRevision(token: EditorRevisionToken | null | undefined): number 
     return null;
   }
   return typeof token === "number" ? token : Number(token);
+}
+
+/** Reports whether the codec's `migrate` hook upgraded or rejected a stored payload. */
+function observeEditorSessionMigration<TDocument>(
+  codec: EditorSessionCodec<TDocument>,
+  telemetry: EditorTelemetry | undefined,
+  slot: EditorSessionSlot,
+): EditorSessionCodec<TDocument> {
+  const { migrate } = codec;
+  if (!telemetry || !migrate) {
+    return codec;
+  }
+  return {
+    ...codec,
+    migrate(payload) {
+      try {
+        const migrated = migrate(payload);
+        telemetry.emit("session.migration", { slot, status: "migrated" });
+        return migrated;
+      } catch (error) {
+        telemetry.emit("session.migration", { slot, status: "failed" });
+        throw error;
+      }
+    },
+  };
 }
