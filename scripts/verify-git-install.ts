@@ -19,9 +19,17 @@ const packageRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "
 const manifest = JSON.parse(readFileSync(path.join(packageRoot, "package.json"), "utf8"));
 const packageName: string = manifest.name;
 const consumerDir = mkdtempSync(path.join(tmpdir(), "git-install-consumer-"));
+// bun caches git dependencies by URL, and this URL is the same checkout path on every CI run. A
+// clone restored from an earlier run's cache lacks this run's commits ("unable to read tree"), so
+// the consumer installs with a cache of its own.
+const cacheDir = mkdtempSync(path.join(tmpdir(), "git-install-cache-"));
 
 function run(args: string[]) {
-  execFileSync("bun", args, { cwd: consumerDir, stdio: "inherit" });
+  execFileSync("bun", args, {
+    cwd: consumerDir,
+    stdio: "inherit",
+    env: { ...process.env, BUN_INSTALL_CACHE_DIR: cacheDir },
+  });
 }
 
 function collectTargets(value: unknown, targets: string[]) {
@@ -85,4 +93,5 @@ try {
   );
 } finally {
   rmSync(consumerDir, { recursive: true, force: true });
+  rmSync(cacheDir, { recursive: true, force: true });
 }
