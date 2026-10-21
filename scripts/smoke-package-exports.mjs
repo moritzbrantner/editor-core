@@ -300,6 +300,7 @@ async function smokeReactSubpath(tarball) {
       export function useMemo(value) { return value(); }
       export function useRef(value) { return { current: value }; }
       export function useState(value) { return [typeof value === "function" ? value() : value, () => {}]; }
+      export function useSyncExternalStore(subscribe, getSnapshot) { return getSnapshot(); }
     `,
   );
   await writeFile(

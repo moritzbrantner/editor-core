@@ -1,0 +1,11 @@
+{
+  "name": "clean-consumer-core-node",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "check": "node --import ./guard.mjs check.mjs"
+  },
+  "dependencies": {
+    "@moenarch/editor-core": "candidate"
+  }
+}
