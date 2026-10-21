@@ -36,6 +36,9 @@ function collectTargets(value: unknown, targets: string[]) {
 
 try {
   const head = execFileSync("git", ["rev-parse", "HEAD"], { cwd: packageRoot }).toString().trim();
+  // CI checks out a detached commit. bun clones the file:// repository and only sees its branches,
+  // so give the commit a branch ref before installing it.
+  execFileSync("git", ["branch", "--force", "git-install-verify", head], { cwd: packageRoot });
   writeFileSync(
     path.join(consumerDir, "package.json"),
     JSON.stringify({
