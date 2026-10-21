@@ -588,7 +588,7 @@ export {
 };
 ```
 
-## controller-types-BDMwWOHk.d.ts
+## controller-types-B4uWtBMO.d.ts
 
 ```ts
 import { EditorStorageAdapter } from "./browser.js";
@@ -773,6 +773,8 @@ type EditorRuntimePersistenceController<TDocument, TSelection = unknown> = {
   load: () => Promise<void>;
   save: (options?: { force?: boolean }) => Promise<boolean>;
   notifyRuntimeChanged: () => void;
+  /** Drops a scheduled autosave without saving; the runtime stays dirty. */
+  cancelAutosave: () => void;
   updateOptions: (
     options: Partial<
       | EditorRuntimePersistenceControllerOptions<TDocument, TSelection>
@@ -1266,7 +1268,7 @@ export {
   x as SaveEditorRuntimePersistenceOptions,
   y as SaveEditorRuntimePersistenceResult,
   z as normalizeEditorAutosaveOptions,
-} from "./controller-types-BDMwWOHk.js";
+} from "./controller-types-B4uWtBMO.js";
 export {
   clearEditorPersistenceConflict,
   createEditorPersistenceState,
@@ -1711,7 +1713,7 @@ import {
   p as EditorRuntimeConflictPersistenceControllerOptions,
   q as EditorRuntimePersistenceController,
   r as EditorRuntimePersistenceControllerOptions,
-} from "./controller-types-BDMwWOHk.js";
+} from "./controller-types-B4uWtBMO.js";
 export {
   E as EditorAutosaveOptions,
   a as EditorAutosaveRetryOptions,
@@ -1730,7 +1732,7 @@ export {
   s as EditorRuntimeStateUpdater,
   N as NormalizedEditorAutosaveOptions,
   z as normalizeEditorAutosaveOptions,
-} from "./controller-types-BDMwWOHk.js";
+} from "./controller-types-B4uWtBMO.js";
 import { EditorStorageAdapter } from "./browser.js";
 import { b as EditorRuntimeState } from "./types-ue792Gw2.js";
 import "./aspects.js";
@@ -1887,8 +1889,9 @@ import {
   h as EditorPersistenceEventHandler,
   b as EditorConflictStorageAdapter,
   k as EditorPersistenceState,
-} from "./controller-types-BDMwWOHk.js";
-export { a as EditorAutosaveRetryOptions } from "./controller-types-BDMwWOHk.js";
+} from "./controller-types-B4uWtBMO.js";
+export { a as EditorAutosaveRetryOptions } from "./controller-types-B4uWtBMO.js";
+import { a as EditorSession, j as EditorSessionState } from "./session-DWhH4DCT.js";
 import { EditorCommandDefinition } from "./hotkeys.js";
 import { EditorTreeState, EditorTreeNodeId } from "./tree.js";
 import "./aspects.js";
@@ -1969,6 +1972,11 @@ declare function useConflictAwareEditorRuntime<TDocument, TSelection = unknown>(
   options: UseConflictAwareEditorRuntimeOptions<TDocument, TSelection>,
 ): UseConflictAwareEditorRuntimeResult<TDocument, TSelection>;
 
+/** Subscribes a component to an editor session created with `createEditorSession`. */
+declare function useEditorSession<TDocument, TSelection = unknown>(
+  session: EditorSession<TDocument, TSelection>,
+): EditorSessionState<TDocument, TSelection>;
+
 type UseEditorHotkeysOptions<TId extends string> = {
   commands: readonly EditorCommandDefinition<TId>[];
   disabled?: boolean;
@@ -2011,6 +2019,7 @@ export {
   useControllableEditorState,
   useEditorHotkeys,
   useEditorRuntime,
+  useEditorSession,
   useEditorTreeState,
   usePersistentEditorRuntime,
 };
@@ -2323,6 +2332,213 @@ export {
   parseEditorDocumentJson,
   readEditorDocument,
   serializeEditorDocument,
+};
+```
+
+## session-DWhH4DCT.d.ts
+
+```ts
+import {
+  k as EditorPersistenceState,
+  s as EditorRuntimeStateUpdater,
+  E as EditorAutosaveOptions,
+  j as EditorPersistenceScheduler,
+} from "./controller-types-B4uWtBMO.js";
+import { b as EditorRuntimeState } from "./types-ue792Gw2.js";
+
+type EditorSessionErrorKind =
+  | "quota"
+  | "permission"
+  | "migration"
+  | "validation"
+  | "serialization"
+  | "conflict"
+  | "storage";
+/** Typed diagnostic for every failure an editor session reports. */
+declare class EditorSessionError extends Error {
+  readonly kind: EditorSessionErrorKind;
+  readonly cause: unknown;
+  constructor(
+    kind: EditorSessionErrorKind,
+    message: string,
+    options?: {
+      cause?: unknown;
+    },
+  );
+}
+/** Classifies any thrown value into an `EditorSessionError`, keeping the original as `cause`. */
+declare function toEditorSessionError(
+  error: unknown,
+  fallbackKind?: EditorSessionErrorKind,
+): EditorSessionError;
+
+/**
+ * Slots an editor session keeps in its store: the saved `document`, the `snapshot` of the
+ * last-known-good save, the `journal` of unsaved work, and the `quarantine` holding a corrupt or
+ * unmigratable payload until it is exported or discarded.
+ */
+type EditorSessionSlot = "document" | "snapshot" | "journal" | "quarantine";
+type EditorSessionRecord = {
+  value: string;
+  /** Store-assigned revision token; it increases on every write to the slot. */
+  revision: number;
+};
+/**
+ * Revisioned key-value store behind an editor session.
+ *
+ * `write` is compare-and-swap: with `expectedRevision` `null` the slot must be empty, with a number
+ * the slot's current revision must match, otherwise it throws an `EditorSessionError` of kind
+ * `conflict` and leaves the slot unchanged. Omitting `expectedRevision` writes unconditionally.
+ */
+type EditorSessionStore = {
+  read: (slot: EditorSessionSlot) => Promise<EditorSessionRecord | null>;
+  write: (
+    slot: EditorSessionSlot,
+    value: string,
+    expectedRevision?: number | null,
+  ) => Promise<number>;
+  remove: (slot: EditorSessionSlot) => Promise<void>;
+};
+declare function createMemoryEditorSessionStore(): EditorSessionStore;
+
+/** Converts documents to and from the JSON payload an editor session stores. */
+type EditorSessionCodec<TDocument> = {
+  /** Converts a document to a JSON-compatible payload. Defaults to the document itself. */
+  serialize?: (document: TDocument) => unknown;
+  /** Upgrades an older stored payload. Throwing marks the payload unmigratable. */
+  migrate?: (payload: unknown) => unknown;
+  /** Validates a current payload into a document. Throwing marks the payload invalid. */
+  parse: (payload: unknown) => TDocument;
+};
+
+type EditorSessionLifecycle =
+  | "idle"
+  | "dirty"
+  | "saving"
+  | "saved"
+  | "failed"
+  | "conflicted"
+  | "recoverable";
+/**
+ * Work found on load that the session will not apply or discard on its own: unsaved journal work
+ * to restore, or a corrupt/unmigratable payload kept in quarantine for export.
+ */
+type EditorSessionRecovery<TDocument> =
+  | {
+      kind: "unsaved";
+      document: TDocument;
+    }
+  | {
+      kind: "corrupt";
+      payload: string;
+      error: EditorSessionError;
+    };
+type EditorSessionState<TDocument, TSelection = unknown> = {
+  runtime: EditorRuntimeState<TDocument, TSelection>;
+  persistence: EditorPersistenceState;
+  lifecycle: EditorSessionLifecycle;
+  recovery: EditorSessionRecovery<TDocument> | null;
+  /** Typed diagnostic for the latest load, save, journal or recovery failure. */
+  error: EditorSessionError | null;
+};
+type EditorSessionOptions<TDocument, TSelection = unknown> = {
+  /** Initial runtime; its document is the fallback when the store is empty or unreadable. */
+  runtime: EditorRuntimeState<TDocument, TSelection>;
+  store: EditorSessionStore;
+  codec: EditorSessionCodec<TDocument>;
+  autosave?: boolean | EditorAutosaveOptions;
+  /** Journal every unsaved revision so it can be restored after an interruption. */
+  journal?: boolean;
+  scheduler?: EditorPersistenceScheduler;
+  now?: () => string;
+};
+type EditorSession<TDocument, TSelection = unknown> = {
+  getState: () => EditorSessionState<TDocument, TSelection>;
+  subscribe: (listener: () => void) => () => void;
+  load: () => Promise<void>;
+  /** Applies a runtime transition, schedules autosave and journals unsaved work. */
+  update: (updater: EditorRuntimeStateUpdater<TDocument, TSelection>) => void;
+  /** Saves now, replacing any scheduled autosave. */
+  flush: () => Promise<boolean>;
+  cancelAutosave: () => void;
+  /** Applies unsaved journal work as a dirty edit. */
+  restoreRecovery: () => void;
+  /** Drops the journal and quarantine after the caller has exported what it needs. */
+  discardRecovery: () => Promise<void>;
+  dispose: () => void;
+};
+declare function createEditorSession<TDocument, TSelection = unknown>(
+  options: EditorSessionOptions<TDocument, TSelection>,
+): EditorSession<TDocument, TSelection>;
+
+export {
+  type EditorSessionStore as E,
+  type EditorSession as a,
+  type EditorSessionCodec as b,
+  EditorSessionError as c,
+  type EditorSessionErrorKind as d,
+  type EditorSessionLifecycle as e,
+  type EditorSessionOptions as f,
+  type EditorSessionRecord as g,
+  type EditorSessionRecovery as h,
+  type EditorSessionSlot as i,
+  type EditorSessionState as j,
+  createEditorSession as k,
+  createMemoryEditorSessionStore as l,
+  toEditorSessionError as t,
+};
+```
+
+## session.d.ts
+
+```ts
+import { E as EditorSessionStore } from "./session-DWhH4DCT.js";
+export {
+  a as EditorSession,
+  b as EditorSessionCodec,
+  c as EditorSessionError,
+  d as EditorSessionErrorKind,
+  e as EditorSessionLifecycle,
+  f as EditorSessionOptions,
+  g as EditorSessionRecord,
+  h as EditorSessionRecovery,
+  i as EditorSessionSlot,
+  j as EditorSessionState,
+  k as createEditorSession,
+  l as createMemoryEditorSessionStore,
+  t as toEditorSessionError,
+} from "./session-DWhH4DCT.js";
+import "./controller-types-B4uWtBMO.js";
+import "./browser.js";
+import "./types-ue792Gw2.js";
+import "./aspects.js";
+import "./history.js";
+import "./serialization.js";
+
+type LocalStorageEditorSessionStoreOptions = {
+  /** Key prefix; each slot is stored under `${key}:${slot}`. */
+  key: string;
+  storage?: Storage;
+};
+declare function createLocalStorageEditorSessionStore(
+  options: LocalStorageEditorSessionStoreOptions,
+): EditorSessionStore;
+type IndexedDbEditorSessionStoreOptions = {
+  databaseName: string;
+  /** Object store name, default `editor-session`. */
+  storeName?: string;
+  indexedDB?: IDBFactory;
+};
+declare function createIndexedDbEditorSessionStore(
+  options: IndexedDbEditorSessionStoreOptions,
+): EditorSessionStore;
+
+export {
+  EditorSessionStore,
+  type IndexedDbEditorSessionStoreOptions,
+  type LocalStorageEditorSessionStoreOptions,
+  createIndexedDbEditorSessionStore,
+  createLocalStorageEditorSessionStore,
 };
 ```
 

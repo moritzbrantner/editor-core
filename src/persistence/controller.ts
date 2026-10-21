@@ -175,6 +175,9 @@ function createEditorRuntimePersistenceControllerCore<TDocument, TSelection>(
         scheduler: getScheduler(options),
       });
     },
+    cancelAutosave() {
+      clearEditorPersistenceAutosave(state, getScheduler(options));
+    },
     updateOptions(nextOptions) {
       options = {
         ...options,
