@@ -21,7 +21,7 @@ jobs:
       source_sha: ${{ github.sha }}
       artifact_key: editor-core-pages-v1
       node_version: ""
-      bun_version: "1.4.0"
+      bun_version: latest
       cache_bun: true
       setup_command: |
         bun install --frozen-lockfile
