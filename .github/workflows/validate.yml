@@ -20,7 +20,7 @@ jobs:
       contents: read
       packages: read
     with:
-      bun_version: "1.4.0"
+      bun_version: latest
       install_command: "bun install --frozen-lockfile"
       pre_command: "bun run architecture:check"
       format_command: "bun run format:check"
@@ -35,7 +35,7 @@ jobs:
       contents: read
       packages: read
     with:
-      bun_version: "1.4.0"
+      bun_version: latest
       install_command: "bun install --frozen-lockfile"
       integration_command: "bun run test:integration"
       package_check_command: "bun run pack:check && bun run verify:git-install"
@@ -53,12 +53,12 @@ jobs:
       - name: Setup Node 24
         uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
-          node-version: "24"
+          node-version: lts/*
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         with:
-          bun-version: "1.4.3"
+          bun-version: latest
 
       - name: Install dependencies
         run: bun install --frozen-lockfile
@@ -83,12 +83,12 @@ jobs:
       - name: Setup Node 24
         uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
-          node-version: "24"
+          node-version: lts/*
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         with:
-          bun-version: "1.4.3"
+          bun-version: latest
 
       - name: Install dependencies
         run: bun install --frozen-lockfile
@@ -109,7 +109,7 @@ jobs:
       contents: read
       packages: read
     with:
-      bun_version: "1.4.0"
+      bun_version: latest
       install_command: "bun install --frozen-lockfile"
       build_command: "bun run build && bun run example:build"
       install_playwright: true
@@ -124,7 +124,7 @@ jobs:
       contents: read
       packages: read
     with:
-      bun_version: "1.4.0"
+      bun_version: latest
       install_command: "bun install --frozen-lockfile"
       storybook_build_command: "bun run storybook:build"
       storybook_test_command: "bun run test:storybook:ci"
@@ -140,7 +140,7 @@ jobs:
       contents: read
       packages: read
     with:
-      bun_version: "1.4.0"
+      bun_version: latest
       install_command: "bun install --frozen-lockfile"
       build_command: "bun run example:build"
       unlighthouse_command: "bun run unlighthouse:ci"
