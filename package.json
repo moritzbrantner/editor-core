@@ -183,7 +183,7 @@
     "@vitejs/plugin-react": "6.1.2",
     "@vitest/browser-playwright": "4.1.12",
     "@vitest/coverage-v8": "4.1.12",
-    "fake-indexeddb": "6.2.6",
+    "fake-indexeddb": "6.2.7",
     "jsdom": "29.1.1",
     "oxfmt": "0.75.0",
     "oxlint": "1.90.0",
