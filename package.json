@@ -173,8 +173,8 @@
   },
   "devDependencies": {
     "@playwright/test": "1.65.0",
-    "@storybook/addon-vitest": "10.6.6",
-    "@storybook/react-vite": "10.6.6",
+    "@storybook/addon-vitest": "10.6.7",
+    "@storybook/react-vite": "10.6.7",
     "@tailwindcss/vite": "4.3.5",
     "@tanstack/react-query": "5.107.1",
     "@types/node": "25.9.9",
@@ -190,12 +190,12 @@
     "react": "19.3.1",
     "react-dom": "19.3.1",
     "start-server-and-test": "3.0.13",
-    "storybook": "10.6.6",
+    "storybook": "10.6.7",
     "tailwindcss": "4.3.5",
     "tsup": "8.5.1",
     "typescript": "6.0.3",
     "unlighthouse": "0.19.1",
-    "vite": "8.3.7",
+    "vite": "8.3.8",
     "vitest": "4.1.12"
   },
   "peerDependencies": {
